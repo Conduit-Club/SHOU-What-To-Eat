@@ -1,0 +1,22 @@
+[workspace]
+name = "what-to-eat-in-shou-today-done-right"
+version = "0.1.0"
+description = "今日海大吃什么：静态餐饮站和 Cloudflare 投稿审核服务"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+nodejs = ">=20,<27"
+pnpm = ">=9,<11"
+
+[tasks]
+install = "pnpm install --frozen-lockfile"
+dev = "pnpm dev"
+build = "pnpm build"
+preview = "pnpm preview"
+typecheck = "astro check"
+test = "tsx --test test/*.test.mjs"
+workers-dev = "pnpm worker:dev"
+workers-deploy = "pnpm worker:deploy"
+d1-migrate-local = "wrangler d1 migrations apply shou-food --local"
+d1-migrate-remote = "wrangler d1 migrations apply shou-food --remote"

@@ -1,0 +1,20 @@
+---
+const { title = '今日海大吃什么' } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8f5" />
+    <meta name="description" content="上海海洋大学校内和周边餐饮目录，同学分享的位置、餐品与用餐体验。" />
+    <title>{title} · 今日海大吃什么</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body><slot /></body>
+</html>
+<style is:global>
+  :root{font-family:'DM Sans','Noto Sans SC',sans-serif;color:#202824;background:#f7f8f5;font-synthesis:none;text-rendering:optimizeLegibility;--ink:#202824;--muted:#717a73;--line:#e4e8e2;--orange:#cf613b;--green:#477b5f}*{box-sizing:border-box}body{margin:0;min-width:320px}a{color:inherit}button,input{font:inherit}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #d77e59;outline-offset:3px}::selection{background:#ead5c9}@media(prefers-color-scheme:dark){:root{color:#e4e9e4;background:#1d2521;--ink:#e4e9e4;--muted:#9ba69f;--line:#353e38;--orange:#ef936c;--green:#84b392}::selection{background:#584337}}
+</style>

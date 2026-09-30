@@ -1,0 +1,40 @@
+---
+import Layout from '../templates/Layout.astro';
+---
+<Layout title="提交餐饮信息"><main class="submit-page"><header><a href="/">← 返回目录</a><span>投稿</span></header><p class="eyebrow">SHOU FOOD · CONTRIBUTION</p><h1>分享一顿饭</h1><p class="lead">位置、餐品、实际花费和用餐日期越具体，越能帮到下一位同学。</p><form id="submission-form">
+  <fieldset><legend>投稿类型</legend><div class="segmented"><label><input type="radio" name="kind" value="new" checked /><span>新餐厅</span></label><label><input type="radio" name="kind" value="review" /><span>补充体验</span></label><label><input type="radio" name="kind" value="correction" /><span>纠正信息</span></label></div></fieldset>
+  <div class="row"><label>店名 <input name="name" required maxlength="100" placeholder="例如：一食堂" /></label><label>范围<select name="category"><option value="on-campus">校内</option><option value="off-campus">校外</option></select></label></div>
+  <label>位置或档口 <input name="location" required maxlength="300" placeholder="楼栋、食堂楼层、商圈或附近地标" /></label>
+  <label>餐品、价格与用餐体验 <textarea name="body" required maxlength="20000" rows="8" placeholder="写下点了什么、花了多少、哪天吃的，以及你的实际感受。支持安全的 Markdown 和 HTTPS 外链图片。"></textarea></label>
+  <div class="row"><label>用餐日期 <input name="visitedAt" type="date" /></label><label>外链图片地址 <input name="imageUrl" type="url" placeholder="https://…（可留空）" /></label></div>
+  <div class="notice"><span aria-hidden="true">ⓘ</span> 投稿由管理员审核，通过后会以公开仓库内容展示。请勿填写个人联系方式或他人账号。</div>
+  <button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button>
+</form></main>
+<script>
+  import { turnstileWidget } from '../utils/turnstile-client';
+
+  const form = document.querySelector<HTMLFormElement>('#submission-form')!;
+  const feedback = document.querySelector<HTMLElement>('.feedback')!;
+  const fields = () => Object.fromEntries(new FormData(form).entries());
+  const widget = turnstileWidget();
+  if (widget) form.insertBefore(widget, form.querySelector('.submit-button'));
+  document.querySelector<HTMLButtonElement>('#draft')!.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ schemaVersion: 1, ...fields() }, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'shou-food-submission.json'; link.click(); URL.revokeObjectURL(link.href);
+  });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = fields();
+    const date = String(formData.visitedAt || '');
+    if (date && (date > new Date().toISOString().slice(0, 10) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)))) { feedback.textContent = '请填写有效的用餐日期。'; return; }
+    try {
+      const response = await fetch('/api/v1/submissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, turnstileToken: String(formData['cf-turnstile-response'] || '') }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error?.message || '暂时无法提交，请稍后再试。');
+      feedback.textContent = `已提交审核，回执编号：${result.id}。请保存查询令牌：${result.receiptToken}`;
+      form.reset();
+    } catch (error) { feedback.textContent = error instanceof Error ? error.message : '暂时无法提交，请稍后再试。'; }
+  });
+</script>
+<style>.submit-page{max-width:670px;margin:auto;padding:0 26px 60px}.submit-page header{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}.submit-page header a{text-decoration:none}.eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}.submit-page h1{margin:0;font-size:30px;letter-spacing:0}.lead{margin:9px 0 30px;color:var(--muted);font-size:13px;line-height:1.8}form{display:grid;gap:18px}fieldset{padding:0;margin:0;border:0}legend,form>label,.row label{display:grid;gap:7px;color:var(--ink);font-size:12px;font-weight:600}.segmented{display:flex;gap:7px;margin-top:8px}.segmented label{cursor:pointer}.segmented input{position:absolute;opacity:0}.segmented span{display:grid;min-height:35px;place-items:center;padding:0 15px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:11px;font-weight:500}.segmented input:checked+span{border-color:var(--orange);background:color-mix(in srgb,var(--orange) 8%,transparent);color:var(--orange)}input:not([type=radio]),select,textarea{width:100%;min-height:41px;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:12px;font-weight:400}textarea{resize:vertical;line-height:1.7}.row{display:grid;grid-template-columns:1fr 1fr;gap:13px}.notice{display:flex;gap:8px;padding:11px;border-radius:6px;background:color-mix(in srgb,#548665 9%,transparent);color:var(--muted);font-size:11px;line-height:1.7}.notice span{color:var(--green)}.submit-button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:43px;border:0;border-radius:6px;background:var(--orange);color:white;font-size:13px;font-weight:650;cursor:pointer}.feedback{margin:-8px 0 0;color:var(--green);font-size:12px;line-height:1.7}.draft{justify-self:center;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer}@media(max-width:520px){.submit-page{padding:0 18px 45px}.row{grid-template-columns:1fr}.eyebrow{margin-top:30px}.submit-page h1{font-size:26px}}
+</style>

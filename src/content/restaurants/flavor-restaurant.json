@@ -1,0 +1,3 @@
+{
+  "id": "flavor-restaurant", "name": "风味餐厅", "category": "on-campus", "kind": "校园餐厅", "relatedRestaurantIds": ["second-canteen"], "location": "第二食堂二楼靠外侧，新疆风味。", "price": "牛肉面约 8 元/碗（同学分享，未核现场价目表）；其余待补充。", "foods": [{ "name": "牛肉面", "price": "约 8 元/碗" }, { "name": "羊肉泡馍" }, { "name": "土豆刀削面" }], "reviews": [{ "text": "牛肉面好吃；羊肉泡馍汤鲜、料多，有人专门推荐过。", "author": "同学反馈", "source": "经审核的匿名公开帖摘要。" }], "body": "面向少数民族师生，有特殊饮食需求可向工作人员询问。位置可在校园地图查找。", "sources": [{ "repository": "what-to-eat-in-shou-contributions", "path": "data/reviewed/canteen-windows-2026-09.json", "revision": "working-tree" }, { "repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0" }]
+}

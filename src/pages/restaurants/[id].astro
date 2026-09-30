@@ -1,0 +1,49 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../templates/Layout.astro';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const restaurants = await getCollection('restaurants');
+  return restaurants.map((restaurant) => ({ params: { id: restaurant.id }, props: { restaurant } }));
+}
+
+const { restaurant } = Astro.props;
+const categoryLabel = restaurant.data.category === 'on-campus' ? '校内' : '校外';
+---
+
+<Layout title={restaurant.data.name}>
+  <main class="detail-page"><header class="top"><a href="/" class="back">← <span>返回餐厅列表</span></a><a class="submit" href={`/submit/?restaurant=${restaurant.data.id}`}>补充或纠错 <span aria-hidden="true">↗</span></a></header>
+    <p class="crumb">{categoryLabel} <span>/</span> {restaurant.data.kind}</p><h1>{restaurant.data.name}</h1><p class="lead">{restaurant.data.location}</p>
+    <div class="columns"><article>
+      <section><h2>消费范围</h2><p>{restaurant.data.price}</p></section>
+      {restaurant.data.openingHours && <section><h2>营业信息</h2><p>{restaurant.data.openingHours}</p></section>}
+      {restaurant.data.foods.length > 0 && <section><h2>餐品与档口</h2><ul class="foods">{restaurant.data.foods.map((food) => <li><div><strong>{food.name}</strong>{food.location && <span class="food-location">{food.location}</span>}</div>{food.description && <p>{food.description}</p>}{food.price && <small>{food.price}</small>}</li>)}</ul></section>}
+      <section><h2>同学评价 <span class="number">{restaurant.data.reviews.length}</span></h2>{restaurant.data.reviews.length ? <div class="reviews">{restaurant.data.reviews.map((review) => <blockquote><p>{review.text}</p><footer>— {review.author ?? '匿名同学'}{review.source && <span>{review.source}</span>}</footer></blockquote>)}</div> : <p class="muted">目前还没有同学评价。</p>}</section>
+      {restaurant.data.body && <section><h2>补充说明</h2><div class="prose" set:html={renderSafeMarkdown(restaurant.data.body)} /></section>}
+      {restaurant.data.images.filter((image) => safeExternalUrl(image.url)).map((image) => <figure><img src={image.url} alt={image.alt} loading="lazy" referrerpolicy="no-referrer" /><figcaption>{image.alt}{image.source && ` · 来源：${image.source}`}</figcaption></figure>)}
+    </article><aside><h2>店铺信息</h2><dl><dt>位置</dt><dd>{restaurant.data.location}</dd><dt>分类</dt><dd>{categoryLabel} · {restaurant.data.kind}</dd><dt>最近记录</dt><dd>{restaurant.data.updatedAt ?? '日期待补充'}</dd></dl>{restaurant.data.coordinates && <a class="map" href={`https://www.openstreetmap.org/?mlat=${restaurant.data.coordinates[1]}&mlon=${restaurant.data.coordinates[0]}#map=17/${restaurant.data.coordinates[1]}/${restaurant.data.coordinates[0]}`} target="_blank" rel="noreferrer">在地图中查看 <span aria-hidden="true">↗</span></a>}<p class="source-note">评价是个人体验。位置、价格与营业信息可能变化，建议到店前核对。</p></aside></div>
+    {restaurant.data.sources.length > 0 && <details class="sources"><summary>信息来源</summary><ul>{restaurant.data.sources.map((source) => <li>{source.repository} · {source.path} · {source.license ?? '授权状态待确认'}</li>)}</ul></details>}
+  </main>
+</Layout>
+
+function safeExternalUrl(raw: string) {
+  try { const url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password && !['localhost', '127.0.0.1', '::1'].includes(url.hostname.toLowerCase()) && !/^(10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname); } catch { return false; }
+}
+
+function renderSafeMarkdown(source: string) {
+  const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+  return source.split('\n').map((line) => {
+    const escaped = escape(line);
+    return escaped
+      .replace(/!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)/g, (_match, alt: string, url: string) => safeExternalUrl(url) ? `<img src="${escape(url)}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">` : alt)
+      .replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, (_match, label: string, url: string) => safeExternalUrl(url) ? `<a href="${escape(url)}" rel="nofollow noreferrer">${label}</a>` : label)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }).join('<br>');
+}
+
+<style>
+  .detail-page{max-width:900px;margin:auto;padding:0 28px 60px}.top{height:68px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.back,.submit{color:var(--muted);font-size:12px;text-decoration:none}.back{display:flex;align-items:center;gap:8px}.back:first-letter{color:var(--orange)}.submit{color:var(--ink)}.submit span{color:var(--orange)}.crumb{margin:36px 0 9px;color:var(--muted);font-size:11px}.crumb span{padding:0 5px;color:var(--orange)}h1{margin:0;font-size:32px;letter-spacing:0}.lead{max-width:680px;margin:10px 0 30px;color:var(--muted);font-size:14px;line-height:1.8}.columns{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:44px}.columns article>section{padding:20px 0;border-top:1px solid var(--line)}h2{margin:0 0 13px;font-size:14px;font-weight:650}article section>p,.prose{color:var(--ink);font-size:13px;line-height:1.9}.number{display:inline-grid;place-items:center;width:19px;height:19px;margin-left:4px;border-radius:50%;background:color-mix(in srgb,var(--orange) 14%,transparent);color:var(--orange);font-size:10px}.foods{display:grid;gap:0;margin:0;padding:0;list-style:none}.foods li{padding:11px 0;border-bottom:1px solid var(--line)}.foods li:last-child{border:0}.foods strong{font-size:13px;font-weight:600}.food-location{margin-left:9px;color:var(--green);font-size:11px}.foods p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.7}.foods small{display:block;margin-top:5px;color:var(--orange);font-size:11px}.reviews{display:grid;gap:10px}.reviews blockquote{margin:0;padding:14px 15px;border-left:2px solid #d88865;background:color-mix(in srgb,var(--ink) 2%,transparent)}.reviews blockquote p{margin:0;color:var(--ink);font-size:13px;line-height:1.8}.reviews footer{padding:9px 0 0;margin:8px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.reviews footer span{display:block;margin-top:4px;font-size:10px}.muted,.source-note{color:var(--muted);font-size:12px;line-height:1.8}.prose :global(p){margin:0}.prose :global(a){color:var(--orange)}article figure{margin:20px 0}article figure img{display:block;max-width:100%;height:auto;border-radius:7px}figcaption{margin-top:7px;color:var(--muted);font-size:11px}aside{align-self:start;padding:18px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--ink) 1.7%,transparent)}aside h2{padding-bottom:13px;border-bottom:1px solid var(--line)}dl{display:grid;gap:7px;margin:0}dt{margin-top:6px;color:var(--muted);font-size:10px}dd{margin:0;font-size:12px;line-height:1.7}.map{display:block;padding:11px 0;margin-top:15px;border-top:1px solid var(--line);color:var(--orange);font-size:12px;text-decoration:none}.map span{float:right}.source-note{padding-top:12px;margin:0;border-top:1px solid var(--line);font-size:10px}.sources{padding:16px 0;margin-top:25px;border-top:1px solid var(--line);font-size:12px}.sources summary{cursor:pointer;color:var(--muted)}.sources ul{padding-left:18px;color:var(--muted);line-height:1.8} @media(max-width:640px){.detail-page{padding:0 18px 40px}.columns{grid-template-columns:1fr;gap:10px}.columns aside{grid-row:1}h1{font-size:27px}.crumb{margin-top:27px}aside{padding:15px}}
+</style>

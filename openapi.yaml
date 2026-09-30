@@ -1,0 +1,171 @@
+openapi: 3.1.0
+info:
+  title: 今日海大吃什么投稿接口
+  version: 1.0.0
+  description: 匿名投稿进入私有待审队列。审核通过仍须经过 GitHub PR 合并和部署才算发布。
+servers:
+  - url: /api/v1
+paths:
+  /submissions:
+    post:
+      summary: 提交餐饮信息
+      description: 接受一条稿件，成功持久化到 D1 后返回 202。需要有效的 Turnstile 令牌。
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string, minLength: 16, maxLength: 100 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Submission' }
+      responses:
+        '202': { description: 已进入待审队列 }
+        '400': { description: 人机验证或请求格式无效 }
+        '413': { description: 请求体超限 }
+        '422': { description: 稿件校验失败 }
+        '429': { description: 超出投稿频率限制 }
+        '503': { description: 数据库暂不可用 }
+  /submissions/{id}/status:
+    get:
+      summary: 查询本人投稿状态
+      security: [{ receiptToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: 当前审核或发布状态 }
+        '404': { description: ID 或回执令牌无效 }
+  /admin/submissions:
+    get:
+      summary: 分页查询投稿
+      security: [{ accessJwt: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, approved, rejected, exporting, export_failed, merged_dev, merged_main, deployed] }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        '200': { description: 投稿与下一页游标 }
+        '401': { description: Access 身份校验失败 }
+  /admin/submissions/{id}:
+    patch:
+      summary: 保存审核编辑稿
+      security: [{ accessJwt: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion, revision]
+              properties:
+                expectedVersion: { type: integer }
+                revision: { $ref: '#/components/schemas/Submission' }
+      responses:
+        '200': { description: 编辑稿已保存并记入审计 }
+        '409': { description: 乐观锁版本冲突 }
+        '422': { description: 编辑稿无效 }
+  /admin/submissions/{id}/review:
+    post:
+      summary: 批准或拒绝投稿
+      security: [{ accessJwt: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, expectedVersion]
+              properties:
+                action: { type: string, enum: [approve, reject] }
+                expectedVersion: { type: integer }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200': { description: 审核决定已保存；批准稿会进入 PR 发布队列 }
+        '409': { description: 状态或版本冲突 }
+        '422': { description: 内容或拒绝理由无效 }
+  /admin/publications:
+    get:
+      summary: 查看发布任务
+      security: [{ accessJwt: [] }]
+      responses:
+        '200': { description: PR、分支和部署状态 }
+  /admin/publications/{id}/retry:
+    post:
+      summary: 重试导出失败的稿件
+      security: [{ accessJwt: [] }]
+      responses:
+        '202': { description: 发布任务重新入队 }
+        '409': { description: 任务当前不可重试 }
+  /webhooks/github:
+    post:
+      summary: 接收带 HMAC 签名的 GitHub 事件
+      parameters:
+        - in: header
+          name: X-Hub-Signature-256
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-GitHub-Delivery
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 已处理；重复事件按投递 ID 去重 }
+        '401': { description: Webhook 签名错误 }
+  /webhooks/deploy:
+    post:
+      summary: 接收生产部署成功回调
+      parameters:
+        - in: header
+          name: X-Deploy-Signature
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commit]
+              properties:
+                commit: { type: string }
+      responses:
+        '200': { description: 已将 main 中待发布稿件标记为已部署 }
+        '401': { description: 部署回调签名错误 }
+components:
+  securitySchemes:
+    accessJwt: { type: apiKey, in: header, name: Cf-Access-Jwt-Assertion }
+    receiptToken: { type: http, scheme: bearer }
+  schemas:
+    Submission:
+      type: object
+      additionalProperties: false
+      required: [name, location, body, category, kind]
+      properties:
+        kind: { type: string, enum: [new, review, correction] }
+        targetId: { type: [string, 'null'] }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        location: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        category: { type: string, enum: [on-campus, off-campus] }
+        visitedAt: { type: [string, 'null'], format: date }
+        imageUrl: { type: [string, 'null'], format: uri }
+        turnstileToken: { type: string }
