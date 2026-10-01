@@ -19,6 +19,8 @@ export type CatalogImage = {
   license?: string | null;
   permission?: 'approved' | 'pending';
   isIllustrative?: boolean;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type CatalogPrice = string | number | {
@@ -56,7 +58,7 @@ export function formatPrice(price: CatalogPrice | null | undefined): string {
   return '价格待补充';
 }
 
-export type PublicImage = Pick<CatalogImage, 'url' | 'sourceUrl' | 'sourceNote' | 'author' | 'license' | 'isIllustrative'> & { alt: string };
+export type PublicImage = Pick<CatalogImage, 'url' | 'sourceUrl' | 'sourceNote' | 'author' | 'license' | 'isIllustrative' | 'width' | 'height'> & { alt: string };
 
 export function safePublicLink(value: string | null | undefined): string | null {
   if (!value?.trim()) return null;
@@ -98,6 +100,8 @@ export function safePublicImage(image: CatalogImage | string | null | undefined)
       author: image.author?.trim() || null,
       license: image.license?.trim() || null,
       isIllustrative: image.isIllustrative ?? false,
+      width: image.width ?? null,
+      height: image.height ?? null,
     };
   } catch {
     return null;

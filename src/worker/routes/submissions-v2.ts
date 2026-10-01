@@ -164,18 +164,22 @@ const MAX_REQUEST_BYTES = 64 * 1024;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 async function validateReferences(env: AppEnv['Bindings'], submission: V2Submission): Promise<{ ok: true; parentReceiptHash: string | null } | { ok: false; code: string; message: string; status: 403 | 404 | 409 | 422 }> {
+  if (submission.entityType === 'venue' && submission.payload.parentId) {
+    const parent = await env.DB.prepare("SELECT id FROM venues WHERE id = ? AND publication_state = 'published'").bind(submission.payload.parentId).first<{id:string}>();
+    if(!parent) return {ok:false,code:'parent_venue_unavailable',message:'上级餐饮点不存在或尚未发布。',status:422};
+  }
   if (submission.entityType === 'food') {
     const parent = await env.DB.prepare('SELECT id, publication_state, submission_id, snapshot_id FROM venues WHERE id = ?').bind(submission.parentVenueId).first<{ id: string; publication_state: string; submission_id: string | null; snapshot_id: string | null }>();
-    if (!parent) return { ok: false, code: 'parent_venue_not_found', message: '父 venue 不存在。', status: 422 };
+    if (!parent) return { ok: false, code: 'parent_venue_not_found', message: '所属店铺不存在，请重新选择。', status: 422 };
     if (parent.publication_state === 'published') {
       const publishedSnapshot = await mirrorSnapshot(env.DB, 'venue', parent.id);
-      return publishedSnapshot === submission.snapshotId ? { ok: true, parentReceiptHash: null } : { ok: false, code: 'snapshot_conflict', message: '父 venue 的目录快照已变化。', status: 409 };
+      return publishedSnapshot === submission.snapshotId ? { ok: true, parentReceiptHash: null } : { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
     }
-    if (parent.snapshot_id && parent.snapshot_id !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '父 venue 的目录快照已变化。', status: 409 };
-    if (parent.publication_state !== 'pending' || !parent.submission_id || !submission.parentReceiptToken) return { ok: false, code: 'parent_venue_unavailable', message: '父 venue 尚未发布或无权引用。', status: 409 };
+    if (parent.snapshot_id && parent.snapshot_id !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
+    if (parent.publication_state !== 'pending' || !parent.submission_id || !submission.parentReceiptToken) return { ok: false, code: 'parent_venue_unavailable', message: '所属店铺尚未发布，请通过自己的店铺投稿回执添加餐品。', status: 409 };
     const hash = await sha256(submission.parentReceiptToken);
     const owner = await env.DB.prepare("SELECT id FROM submissions WHERE id = ? AND receipt_hash = ? AND status = 'pending' AND schema_version = 2").bind(parent.submission_id, hash).first<{ id: string }>();
-    if (!owner) return { ok: false, code: 'parent_receipt_invalid', message: '父 venue 回执无效。', status: 403 };
+    if (!owner) return { ok: false, code: 'parent_receipt_invalid', message: '店铺投稿回执无效。', status: 403 };
     return { ok: true, parentReceiptHash: hash };
   }
   if (submission.entityType === 'review') {

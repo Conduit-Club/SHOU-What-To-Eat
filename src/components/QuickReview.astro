@@ -1,20 +1,21 @@
 ---
 import StarRating from './StarRating.astro';
+import PhotoUploader from './PhotoUploader.astro';
 import snapshot from '../../public/catalog-snapshot.json';
 interface Props { targetType: 'venue' | 'food'; targetId: string; targetName: string }
 const { targetType, targetId, targetName } = Astro.props;
 ---
 <section id="review-form" class="quick-review" aria-labelledby="quick-review-heading">
   <header class="quick-heading"><div><p>YOUR TABLE TALK</p><h2 id="quick-review-heading">{targetType === 'food' ? '这顿吃得怎么样？' : '这家店，你想推荐吗？'}</h2><span>给「{targetName}」留一点真实的感受。</span></div><span class="moderation-badge">审核后公开</span></header>
-  <form data-quick-review data-target-type={targetType} data-target-id={targetId} data-target-name={targetName} data-snapshot-id={snapshot.snapshotId}>
+  <form data-quick-review data-target-type={targetType} data-target-id={targetId} data-target-name={targetName} data-snapshot-id={snapshot.snapshotId} novalidate>
     <StarRating />
     <div class="review-text-field"><label for="quick-review-text">说说味道、分量或服务 <span>选填</span></label><textarea id="quick-review-text" name="text" rows="3" placeholder="好吃在哪里？有哪些小提醒？最多 256 字。" aria-describedby="quick-review-count"></textarea><small id="quick-review-count" data-review-count>0 / 256</small></div>
-    <div class="photo-tools"><label class="add-photos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><circle cx="12" cy="13" r="4"/></svg><span>添几张照片 <small>选填 · 最多 3 张</small></span><input name="photos" type="file" accept="image/*" multiple aria-label="添加评价照片，最多 3 张" /></label><span>每张不超过 12 MB，上传前会压缩并移除照片位置数据。</span></div>
+    <PhotoUploader id="quick-review-images" title="添加用餐照片" limit={3} />
     <div class="quick-previews" data-review-previews aria-live="polite"></div>
     <div class="photo-rights" data-photo-rights hidden>
       <label>照片来源<select name="photoOrigin"><option value="own">我自己拍的</option><option value="licensed">已获得授权的其他图片</option></select></label>
-      <div data-external-rights hidden><label>来源页或来源说明<input name="source" maxlength="500" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="rights-row"><label>作者 / 版权方<input name="holder" maxlength="160" /></label><label>许可 / 授权说明<input name="license" maxlength="160" /></label></div><label class="rights-check"><input type="checkbox" name="illustrative" />这是示意图，并非本店实拍</label></div>
-      <label class="rights-check"><input type="checkbox" name="rights" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示。</span></label>
+      <div data-external-rights hidden><label>来源页或来源说明 <b class="required-mark" aria-hidden="true">*</b><input name="source" maxlength="480" data-label="图片来源" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="rights-row"><label>作者 / 版权方 <b class="required-mark" aria-hidden="true">*</b><input name="holder" maxlength="160" data-label="图片版权方" /></label><label>许可 / 授权说明 <b class="required-mark" aria-hidden="true">*</b><input name="license" maxlength="120" data-label="图片许可" /></label></div><label class="rights-check"><input type="checkbox" name="illustrative" />这是示意图，并非本店实拍</label></div>
+      <label class="rights-check"><input type="checkbox" name="rights" data-label="照片使用权" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示。</span><b class="required-mark" aria-hidden="true">*</b></label>
     </div>
     <div class="quick-bottom"><div class="quick-turnstile" data-review-turnstile></div><div class="quick-actions"><p>可以只打星。评价通过审核后会展示在这里。</p><button type="submit" class="send-review">提交评价 <span aria-hidden="true">↗</span></button><button type="button" data-review-retry hidden>继续完成图片上传 ↻</button></div></div>
     <p class="quick-feedback" data-review-feedback role="status" aria-live="polite"></p>
@@ -24,6 +25,8 @@ const { targetType, targetId, targetName } = Astro.props;
 <script>
   import { turnstileWidget, resetTurnstile } from '../utils/turnstile-client';
   import { completeReview, compressReviewImage, createReview, ReviewRequestError, type ReviewReceipt, type ReviewImage } from '../utils/review-submission';
+  import { formProblems, showFormErrors, notifyForm, clearFormErrors } from '../utils/form-feedback';
+  import { validateV2Submission } from '../worker/v2-validation';
   document.querySelectorAll<HTMLFormElement>('[data-quick-review]').forEach(form => {
     const text = form.querySelector<HTMLTextAreaElement>('textarea')!;
     const count = form.querySelector<HTMLElement>('[data-review-count]')!;
@@ -39,7 +42,7 @@ const { targetType, targetId, targetName } = Astro.props;
     const historyKey = 'shou-submission-receipts-v2';
     const read = (key: string) => { try { return JSON.parse(sessionStorage.getItem(key) ?? 'null'); } catch { return null; } };
     const save = (key: string, value: unknown) => { try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* Session storage can be unavailable. Keep the live receipt. */ } };
-    const message = (value: string, tone = 'info') => { feedback.textContent = value; feedback.dataset.tone = tone; };
+    const message = (value: string, tone = 'info') => { feedback.textContent = value; feedback.dataset.tone = tone; if(tone === 'error' || tone === 'success') notifyForm(value,tone); };
     let images: { blob: Blob; url: string; alt: string }[] = [];
     let pending: ReviewReceipt | null = null;
     let busy = false;
@@ -52,11 +55,14 @@ const { targetType, targetId, targetName } = Astro.props;
     text.addEventListener('input', updateCount);
     function renderPreviews() {
       previews.replaceChildren(); rights.hidden = !images.length;
+      syncPhotoRights();
+      form.querySelector<HTMLElement>('[data-photo-count]')!.textContent = images.length ? `已选 ${images.length} 张，已压缩并移除位置数据。` : '照片可留空，支持只打星。';
       images.forEach((image,index) => {
         const item = document.createElement('div'); item.className = 'quick-preview';
         const photo = document.createElement('img'); photo.src = image.url; photo.alt = image.alt;
-        const label = document.createElement('label'); label.textContent = '照片说明';
-        const alt = document.createElement('input'); alt.value = image.alt; alt.maxLength = 200; alt.required = true; alt.addEventListener('input', () => { image.alt = alt.value; photo.alt = alt.value; }); label.append(alt);
+        const label = document.createElement('label'); const caption = document.createElement('span'); caption.textContent = '照片说明 ';
+        const required = document.createElement('b'); required.className = 'required-mark'; required.textContent = '*'; required.setAttribute('aria-hidden','true'); caption.append(required); label.append(caption);
+        const alt = document.createElement('input'); alt.value = image.alt; alt.maxLength = 200; alt.required = true; alt.dataset.label = `评价照片 ${index+1} 的说明`; alt.addEventListener('input', () => { image.alt = alt.value; photo.alt = alt.value; }); label.append(alt);
         const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '移除'; remove.addEventListener('click', () => { if(busy) return; URL.revokeObjectURL(image.url); images.splice(index,1); renderPreviews(); });
         item.append(photo,label,remove); previews.append(item);
       });
@@ -74,7 +80,13 @@ const { targetType, targetId, targetName } = Astro.props;
       form.querySelector<HTMLElement>('[data-external-rights]')!.hidden = origin.value === 'own';
       form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
       field('rights').checked = false;
+      syncPhotoRights();
     });
+    function syncPhotoRights() {
+      field('rights').required = images.length > 0;
+      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
+      for(const name of ['source','holder','license']) { field(name).disabled = origin.value === 'own' || !images.length; field(name).required = origin.value === 'licensed' && images.length > 0; }
+    }
     function reviewImages(): ReviewImage[] {
       if(images.length && !field('rights').checked) throw new Error('请确认照片使用权。');
       const own = origin.value === 'own';
@@ -103,7 +115,21 @@ const { targetType, targetId, targetName } = Astro.props;
     async function sendReview(resume: boolean) {
       if(busy) return;
       if(!resume && pending) { message('请先继续完成上一条评价的图片上传。','error'); return; }
-      if(!resume && !form.reportValidity()) return;
+      clearFormErrors(form);
+      syncPhotoRights();
+      const problems = formProblems(form).filter(problem => !resume || problem.element?.closest('[data-photo-rights], [data-review-previews]'));
+      if(images.length && origin.value === 'licensed') {
+        if(/^https?:\/\//i.test(field('source').value)) {
+          try { const url = new URL(field('source').value); if(url.protocol !== 'https:' || url.username || url.password) throw new Error(); }
+          catch { problems.push({element:field('source'),message:'图片来源：请使用不含账号密码的 HTTPS 地址。'}); }
+        }
+        for(const name of ['source','holder','license']) if(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(field(name).value)) problems.push({element:field(name),message:'照片来源与授权信息包含无效控制字符。'});
+      }
+      if(!resume && !problems.length) {
+        try { validateV2Submission({schemaVersion:2,entityType:'review',snapshotId:form.dataset.snapshotId,payload:{targetType:form.dataset.targetType,targetId:form.dataset.targetId,rating:Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value),text:text.value},expectedImages:images.length,expectedReviewImages:0,turnstileToken:'browser-validation'}); }
+        catch { problems.push({element:text,message:'请检查评价格式，最多 256 字，并去除无效控制字符。'}); }
+      }
+      if(problems.length) { showFormErrors(form,problems); return; }
       busy = true; submit.disabled = true; retry.disabled = true; fileInput.disabled = true;
       try {
         const prepared = reviewImages();

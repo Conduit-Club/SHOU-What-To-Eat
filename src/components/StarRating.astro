@@ -1,14 +1,14 @@
 ---
-interface Props { name?: string }
-const { name = 'rating' } = Astro.props;
+interface Props { name?: string; required?: boolean }
+const { name = 'rating', required = true } = Astro.props;
 const labels = ['不太满意', '一般', '还不错', '推荐', '非常推荐'];
 ---
 <fieldset class="star-rating" data-star-rating>
-  <legend>给这次体验打个分 <span>必选</span></legend>
+  <legend>给这次体验打个分 <b class="required-mark" aria-hidden="true">*</b><span>{required ? '必选' : '填写评价时必选'}</span></legend>
   <div class="rating-line">
     <div class="star-options">
       {[1,2,3,4,5].map((rating) => <label title={rating + ' 星 · ' + labels[rating - 1]}>
-        <input type="radio" name={name} value={rating} required aria-label={rating + ' 星 · ' + labels[rating - 1]} />
+        <input type="radio" name={name} value={rating} required={required} data-label="五星评分" aria-label={rating + ' 星 · ' + labels[rating - 1]} />
         <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.85 5.78 6.38.93-4.62 4.5 1.1 6.36L12 17.36l-5.7 3 1.09-6.36-4.62-4.49 6.38-.93Z"/></svg></span>
       </label>)}
     </div>

@@ -1,7 +1,7 @@
 import type { AppEnv } from '../types.js';
 import { foodSchema, reviewSchema, venueSchema } from '../../lib/catalog/index.js';
 
-export type Publication = { jobId: string; branch: string; type: string; targetId: string | null; revision: Record<string, unknown>; original: Record<string, unknown>; contentHash: string; schemaVersion?: number; entityType?: string | null; entityId?: string | null; parentEntityId?: string | null; submissionId?: string };
+export type Publication = { jobId: string; branch: string; type: string; targetId: string | null; revision: Record<string, unknown>; original: Record<string, unknown>; contentHash: string; schemaVersion?: number; entityType?: string | null; entityId?: string | null; parentEntityId?: string | null; submissionId?: string; createdAt?: string };
 type GitHubResponse<T> = T & { html_url?: string; number?: number };
 
 export async function exportApprovedSubmission(env: AppEnv['Bindings'], publication: Publication): Promise<GitHubResponse<{ number: number; html_url: string }>> {
@@ -83,7 +83,7 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
   const files: ExportFile[] = [];
   const imageRecords = entityAssets.map((asset) => imageRecord(asset));
   if (entityType === 'venue') {
-    const record = canonicalVenue(payload, entityId, imageRecords, source);
+    const record = canonicalVenue(payload, entityId, imageRecords, source, publication.createdAt);
     venueSchema.parse(record);
     files.push(jsonFile(`src/content/restaurants/${entityId}.json`, record));
   } else if (entityType === 'food') {
@@ -98,7 +98,7 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
     parentRecord.foods = foods;
     venueSchema.parse(parentRecord);
     files.push(jsonFile(parentPath, parentRecord));
-    const record = canonicalFood(payload, entityId, parentId, imageRecords, source);
+    const record = canonicalFood(payload, entityId, parentId, imageRecords, source, publication.createdAt);
     foodSchema.parse(record);
     files.push(jsonFile(`src/content/foods/${entityId}.json`, record));
   } else {
@@ -126,29 +126,29 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
 }
 
 type ExportFile = { path: string; content: string; encoding: 'utf-8' | 'base64' };
-type MediaExport = { id: string; slot: string; alt: string; source: string; source_note: string | null; copyright_holder: string; license: string; permission: string; is_illustrative: number };
+type MediaExport = { id: string; slot: string; alt: string; source: string; source_note: string | null; copyright_holder: string; license: string; permission: string; is_illustrative: number; width: number; height: number };
 function jsonFile(path: string, value: unknown): ExportFile { return { path, content: `${JSON.stringify(value, null, 2)}\n`, encoding: 'utf-8' }; }
 function slugify(value: string): string { return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'submission'; }
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
 function submissionSource(publication: Publication) { return [{ repository: 'what-to-eat-in-shou-today-contributions', path: `submissions/${publication.submissionId ?? publication.jobId}`, revision: publication.contentHash, license: null, note: '由审核员依据投稿与来源声明整理。', sourceUrl: null, collectedAt: null }]; }
 function sourcesFromPayload(value: unknown, fallback: unknown[]) { return Array.isArray(value) && value.length ? value.filter(isRecord).map((item) => ({ repository: String(item.repository), path: String(item.path), revision: String(item.revision), license: nullableString(item.license), note: nullableString(item.note), sourceUrl: nullableString(item.sourceUrl), collectedAt: nullableString(item.collectedAt) })) : fallback; }
-function canonicalVenue(value: Record<string, unknown>, id: string, images: unknown[], sources: unknown[]) {
+function canonicalVenue(value: Record<string, unknown>, id: string, images: unknown[], sources: unknown[], createdAt?: string) {
   const location = isRecord(value.location) ? value.location : value;
   const coordinates = Array.isArray(location.coordinates) && location.coordinates.length === 2 ? location.coordinates : null;
   const price = canonicalPrice(value.averagePrice);
-  return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), kind: String(value.kind ?? value.type ?? 'restaurant'), parentId: typeof value.parentId === 'string' ? slugify(value.parentId) : null, category: String(value.category ?? value.campusScope ?? 'off-campus'), aliases: strings(value.aliases), tags: strings(value.tags), location: { address: String(location.address ?? '').trim(), campusArea: nullableString(location.campusArea ?? location.campus), floor: nullableString(location.floor), landmark: nullableString(location.landmark), coordinates, distanceMeters: integerOrNull(location.distanceMeters ?? location.distanceM), distanceBasis: nullableString(location.distanceBasis) }, averagePrice: price, description: nullableString(value.description), openingHours: nullableString(value.openingHours), foods: strings(value.foods).map(slugify), images, sources, dates: { visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } };
+  return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), kind: String(value.kind ?? value.type ?? 'restaurant'), parentId: typeof value.parentId === 'string' ? slugify(value.parentId) : null, category: String(value.category ?? value.campusScope ?? 'off-campus'), aliases: strings(value.aliases), tags: strings(value.tags), location: { address: String(location.address ?? '').trim(), campusArea: nullableString(location.campusArea ?? location.campus), floor: nullableString(location.floor), landmark: nullableString(location.landmark), coordinates, distanceMeters: integerOrNull(location.distanceMeters ?? location.distanceM), distanceBasis: nullableString(location.distanceBasis) }, averagePrice: price, description: nullableString(value.description), openingHours: nullableString(value.openingHours), foods: strings(value.foods).map(slugify), images, sources, dates: { addedAt: createdAt?.slice(0, 10) ?? null, visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } };
 }
-function canonicalFood(value: Record<string, unknown>, id: string, venueId: string, images: unknown[], sources: unknown[]) { return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), venueId, mealTypes: strings(value.mealTypes ?? (value.mealType ? [value.mealType] : [])), price: canonicalFoodPrice(value.price), tags: strings(value.tags), description: nullableString(value.description), images, sources, dates: { visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } }; }
+function canonicalFood(value: Record<string, unknown>, id: string, venueId: string, images: unknown[], sources: unknown[], createdAt?: string) { return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), venueId, mealTypes: strings(value.mealTypes ?? (value.mealType ? [value.mealType] : [])), price: canonicalFoodPrice(value.price), tags: strings(value.tags), description: nullableString(value.description), images, sources, dates: { addedAt: createdAt?.slice(0, 10) ?? null, visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } }; }
 function canonicalReview(value: Record<string, unknown>, id: string, images: unknown[], sources: unknown[]) { return { schemaVersion: 2, id, targetType: String(value.targetType), targetId: slugify(String(value.targetId)), rating: Number.isInteger(value.rating) ? value.rating : null, text: String(value.text ?? ''), images, authorAlias: nullableString(value.authorAlias), visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt), sources }; }
 function canonicalPrice(value: unknown) { if (!isRecord(value)) return null; const amount = integerOrNull(value.amountCents); const min = integerOrNull(value.minCents); const max = integerOrNull(value.maxCents); return { minCents: amount ?? min ?? 0, maxCents: amount ?? max ?? min ?? 0, currency: 'CNY', unit: nullableString(value.unit) ?? '人', source: nullableString(value.source), verifiedAt: nullableString(value.verifiedAt) }; }
 function canonicalFoodPrice(value: unknown) { if (!isRecord(value)) return null; const amount = integerOrNull(value.amountCents); const min = integerOrNull(value.minCents); const max = integerOrNull(value.maxCents); return { amountCents: amount, minCents: amount === null ? min : null, maxCents: amount === null ? max : null, currency: 'CNY', unit: nullableString(value.unit) ?? '份', source: nullableString(value.source), verifiedAt: nullableString(value.verifiedAt) }; }
 function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean) : []; }
 function nullableString(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
 function integerOrNull(value: unknown): number | null { return Number.isInteger(value) ? Number(value) : null; }
-function imageRecord(asset: MediaExport) { const publicUrl = `https://eat.shoumc.com/media/${asset.id}.webp`; return { url: publicUrl, alt: asset.alt, sourceUrl: /^https:\/\//i.test(asset.source) ? asset.source : publicUrl, sourceNote: asset.source_note?.trim() || `${asset.source}；已转码WebP`, author: asset.copyright_holder, license: asset.license, permission: asset.permission === 'approved' ? 'approved' : 'pending', isIllustrative: Boolean(asset.is_illustrative) }; }
+function imageRecord(asset: MediaExport) { const publicUrl = `https://eat.shoumc.com/media/${asset.id}.webp`; return { url: publicUrl, alt: asset.alt, sourceUrl: /^https:\/\//i.test(asset.source) ? asset.source : publicUrl, sourceNote: asset.source_note?.trim() || `${asset.source}；已转码WebP`, author: asset.copyright_holder, license: asset.license, permission: asset.permission === 'approved' ? 'approved' : 'pending', isIllustrative: Boolean(asset.is_illustrative), width: asset.width ?? null, height: asset.height ?? null }; }
 async function loadPublishedAssets(env: AppEnv['Bindings'], submissionId?: string): Promise<MediaExport[]> {
   if (!submissionId) return [];
-  const rows = await env.DB.prepare("SELECT id, slot, object_key, alt, source, source_note, copyright_holder, license, permission, is_illustrative FROM media_assets WHERE submission_id = ? AND object_state = 'private' AND permission = 'approved' ORDER BY slot, slot_index").bind(submissionId).all<MediaExport & { object_key: string }>();
+  const rows = await env.DB.prepare("SELECT id, slot, object_key, alt, source, source_note, copyright_holder, license, permission, is_illustrative, width, height FROM media_assets WHERE submission_id = ? AND object_state = 'private' AND permission = 'approved' ORDER BY slot, slot_index").bind(submissionId).all<MediaExport & { object_key: string }>();
   if (!rows.results.length) return [];
   return rows.results;
 }

@@ -1,482 +1,70 @@
 ---
 import Layout from '../templates/Layout.astro';
 import { getCollection } from 'astro:content';
-const venues = (await getCollection('restaurants')).map(({ data }) => data).sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
+import PhotoUploader from '../components/PhotoUploader.astro';
+import StarRating from '../components/StarRating.astro';
 import snapshot from '../../public/catalog-snapshot.json';
-
-const catalogSnapshotId = snapshot.snapshotId;
+const venues = (await getCollection('restaurants')).map(({ data }) => data).sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
 ---
 <Layout title="提交餐饮信息">
   <main class="submit-page">
-    <header class="top"><a href="/" class="back"><span aria-hidden="true">←</span> 返回目录</a><span class="page-label">投稿</span></header>
-    <section class="submit-hero">
-      <p class="eyebrow">SHOU FOOD · CONTRIBUTION</p>
-      <h1>把你知道的一口，留给下一位同学。</h1>
-      <p class="lead">补充餐厅、档口和餐品资料，审核后加入食单。想分享用餐体验？直接到餐品或店铺详情页留下评价。未知信息请留空。</p>
-    </section>
-
-    <form id="submission-form" class="submission-form" data-snapshot-id={catalogSnapshotId}>
-      <fieldset class="type-field">
-        <legend>你想分享什么？</legend>
-        <div class="type-grid" role="radiogroup" aria-label="投稿类型">
-          <label><input type="radio" name="entityType" value="venue" checked /><span><b>餐厅 / 档口</b><small>新增一个餐饮点</small></span></label>
-          <label><input type="radio" name="entityType" value="food" /><span><b>餐品</b><small>绑定到一个店铺</small></span></label>
-        </div>
-      </fieldset>
-
+    <header class="page-top"><a href="/">← 返回食单</a><a href="/status/">投稿进度 ↗</a></header>
+    <section class="submit-hero"><p class="eyebrow">SHOU FOOD · CONTRIBUTION</p><h1>分享一家店，<br />或你喜欢的那一口。</h1><p>补充店铺和餐品资料，也可以选填一条自己的用餐评价。审核后公开，未知信息请留空。<span class="required-mark">*</span> 为必填。</p></section>
+    <form id="submission-form" class="submission-form" data-snapshot-id={snapshot.snapshotId} novalidate>
+      <fieldset class="type-field"><legend>你想分享什么？</legend><div class="type-grid">
+        <label><input type="radio" name="entityType" value="venue" checked /><span><b>餐厅 / 档口</b><small>补充一家值得去的店</small></span></label>
+        <label><input type="radio" name="entityType" value="food" /><span><b>餐品</b><small>给店铺添一道餐品</small></span></label>
+      </div></fieldset>
       <section id="venue-fields" class="form-section" aria-labelledby="venue-heading">
-        <div class="section-heading"><div><p class="section-kicker">NEW PLACE</p><h2 id="venue-heading">餐厅或档口</h2></div><span class="section-hint">资料审核后入册</span></div>
-        <div class="row"><label>名称 <input id="venue-name" name="venueName" maxlength="160" placeholder="例如：一食堂二楼" /></label><label>类型<select id="venue-type" name="venueType"><option value="cafeteria">食堂</option><option value="stall">档口</option><option value="restaurant">餐厅</option><option value="cafe">咖啡 / 饮品店</option><option value="convenience">便利店</option></select></label></div>
-        <div class="row"><label>范围<select id="venue-category" name="venueCategory"><option value="on-campus">校内</option><option value="off-campus">校外</option></select></label><label>标签 <input name="venueTags" maxlength="800" placeholder="用逗号分隔，可留空" /></label></div>
-        <label>位置或地址 <input id="venue-address" name="venueAddress" maxlength="500" placeholder="楼栋、食堂楼层、商圈或附近地标" /></label>
-        <div class="row"><label>校区或区域 <input name="venueCampusArea" maxlength="160" placeholder="例如：本科生宿舍区；可留空" /></label><label>楼层 <input name="venueFloor" maxlength="120" placeholder="例如：一楼；可留空" /></label></div>
-        <div class="row"><label>距离（米） <input name="venueDistanceMeters" type="number" min="0" max="100000" step="1" inputmode="numeric" placeholder="校外可填写；可留空" /></label><label>距离依据<select name="venueDistanceBasis"><option value="">未注明</option><option value="reported">投稿者报告</option><option value="walking">步行距离</option><option value="straight-line">直线距离</option></select></label></div>
-        <label>介绍 <textarea name="venueDescription" maxlength="2000" rows="5" placeholder="只写你确认过的内容；不确定的部分可以留空。"></textarea></label>
-        <div class="row"><label>平均消费（元 / 人）<input name="venuePrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="可留空" /></label><label>价格来源 <input name="venuePriceSource" maxlength="300" placeholder="菜单、现场标价等；可留空" /></label></div>
+        <div class="section-heading"><div><p class="eyebrow">NEW PLACE</p><h2 id="venue-heading">餐厅或档口</h2></div><small>先把位置说清楚</small></div>
+        <div class="row"><label><span>名称 <b class="required-mark" aria-hidden="true">*</b></span><input name="venueName" required maxlength="120" data-label="店铺名称" placeholder="例如：一食堂二楼酸菜鱼档口" /></label><label><span>类型 <b class="required-mark" aria-hidden="true">*</b></span><select name="venueType" required data-label="店铺类型"><option value="cafeteria">食堂</option><option value="stall">档口</option><option value="restaurant">餐厅</option><option value="cafe">咖啡 / 饮品店</option><option value="convenience">便利店</option></select></label></div>
+        <div class="row"><label><span>范围 <b class="required-mark" aria-hidden="true">*</b></span><select name="venueCategory" required data-label="校内外范围"><option value="on-campus">校内</option><option value="off-campus">校外</option></select></label><label><span>标签</span><input name="venueTags" maxlength="1830" data-label="店铺标签" placeholder="面食，实惠，夜宵；最多 30 个" /></label></div>
+        <label><span>位置或地址 <b class="required-mark" aria-hidden="true">*</b></span><input name="venueAddress" required maxlength="300" data-label="位置或地址" placeholder="楼栋、食堂楼层、街道或附近地标" /></label>
+        <div class="row"><label><span>校区或区域</span><input name="venueCampusArea" maxlength="100" data-label="校区或区域" placeholder="例如：本科生宿舍区" /></label><label><span>楼层</span><input name="venueFloor" maxlength="100" data-label="楼层" placeholder="例如：二楼" /></label></div>
+        <div class="row" id="distance-fields" hidden><label><span>距离（米）</span><input name="venueDistanceMeters" type="number" min="0" max="100000" step="1" inputmode="numeric" data-label="距离" placeholder="可留空，例如：500" /></label><label><span>距离依据 <b data-distance-required class="required-mark" aria-hidden="true" hidden>*</b></span><select name="venueDistanceBasis" data-label="距离依据"><option value="">未注明</option><option value="reported">投稿者报告</option><option value="walking">步行距离</option><option value="straight-line">直线距离</option></select></label></div>
+        <label><span>介绍</span><textarea name="venueDescription" maxlength="2000" rows="4" data-label="店铺介绍" placeholder="只写你确认过的内容，不确定的部分可以留空。"></textarea></label>
+        <div class="row"><label><span>平均消费（元 / 人）</span><input name="venuePrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-label="平均消费" placeholder="未知可留空" /></label><label><span>价格来源 <b data-price-required="venue" class="required-mark" aria-hidden="true" hidden>*</b></span><input name="venuePriceSource" maxlength="300" data-label="平均消费来源" placeholder="填写价格时，请注明菜单或现场标价" /></label></div>
       </section>
-
       <section id="food-fields" class="form-section" aria-labelledby="food-heading" hidden>
-        <div class="section-heading"><div><p class="section-kicker">NEW DISH</p><h2 id="food-heading">餐品</h2></div><span class="section-hint">需要绑定店铺</span></div>
-        <label>所属餐厅 / 档口<select id="food-venue-id" name="foodVenueId"><option value="">请选择已发布的店铺</option>{venues.map(venue => <option value={venue.id}>{venue.name}</option>)}</select><small class="field-note">店铺尚未收录？先投稿店铺，再使用回执里的“添加餐品”。</small></label>
-        <p class="field-note">已发布店铺可直接绑定；刚提交的店铺请使用回执页面提供的 entity ID。父回执只会私下发送给 API，不会写进公开内容。</p>
-        <div class="row"><label>餐品名称 <input id="food-name" name="foodName" maxlength="160" placeholder="例如：滑蛋饭" /></label><label>餐段<select name="foodMealType"><option value="">未注明</option><option value="breakfast">早餐</option><option value="meal">正餐</option><option value="snack">小吃</option><option value="dessert">甜点</option><option value="drink">饮品</option></select></label></div>
-        <label>餐品标签 <input name="foodTags" maxlength="800" placeholder="用逗号分隔，可留空" /></label>
-        <label>餐品描述 <textarea name="foodDescription" maxlength="2000" rows="5" placeholder="只写已知的餐品信息。"></textarea></label>
-        <div class="row"><label>价格（元）<input name="foodPrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="可留空" /></label><label>价格来源 <input name="foodPriceSource" maxlength="300" placeholder="菜单、现场标价等；可留空" /></label></div>
+        <div class="section-heading"><div><p class="eyebrow">NEW DISH</p><h2 id="food-heading">餐品</h2></div><small>找到这道菜的归属</small></div>
+        <label><span>所属餐厅 / 档口 <b class="required-mark" aria-hidden="true">*</b></span><select name="foodVenueId" required data-label="所属餐厅 / 档口"><option value="">请选择店铺</option>{venues.map(venue => <option value={venue.id}>{venue.name}</option>)}</select></label>
+        <p class="field-note">店铺尚未收录？先投稿店铺，再使用回执里的“为此店铺添加餐品”。</p>
+        <div class="row"><label><span>餐品名称 <b class="required-mark" aria-hidden="true">*</b></span><input name="foodName" required maxlength="120" data-label="餐品名称" placeholder="例如：酸菜鱼" /></label><label><span>餐段</span><select name="foodMealType" data-label="餐段"><option value="">未注明</option><option value="breakfast">早餐</option><option value="meal">正餐</option><option value="snack">小吃</option><option value="dessert">甜点</option><option value="drink">饮品</option></select></label></div>
+        <label><span>餐品标签</span><input name="foodTags" maxlength="1830" data-label="餐品标签" placeholder="微辣，鱼类，下饭；最多 30 个" /></label>
+        <label><span>餐品描述</span><textarea name="foodDescription" maxlength="1000" rows="4" data-label="餐品描述" placeholder="说说这道餐品是什么，最多 1000 字。"></textarea></label>
+        <div class="row"><label><span>价格（元 / 份）</span><input name="foodPrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-label="餐品价格" placeholder="未知可留空" /></label><label><span>价格来源 <b data-price-required="food" class="required-mark" aria-hidden="true" hidden>*</b></span><input name="foodPriceSource" maxlength="300" data-label="餐品价格来源" placeholder="例如：店内菜单标价" /></label></div>
       </section>
-
-      <section class="form-section media-section" aria-labelledby="media-heading">
-        <div class="section-heading"><div><p class="section-kicker">OPTIONAL PHOTOS</p><h2 id="media-heading">照片</h2></div><span class="section-hint">图片会压缩为 WebP并移除 EXIF</span></div>
-        <label class="file-label"><span>实体照片 <small id="entity-file-hint">最多 6 张；可留空</small></span><input id="entity-images" type="file" accept="image/*" multiple /></label>
-        <div id="entity-previews" class="previews" aria-live="polite"></div>
-        <div id="image-metadata" class="metadata" hidden>
-          <p class="field-note">上传图片前请填写来源、版权方和许可。每张图片都需要替代文本；浏览器会将图片缩放并转码为 WebP（不超过 2 MiB），同时去除原始 EXIF。公开内容会保留来源页和许可信息。</p>
-          <div class="row"><label>图片来源 <input id="image-source" name="imageSource" maxlength="500" placeholder="例如：本人拍摄 / 菜单公开页" /></label><label>版权方 <input id="image-holder" name="imageHolder" maxlength="200" placeholder="本人或明确的权利人" /></label></div>
-          <div class="row"><label>许可 <input id="image-license" name="imageLicense" maxlength="120" placeholder="例如：CC BY-SA 4.0 或本人授权展示" /></label><div class="metadata-checks"><label class="check-label"><input id="image-illustrative" name="imageIllustrative" type="checkbox" /><span>这是示意图</span></label><label class="check-label rights"><input id="rights-confirmed" name="rightsConfirmed" type="checkbox" /><span>我确认有权提交这些图片</span></label></div></div>
-        </div>
-      </section>
-
-      <div class="notice"><span aria-hidden="true">ⓘ</span><p>投稿由管理员审核，通过后才会进入公开目录。不要填写个人联系方式、他人账号或仅供审核使用的内容；未知信息请保留为空。</p></div>
-      <div id="turnstile-slot"></div>
-      <button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button>
-      <button id="retry-submission" class="retry-button" type="button" hidden>继续保存上一份投稿</button>
-      <p class="feedback" role="status" aria-live="polite"></p>
-      <button id="draft" class="draft" type="button">下载本地草稿</button>
+      <aside class="media-column">
+        <section class="form-section"><div class="section-heading"><div><p class="eyebrow">A PICTURE OF THIS PLACE</p><h2>给它添张照片</h2></div><small>选填</small></div>
+          <PhotoUploader id="entity-images" title="添加店铺 / 餐品照片" />
+          <div id="entity-previews" class="upload-previews" aria-live="polite"></div>
+          <p class="field-note">图片会在你的浏览器内压缩为 WebP，并移除照片位置数据。</p>
+        </section>
+        <details class="attached-review form-section" id="attached-review"><summary><span class="review-summary-icon" aria-hidden="true">☆</span><span><strong>顺便留一条用餐评价</strong><small>选填 · 随资料一起审核</small></span><b aria-hidden="true">＋</b></summary>
+          <div class="attached-body"><p class="field-note">可以只打星，也可以写最多 256 字并附图。不填写就只提交资料；填写后，评价会随资料一起审核、发布。</p><StarRating name="attachedRating" required={false} />
+            <label><span>你的感受</span><textarea name="attachedText" rows="3" data-label="随稿评价" placeholder="味道、分量、服务，有什么想告诉同学的？" aria-describedby="attached-count"></textarea><small id="attached-count">0 / 256</small></label>
+            <PhotoUploader id="review-images" title="添加用餐评价照片" limit={3} /><div id="review-previews" class="upload-previews" aria-live="polite"></div>
+            <button type="button" id="remove-attached-review">不附评价，清空这一栏</button>
+          </div>
+        </details>
+        <section class="form-section image-rights" id="image-metadata" hidden><div class="section-heading"><h2>照片来源与授权</h2></div>
+          <label><span>照片来源 <b class="required-mark" aria-hidden="true">*</b></span><select name="photoOrigin" data-label="照片来源"><option value="own">我自己拍的</option><option value="licensed">已经获得授权的其他图片</option></select></label>
+          <div id="external-rights" hidden><label><span>来源页或来源说明 <b class="required-mark" aria-hidden="true">*</b></span><input name="imageSource" maxlength="480" data-label="图片来源" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="row"><label><span>作者 / 版权方 <b class="required-mark" aria-hidden="true">*</b></span><input name="imageHolder" maxlength="160" data-label="图片版权方" /></label><label><span>许可 <b class="required-mark" aria-hidden="true">*</b></span><input name="imageLicense" maxlength="120" data-label="图片许可" placeholder="许可名称或授权说明" /></label></div><label class="check-label"><input name="imageIllustrative" type="checkbox" /><span>这是示意图，并非本店实拍</span></label></div>
+          <label class="check-label"><input name="rightsConfirmed" type="checkbox" data-label="照片使用权" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示。</span><b class="required-mark" aria-hidden="true">*</b></label>
+          <p class="field-note">此声明适用于本次选择的全部照片；混合来源的照片请分别投稿。</p>
+        </section>
+      </aside>
+      <div class="submission-bottom"><p class="notice">ⓘ 资料与随稿评价通过审核后公开。不要填写私人联系方式；提交成功表示已收到，不代表已发布。</p><div id="turnstile-slot"></div><button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><button id="retry-submission" type="button" hidden>继续保存上一份投稿</button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button></div>
     </form>
-    <section id="receipt-panel" class="receipt-panel" hidden aria-labelledby="receipt-heading">
-      <div class="section-heading"><div><p class="section-kicker">YOUR RECEIPT</p><h2 id="receipt-heading">保存这份投稿回执</h2></div><span class="section-hint">仅当前标签页</span></div>
-      <p class="receipt-note">回执编号和实体 ID 可用于后续查询与绑定餐品。查询令牌默认遮蔽，请在离开前手动保存。</p>
-      <div class="receipt-fields">
-        <label>回执编号<input id="receipt-id" type="text" readonly autocomplete="off" spellcheck="false" /></label>
-        <label id="receipt-entity-row">实体 ID<input id="receipt-entity-id" type="text" readonly autocomplete="off" spellcheck="false" /></label>
-        <label>查询令牌<div class="token-control"><input id="receipt-token" type="password" readonly autocomplete="off" spellcheck="false" /><button id="receipt-token-toggle" type="button" aria-pressed="false">显示</button></div></label>
-      </div>
-      <div class="receipt-actions"><a id="receipt-status-link" href="/status/">查询此投稿</a><a id="receipt-food-link" href="/submit/" hidden>为此店铺添加餐品</a></div>
-    </section>
+    <section id="receipt-panel" class="form-section receipt-panel" hidden aria-labelledby="receipt-heading"><h2 id="receipt-heading">投稿已收到，保存好这份回执</h2><p class="field-note">令牌用于私下查询进度，请妥善保存。</p><div class="row"><label>回执编号<input id="receipt-id" readonly autocomplete="off" /></label><label id="receipt-entity-row">内容编号<input id="receipt-entity-id" readonly autocomplete="off" /></label></div><label>查询令牌<div class="token-control"><input id="receipt-token" type="password" readonly autocomplete="off" /><button id="receipt-token-toggle" type="button" aria-pressed="false">显示</button></div></label><div class="receipt-actions"><a id="receipt-status-link" href="/status/">查询此投稿 →</a><a id="receipt-food-link" href="/submit/" hidden>为此店铺添加餐品 ＋</a></div></section>
   </main>
 </Layout>
 <script>
-  import { turnstileWidget, resetTurnstile } from '../utils/turnstile-client';
-
-  type EntityType = 'venue' | 'food';
-  type ImageSelection = { file: File; preview: string; alt: string };
-  type PendingReceipt = { submissionId: string; receiptToken: string; version: number; type: EntityType; expectedImages: number; expectedReviewImages: number; entityId?: string };
-  const form = document.querySelector<HTMLFormElement>('#submission-form')!;
-  const feedback = document.querySelector<HTMLElement>('.feedback')!;
-  const submitButton = document.querySelector<HTMLButtonElement>('.submit-button')!;
-  const retryButton = document.querySelector<HTMLButtonElement>('#retry-submission')!;
-  const receiptPanel = document.querySelector<HTMLElement>('#receipt-panel')!;
-  const receiptIdInput = document.querySelector<HTMLInputElement>('#receipt-id')!;
-  const receiptEntityRow = document.querySelector<HTMLElement>('#receipt-entity-row')!;
-  const receiptEntityInput = document.querySelector<HTMLInputElement>('#receipt-entity-id')!;
-  const receiptTokenInput = document.querySelector<HTMLInputElement>('#receipt-token')!;
-  const receiptTokenToggle = document.querySelector<HTMLButtonElement>('#receipt-token-toggle')!;
-  const receiptStatusLink = document.querySelector<HTMLAnchorElement>('#receipt-status-link')!;
-  const receiptFoodLink = document.querySelector<HTMLAnchorElement>('#receipt-food-link')!;
-  const entityFields = document.querySelector<HTMLElement>('#venue-fields')!;
-  const foodFields = document.querySelector<HTMLElement>('#food-fields')!;
-  const entityInput = document.querySelector<HTMLInputElement>('#entity-images')!;
-  const entityPreviews = document.querySelector<HTMLElement>('#entity-previews')!;
-  const metadata = document.querySelector<HTMLElement>('#image-metadata')!;
-  const snapshotId = form.dataset.snapshotId ?? '';
-  const pendingReceiptKey = 'shou-pending-submission-v2';
-  const receiptHistoryKey = 'shou-submission-receipts-v2';
-  let entityImages: ImageSelection[] = [];
-  let pendingReceipt: PendingReceipt | null = null;
-
-  function currentType(): EntityType {
-    return (form.querySelector<HTMLInputElement>('input[name="entityType"]:checked')?.value as EntityType | undefined) ?? 'venue';
-  }
-  function setDisabled(root: HTMLElement, disabled: boolean) {
-    root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((control) => { control.disabled = disabled; });
-  }
-  function switchType() {
-    const type = currentType();
-    entityFields.hidden = type !== 'venue'; foodFields.hidden = type !== 'food';
-    setDisabled(entityFields, type !== 'venue'); setDisabled(foodFields, type !== 'food');
-    entityInput.setAttribute('data-max','6'); updateMetadataVisibility();
-  }
-  function updateMetadataVisibility() {
-    metadata.hidden = entityImages.length === 0;
-  }
-  function showMessage(message: string, tone: 'error' | 'success' | 'info' = 'info') {
-    feedback.textContent = message;
-    feedback.dataset.tone = tone;
-  }
-  function savePendingReceipt(receipt: PendingReceipt) {
-    pendingReceipt = receipt;
-    retryButton.hidden = false;
-    try { sessionStorage.setItem(pendingReceiptKey, JSON.stringify(receipt)); } catch { /* Private browsing may disable sessionStorage. */ }
-  }
-  function readSession(key: string) {
-    try { return sessionStorage.getItem(key); } catch { return null; }
-  }
-  function writeSession(key: string, value: string) {
-    try { sessionStorage.setItem(key, value); } catch { /* Private browsing may disable sessionStorage. */ }
-  }
-  function saveReceipt(receipt: PendingReceipt) {
-    const raw = readSession(receiptHistoryKey);
-    let receipts: Record<string, PendingReceipt> = {};
-    try {
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) receipts = parsed as Record<string, PendingReceipt>;
-    } catch { /* Ignore malformed or unavailable private storage. */ }
-    receipts[receipt.submissionId] = { submissionId: receipt.submissionId, receiptToken: receipt.receiptToken, type: receipt.type, version: receipt.version, expectedImages: receipt.expectedImages, expectedReviewImages: receipt.expectedReviewImages, ...(receipt.entityId ? { entityId: receipt.entityId } : {}) };
-    writeSession(receiptHistoryKey, JSON.stringify(receipts));
-  }
-  function showReceipt(receipt: PendingReceipt) {
-    const entityId = receipt.entityId?.trim() ?? '';
-    saveReceipt(receipt);
-    receiptIdInput.value = receipt.submissionId;
-    receiptEntityInput.value = entityId;
-    receiptEntityRow.hidden = !entityId;
-    receiptTokenInput.value = receipt.receiptToken;
-    receiptTokenInput.type = 'password';
-    receiptTokenToggle.textContent = '显示';
-    receiptTokenToggle.setAttribute('aria-pressed', 'false');
-    receiptStatusLink.href = '/status/?id=' + encodeURIComponent(receipt.submissionId);
-    receiptFoodLink.hidden = receipt.type !== 'venue' || !entityId;
-    receiptFoodLink.href = entityId ? '/submit/?venueEntityId=' + encodeURIComponent(entityId) : '/submit/';
-    receiptPanel.hidden = false;
-  }
-  function updatePendingVersion(version: number) {
-    if (!pendingReceipt) return;
-    savePendingReceipt({ ...pendingReceipt, version });
-  }
-  function clearPendingReceipt() {
-    pendingReceipt = null;
-    retryButton.hidden = true;
-    try { sessionStorage.removeItem(pendingReceiptKey); } catch { /* Ignore storage cleanup failures. */ }
-  }
-  function restorePendingReceipt() {
-    try {
-      const parsed = JSON.parse(readSession(pendingReceiptKey) ?? 'null') as Partial<PendingReceipt> | null;
-      if (!parsed || typeof parsed.submissionId !== 'string' || typeof parsed.receiptToken !== 'string' || !parsed.submissionId || !parsed.receiptToken || !['venue', 'food'].includes(String(parsed.type)) || !Number.isSafeInteger(parsed.version) || !Number.isSafeInteger(parsed.expectedImages) || !Number.isSafeInteger(parsed.expectedReviewImages)) return;
-      pendingReceipt = parsed as PendingReceipt;
-      retryButton.hidden = false;
-      const typeInput = form.querySelector<HTMLInputElement>(`input[name="entityType"][value="${pendingReceipt.type}"]`);
-      if (typeInput) { typeInput.checked = true; switchType(); }
-    } catch { /* Ignore malformed or unavailable private storage. */ }
-  }
-  function renderPreviews() {
-    const list = entityPreviews;
-    const images = entityImages;
-    list.replaceChildren();
-    images.forEach((image, index) => {
-      const item = document.createElement('div');
-      item.className = 'preview-item';
-      const preview = document.createElement('img');
-      preview.src = image.preview;
-      preview.alt = image.alt;
-      const label = document.createElement('label');
-      label.textContent = '替代文本';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.maxLength = 200;
-      input.required = true;
-      input.value = image.alt;
-      input.placeholder = '描述图片内容';
-      input.addEventListener('input', () => { image.alt = input.value; preview.alt = input.value || '投稿图片'; });
-      label.append(input);
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'remove-image';
-      remove.textContent = '移除';
-      remove.addEventListener('click', () => {
-        URL.revokeObjectURL(image.preview);
-        images.splice(index, 1);
-        renderPreviews();
-        updateMetadataVisibility();
-      });
-      item.append(preview, label, remove);
-      list.append(item);
-    });
-  }
-  async function readImage(file: File): Promise<ImageSelection | null> {
-    if (!file.type.startsWith('image/')) return null;
-    const preview = URL.createObjectURL(file);
-    return { file, preview, alt: '' };
-  }
-  async function addFiles(fileList: FileList | null) {
-    if (!fileList) return;
-    const maxCount = 6;
-    const target = entityImages;
-    const incoming = Array.from(fileList).slice(0, Math.max(0, maxCount - target.length));
-    if (fileList.length > incoming.length) showMessage('图片数量已按当前投稿类型限制。', 'info');
-    for (const file of incoming) {
-      const image = await readImage(file);
-      if (image) target.push(image);
-    }
-    renderPreviews();
-    updateMetadataVisibility();
-  }
-  function inputFiles(input: HTMLInputElement) {
-    input.addEventListener('change', async () => { await addFiles(input.files); input.value = ''; });
-  }
-  async function compressImage(selection: ImageSelection): Promise<Blob> {
-    const source = await createImageBitmap(selection.file);
-    const canvas = document.createElement('canvas');
-    const maxSide = 2000;
-    const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
-    canvas.width = Math.max(1, Math.round(source.width * scale));
-    canvas.height = Math.max(1, Math.round(source.height * scale));
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('无法读取图片。');
-    context.drawImage(source, 0, 0, canvas.width, canvas.height);
-    source.close();
-    let quality = 0.84;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
-      if (!blob) throw new Error('无法压缩图片。');
-      if (blob.size <= 2 * 1024 * 1024) return blob;
-      quality -= 0.12;
-    }
-    throw new Error('图片压缩后仍超过 2 MiB，请选择更小的图片。');
-  }
-  function encodeMetadataValue(value: string) {
-    return encodeURIComponent(value.trim());
-  }
-  function metadataHeaders(image: ImageSelection) {
-    return {
-      'Content-Type': 'image/webp',
-      'X-Image-Metadata-Encoding': 'percent-utf8',
-      'X-Image-Alt': encodeMetadataValue(image.alt),
-      'X-Image-Source': encodeMetadataValue(document.querySelector<HTMLInputElement>('#image-source')!.value),
-      'X-Image-Copyright-Holder': encodeMetadataValue(document.querySelector<HTMLInputElement>('#image-holder')!.value),
-      'X-Image-License': encodeMetadataValue(document.querySelector<HTMLInputElement>('#image-license')!.value),
-      'X-Image-Rights-Confirmed': String(document.querySelector<HTMLInputElement>('#rights-confirmed')!.checked),
-      'X-Image-Is-Illustrative': String(document.querySelector<HTMLInputElement>('#image-illustrative')!.checked),
-    };
-  }
-  function fields(name: string) {
-    return form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
-  }
-  function value(name: string) { return fields(name)?.value.trim() ?? ''; }
-  function numberOrNull(name: string) {
-    const raw = value(name);
-    if (!raw) return null;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-  }
-  function tags(name: string) { return value(name).split(',').map((tag) => tag.trim()).filter(Boolean); }
-  function price(name: string, sourceName: string, unit: '人' | '份') {
-    const amount = numberOrNull(name);
-    if (amount === null) return null;
-    return { amountCents: Math.round(amount * 100), currency: 'CNY', unit, source: value(sourceName) };
-  }
-  function buildPayload(type: EntityType) {
-    if (type === 'venue') {
-      const distanceMeters = numberOrNull('venueDistanceMeters');
-      const distanceBasis = value('venueDistanceBasis');
-      const hasDistance = distanceMeters !== null && Boolean(distanceBasis);
-      return { name: value('venueName'), type: value('venueType'), campusScope: value('venueCategory'), location: { address: value('venueAddress'), campusArea: value('venueCampusArea') || null, floor: value('venueFloor') || null, distanceMeters: hasDistance ? Math.round(distanceMeters!) : null, distanceBasis: hasDistance ? distanceBasis : null }, tags: tags('venueTags'), description: value('venueDescription') || null, averagePrice: price('venuePrice', 'venuePriceSource', '人') };
-    }
-    return { name: value('foodName'), venueId: value('foodVenueId'), mealType: value('foodMealType') || null, description: value('foodDescription') || null, price: price('foodPrice', 'foodPriceSource', '份'), tags: tags('foodTags') };
-  }
-  function parentData(type: EntityType) {
-    if (type !== 'food') return undefined;
-    const parentId = value('foodVenueId');
-    const parentReceiptToken = readSession('shou-parent-receipt:' + parentId);
-    return { venueEntityId: parentId, ...(parentReceiptToken ? { parentReceiptToken } : {}) };
-  }
-  function validate(type: EntityType) {
-    if ((type === 'venue' && (!value('venueName') || !value('venueAddress'))) || (type === 'food' && (!value('foodName') || !value('foodVenueId')))) return '请先填写名称和必要的位置或店铺信息。';
-    if (type === 'venue' && Boolean(value('venueDistanceMeters')) !== Boolean(value('venueDistanceBasis'))) return '填写距离时，请同时选择距离依据；未知信息可留空。';
-    if (type === 'venue' && value('venuePrice') && !value('venuePriceSource')) return '填写价格时，请同时填写价格来源。';
-    if (type === 'food' && value('foodPrice') && !value('foodPriceSource')) return '填写价格时，请同时填写价格来源。';
-    const allImages = entityImages;
-    if (allImages.length) {
-      if (!value('image-source') || !value('image-holder') || !value('image-license') || !document.querySelector<HTMLInputElement>('#rights-confirmed')!.checked) return '请填写图片来源、版权方、许可并确认使用权。';
-      if (allImages.some((image) => !image.alt.trim())) return '请为每张图片填写替代文本。';
-    }
-    return null;
-  }
-  async function submitImages(submissionId: string, token: string, version: number, images: ImageSelection[], slot: 'entity' | 'attachedReview', startIndex = 0, onVersion?: (nextVersion: number) => void) {
-    let currentVersion = version;
-    for (let index = startIndex; index < images.length; index += 1) {
-      const image = images[index];
-      const response = await fetch('/api/v2/submissions/' + encodeURIComponent(submissionId) + '/images', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'X-Image-Slot': slot, 'X-Image-Index': String(index), 'X-Submission-Version': String(currentVersion), ...metadataHeaders(image) }, body: await compressImage(image) });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error?.message || '图片上传失败。');
-      currentVersion = Number(body.version);
-      onVersion?.(currentVersion);
-    }
-    return currentVersion;
-  }
-  async function receiptStatus(receipt: PendingReceipt) {
-    const response = await fetch('/api/v2/submissions/' + encodeURIComponent(receipt.submissionId) + '/status', { headers: { Authorization: 'Bearer ' + receipt.receiptToken } });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error?.message || '无法读取未完成投稿的状态。');
-    return { version: Number(body.version), uploadedImages: Number(body.uploadedImages ?? 0), uploadedReviewImages: Number(body.uploadedReviewImages ?? 0), entityId: typeof body.entityId === 'string' ? body.entityId.trim() : '' };
-  }
-  async function finalizeReceipt(receipt: PendingReceipt, version: number) {
-    const response = await fetch('/api/v2/submissions/' + encodeURIComponent(receipt.submissionId) + '/finalize', { method: 'POST', headers: { Authorization: 'Bearer ' + receipt.receiptToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedVersion: version, expectedImages: receipt.expectedImages, expectedReviewImages: receipt.expectedReviewImages }) });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error?.message || '投稿完成步骤失败。');
-    return body;
-  }
-  function resetSubmissionForm() {
-    form.reset();
-    entityImages.forEach((image) => URL.revokeObjectURL(image.preview));
-    entityImages = [];
-    renderPreviews();
-    updateMetadataVisibility();
-    switchType();
-  }
-  function draftData(type: EntityType) {
-    const data: Record<string, unknown> = { schemaVersion: 2, entityType: type, snapshotId, fields: {} };
-    const draftFields = data.fields as Record<string, string>;
-    form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((control) => {
-      if (!control.name || control.type === 'file' || control.name === 'cf-turnstile-response') return;
-      if (control.type === 'radio' && !(control as HTMLInputElement).checked) return;
-      if (control.type === 'checkbox') { draftFields[control.name] = String((control as HTMLInputElement).checked); return; }
-      draftFields[control.name] = control.value;
-    });
-    draftFields.entityImageCount = String(entityImages.length);
-    return data;
-  }
-  const widget = turnstileWidget();
-  if (widget) document.querySelector('#turnstile-slot')!.append(widget);
-  else {
-    submitButton.disabled = true;
-    showMessage('当前投稿服务暂不可用，请稍后再试；你仍可下载本地草稿。', 'info');
-  }
-  document.querySelectorAll<HTMLInputElement>('input[name="entityType"]').forEach((input) => input.addEventListener('change', switchType));
-  inputFiles(entityInput);
-  receiptTokenToggle.addEventListener('click', () => {
-    const reveal = receiptTokenInput.type === 'password';
-    receiptTokenInput.type = reveal ? 'text' : 'password';
-    receiptTokenToggle.textContent = reveal ? '隐藏' : '显示';
-    receiptTokenToggle.setAttribute('aria-pressed', String(reveal));
-  });
-  const query = new URLSearchParams(location.search);
-  const initialVenue = query.get('venue');
-  const initialVenueEntityId = query.get('venueEntityId');
-  const initialFood = query.get('food');
-  if (initialVenue) location.replace('/restaurants/' + encodeURIComponent(initialVenue) + '/#review-form');
-  if (initialVenueEntityId) { const select = fields('foodVenueId') as HTMLSelectElement; if (![...select.options].some(option => option.value === initialVenueEntityId)) { const option = new Option('刚投稿的店铺（审核中）', initialVenueEntityId); select.add(option); } select.value = initialVenueEntityId; (form.querySelector('input[name="entityType"][value="food"]') as HTMLInputElement).checked = true; }
-  if (initialFood) location.replace('/foods/' + encodeURIComponent(initialFood) + '/#review-form');
-  switchType();
-  restorePendingReceipt();
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const type = currentType();
-    const problem = validate(type);
-    if (problem) { showMessage(problem, 'error'); return; }
-    if (!widget) return;
-    submitButton.disabled = true;
-    showMessage('正在提交投稿……', 'info');
-    try {
-      const token = String(form.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')?.value ?? '');
-      if (!token.trim()) { showMessage('请先完成人机验证。', 'error'); return; }
-      const entityImagesCount = Math.min(entityImages.length, 6);
-      const reviewImagesCount = 0;
-      const payload = buildPayload(type);
-      const response = await fetch('/api/v2/submissions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID().replaceAll('-', '') }, body: JSON.stringify({ schemaVersion: 2, entityType: type, snapshotId, payload, parent: parentData(type), expectedImages: entityImagesCount, expectedReviewImages: reviewImagesCount, turnstileToken: token }) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || '暂时无法提交，请稍后再试。');
-      const submissionId = String(result.submissionId ?? '');
-      const receiptToken = String(result.receiptToken ?? '');
-      const entityId = typeof result.entityId === 'string' ? result.entityId.trim() : '';
-      if (!submissionId || !receiptToken || !Number.isSafeInteger(Number(result.version))) throw new Error('投稿回执无效，请稍后重试。');
-      const receipt: PendingReceipt = { submissionId, receiptToken, version: Number(result.version), type, expectedImages: entityImagesCount, expectedReviewImages: reviewImagesCount, ...(entityId ? { entityId } : {}) };
-      savePendingReceipt(receipt);
-      let version = receipt.version;
-      if (entityImagesCount) version = await submitImages(submissionId, receiptToken, version, entityImages.slice(0, entityImagesCount), 'entity', 0, updatePendingVersion);
-      await finalizeReceipt(receipt, version);
-      if ((type === 'venue' || type === 'food') && receipt.entityId) writeSession('shou-parent-receipt:' + receipt.entityId, receiptToken);
-      clearPendingReceipt();
-      showReceipt(receipt);
-      showMessage('投稿已收到，请在下方保存回执信息。', 'success');
-      resetSubmissionForm();
-      resetTurnstile();
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : '暂时无法提交，请稍后再试。';
-      showMessage(pendingReceipt ? detail + ' 已保留回执，可点击“继续保存上一份投稿”重试。' : detail, 'error');
-    } finally {
-      submitButton.disabled = false;
-    }
-  });
-  retryButton.addEventListener('click', async () => {
-    const receipt = pendingReceipt;
-    if (!receipt) return;
-    retryButton.disabled = true;
-    submitButton.disabled = true;
-    try {
-      const current = await receiptStatus(receipt);
-      const retryReceipt: PendingReceipt = { ...receipt, ...(current.entityId || receipt.entityId ? { entityId: current.entityId || receipt.entityId } : {}) };
-      savePendingReceipt(retryReceipt);
-      let version = current.version;
-      updatePendingVersion(version);
-      const missingEntity = retryReceipt.expectedImages - current.uploadedImages;
-      const missingReview = retryReceipt.expectedReviewImages - current.uploadedReviewImages;
-      if (missingEntity > 0 && entityImages.length < retryReceipt.expectedImages) throw new Error('上一份投稿仍缺少实体图片，请重新选择未保存的图片后重试。');
-      if (missingReview > 0) throw new Error('这份旧投稿仍缺少附加评价图片，请保存回执并联系审核员处理；请勿重复提交。');
-      if (missingEntity > 0) version = await submitImages(retryReceipt.submissionId, retryReceipt.receiptToken, version, entityImages.slice(0, retryReceipt.expectedImages), 'entity', current.uploadedImages, updatePendingVersion);
-      const finalized = await finalizeReceipt(retryReceipt, version);
-      const finalizedEntityId = finalized && typeof finalized === 'object' && typeof finalized.entityId === 'string' ? finalized.entityId.trim() : '';
-      const completedReceipt: PendingReceipt = { ...retryReceipt, ...(finalizedEntityId ? { entityId: finalizedEntityId } : {}) };
-      if ((completedReceipt.type === 'venue' || completedReceipt.type === 'food') && completedReceipt.entityId) writeSession('shou-parent-receipt:' + completedReceipt.entityId, completedReceipt.receiptToken);
-      clearPendingReceipt();
-      showReceipt(completedReceipt);
-      showMessage('投稿已收到，请在下方保存回执信息。', 'success');
-      resetSubmissionForm();
-    } catch (error) {
-      showMessage(error instanceof Error ? error.message + ' 回执仍已保留。' : '重试失败，回执仍已保留。', 'error');
-    } finally {
-      retryButton.disabled = false;
-      submitButton.disabled = false;
-    }
-  });
-  document.querySelector<HTMLButtonElement>('#draft')!.addEventListener('click', () => {
-    const data = draftData(currentType());
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'shou-food-submission-v2.json';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  });
+  import { initSubmissionForm } from '../utils/submission-form';
+  initSubmissionForm();
 </script>
 <style>
-  .submit-page{width:calc(100% - clamp(32px,4vw,96px));margin:auto;padding:0 0 60px}.top{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}.back,.page-label{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}.back{gap:8px}.back span{color:var(--orange)}.page-label{font-weight:700;color:var(--ink)}
-  .submit-hero{max-width:760px;padding:62px 0 35px}.eyebrow,.section-kicker{margin:0 0 14px;color:var(--orange-deep);font-size:10px;font-weight:800;letter-spacing:.15em}.submit-hero h1{margin:0;color:var(--ink);font-size:clamp(38px,5vw,58px);line-height:1.08;letter-spacing:-.05em;overflow-wrap:anywhere}.lead{max-width:670px;margin:18px 0 0;color:var(--muted);font-size:14px;line-height:1.9;overflow-wrap:anywhere}
-  .submission-form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:18px;align-items:start}.submission-form>*{grid-column:1/-1}.submission-form>#venue-fields,.submission-form>#food-fields{grid-column:1;grid-row:2}.submission-form>.media-section{grid-column:2;grid-row:2}.type-field,.form-section{min-width:0;margin:0;padding:24px;border:1px solid rgba(255,107,53,.1);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}fieldset{border:0}.type-field legend{margin-bottom:14px;color:var(--ink);font-size:14px;font-weight:800}.type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.type-grid label{min-width:0;cursor:pointer}.type-grid input{position:absolute;width:1px;height:1px;opacity:0}.type-grid span{display:grid;min-height:72px;align-content:center;gap:5px;padding:11px 12px;border:1px solid var(--line);border-radius:17px;color:var(--muted)}.type-grid b{color:var(--ink);font-size:12px}.type-grid small{font-size:10px;line-height:1.4}.type-grid input:checked+span{border-color:var(--orange);background:#fff2eb}.type-grid input:checked+span b{color:var(--orange-deep)}.type-grid input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}
-  .section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:18px}.section-heading h2{margin:0;color:var(--ink);font-size:22px;letter-spacing:-.03em}.section-kicker{margin-bottom:7px}.section-hint{flex:0 0 auto;color:var(--muted);font-size:10px;font-weight:700}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.form-section>label,.row label,.rating-field legend{display:grid;gap:8px;color:var(--ink);font-size:12px;font-weight:800}.form-section>label+label,.form-section>.row,.form-section>.field-note{margin-top:14px}
-  input:not([type=radio]):not([type=checkbox]),select,textarea{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:16px;outline:0}textarea{min-height:120px;padding:13px 14px;resize:vertical;line-height:1.7}input:not([type=radio]):not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,53,.15)}.field-note{margin-bottom:0;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}.char-count{display:block;margin-top:-3px;color:var(--muted);font-size:10px;font-weight:500}
-  .check-label{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px!important;min-height:44px;cursor:pointer}.check-label input{width:20px;height:20px;min-height:20px;accent-color:var(--orange)}.check-label span{color:var(--ink);font-size:12px;line-height:1.5}
-  .file-label{display:flex!important;align-items:center;justify-content:space-between;gap:12px;min-height:55px!important;padding:0 14px;border:1px dashed #decfc5;border-radius:17px;background:#fffdf9;cursor:pointer}.file-label>span{display:grid;gap:4px}.file-label small{color:var(--muted);font-size:10px;font-weight:500}.file-label input{min-width:0;max-width:170px;min-height:44px;font-size:12px}.previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.preview-item{min-width:0;padding:9px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft)}.preview-item img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f5eee7}.preview-item label{display:grid;gap:5px;margin-top:8px;color:var(--muted);font-size:10px;font-weight:700}.preview-item input{width:100%;min-height:40px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-card);font-size:12px}.remove-image{width:100%;min-height:40px;margin-top:7px;border:0;border-radius:10px;background:#fff0ed;color:#ad3e2d;font-size:10px;font-weight:800}.metadata{margin-top:16px;padding:15px;border-radius:17px;background:#f0fff4}.metadata .field-note{margin:0 0 12px}.metadata .row{gap:10px}.metadata input:not([type=radio]):not([type=checkbox]){min-height:44px;background:#fff;font-size:16px}.metadata-checks{display:grid;align-content:end;gap:4px}.rights{align-self:end;min-height:44px}
-  .notice{display:flex;align-items:flex-start;gap:10px;padding:15px 16px;border-radius:18px;background:#fff8e6;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}.notice>span{flex:0 0 auto;color:#ce7e00;font-size:17px}.notice p{margin:0}
-  #turnstile-slot{min-height:0}#turnstile-slot:empty{display:none}.submit-button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:54px;border:0;border-radius:18px;background:linear-gradient(135deg,var(--orange),var(--orange-deep));box-shadow:0 14px 26px -12px rgba(255,107,53,.5);color:#fff;font-size:14px;font-weight:800}.submit-button:disabled{cursor:not-allowed;opacity:.55}.retry-button{justify-self:center;min-height:44px;padding:0 15px;border:1px solid var(--orange);border-radius:14px;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}.retry-button:disabled{cursor:wait;opacity:.6}.feedback{min-height:22px;margin:-7px 0 0;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}.feedback[data-tone=error]{color:#ad3e2d}.feedback[data-tone=success]{color:#23814d}.draft{justify-self:center;min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline}
-  @media(max-width:640px){.submit-page{width:calc(100% - clamp(32px,4vw,96px))}.submit-hero{padding:44px 0 30px}.submit-hero h1{font-size:40px}.type-field,.form-section{padding:20px;border-radius:24px}.type-grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.previews{grid-template-columns:repeat(2,minmax(0,1fr))}.file-label{align-items:flex-start;flex-direction:column;padding:11px 13px}.file-label input{max-width:none;width:100%}}
-  @media(max-width:360px){.submit-page{width:calc(100% - 32px)}.top{gap:8px}.back,.page-label{font-size:10px}.submit-hero h1{font-size:34px}.type-field,.form-section{padding:18px}}
-  @media(max-width:900px){.submission-form{grid-template-columns:1fr}.submission-form>#venue-fields,.submission-form>#food-fields,.submission-form>.media-section{grid-column:1;grid-row:auto}}
-</style>
-<style>
-  #entity-previews :global(.preview-item){min-width:0;padding:9px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft)}#entity-previews :global(.preview-item img){display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f5eee7}#entity-previews :global(.preview-item label){display:grid;gap:5px;margin-top:8px;color:var(--muted);font-size:10px;font-weight:700}#entity-previews :global(.preview-item input){width:100%;min-height:44px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-card);color:var(--ink);font-size:12px}#entity-previews :global(.remove-image){width:100%;min-height:44px;margin-top:7px;border:0;border-radius:10px;background:#fff0ed;color:#ad3e2d;font-size:10px;font-weight:800}
-  @media(max-width:800px){#entity-previews :global(.preview-item input){font-size:16px}}
-</style>
-<style>
-  .receipt-panel{display:grid;gap:16px;margin-top:18px;padding:24px;border:1px solid rgba(0,109,60,.18);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}.receipt-panel[hidden],.receipt-fields>label[hidden],.receipt-actions a[hidden],.file-label[hidden]{display:none!important}.receipt-panel .section-heading{margin-bottom:0}.receipt-note{margin:0;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}.receipt-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.receipt-fields>label{display:grid;gap:8px;color:var(--ink);font-size:12px;font-weight:800}.receipt-fields>label:last-child{grid-column:1/-1}.receipt-fields input{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:16px;overflow-wrap:anywhere}.token-control{display:flex;min-width:0;gap:8px}.token-control input{min-width:0}.token-control button{flex:0 0 auto;min-width:64px;min-height:50px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}.receipt-actions{display:flex;flex-wrap:wrap;gap:10px}.receipt-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:14px;background:var(--orange);color:#fff;font-size:12px;font-weight:800;text-decoration:none}.receipt-actions a:last-child{background:#e4f6ea;color:var(--green)}
-  @media(max-width:640px){.receipt-panel{padding:20px;border-radius:24px}.receipt-fields{grid-template-columns:1fr}.receipt-fields>label:last-child{grid-column:auto}.receipt-actions{display:grid}.receipt-actions a{width:100%}}
+  .submit-page{width:calc(100% - clamp(32px,4vw,96px));margin:auto;padding-bottom:55px}.page-top{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:70px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}.page-top a{display:flex;align-items:center;min-height:44px;text-decoration:none}.submit-hero{padding:40px 0 32px;max-width:760px}.eyebrow{margin:0 0 12px;color:var(--orange-deep);font-size:10px;font-weight:800;letter-spacing:.13em}.submit-hero h1{margin:0;font-size:clamp(32px,3.7vw,50px);letter-spacing:-.045em;line-height:1.22}.submit-hero>p:last-child{font-size:13px;line-height:1.85;color:var(--muted);max-width:620px;margin:18px 0 0}.submission-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:22px;align-items:start}.type-field,.submission-bottom{grid-column:1/-1}.type-field{min-width:0;margin:0;padding:22px 24px;border:1px solid var(--line);border-radius:24px;background:white}.type-field legend{padding:0 5px;font-size:13px;font-weight:800}.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.type-grid label{position:relative;cursor:pointer}.type-grid input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}.type-grid span{display:grid;gap:6px;padding:17px 20px;border:1px solid var(--line);border-radius:16px;background:#fffdf9}.type-grid b{font-size:14px}.type-grid small{font-size:11px;color:var(--muted)}.type-grid input:checked+span{border-color:var(--orange);background:#fff0e6}.type-grid input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}.form-section{min-width:0;padding:26px;border:1px solid #f0e3da;border-radius:26px;background:white;box-shadow:var(--shadow-card)}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px}.section-heading .eyebrow{margin-bottom:8px}.section-heading h2,.receipt-panel h2{margin:0;font-size:24px;letter-spacing:-.03em}.section-heading small{font-size:10px;color:var(--muted)}.form-section>label,.row label,.attached-body>label,#external-rights>label{display:grid;gap:9px;font-size:12px;font-weight:750;margin-top:17px}.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.row label{min-width:0;align-content:start}.row:first-of-type label{margin-top:0}.form-section input:not([type=radio]):not([type=checkbox]):not([type=file]),.form-section select,.form-section textarea{width:100%;min-width:0;min-height:50px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft);color:var(--ink);font-size:16px}.form-section textarea{resize:vertical;line-height:1.75}.form-section input:focus,.form-section textarea:focus,.form-section select:focus{border-color:var(--orange)}.field-note,.attached-body>label>small{color:var(--muted);font-size:11px;font-weight:400;line-height:1.8}.media-column{display:grid;min-width:0;gap:18px}.attached-review{padding:0;overflow:hidden}.attached-review summary{list-style:none;display:flex;align-items:center;gap:12px;padding:22px 24px;cursor:pointer;min-height:90px}.attached-review summary::-webkit-details-marker{display:none}.review-summary-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#fff0d5;color:#9c6912;font-size:26px;flex:none}.attached-review summary>span:nth-child(2){display:grid;gap:6px}.attached-review summary strong{font-size:14px}.attached-review summary small{font-size:10px;color:var(--muted)}.attached-review summary>b{margin-left:auto;color:var(--orange);font-size:24px}.attached-review[open] summary>b{transform:rotate(45deg)}.attached-review[open] summary{border-bottom:1px solid var(--line)}.attached-body{padding:20px 24px}.attached-body>.field-note{margin:0 0 20px}.attached-body .photo-picker{margin-top:20px}.attached-body>button{min-height:44px;margin-top:10px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline}.check-label{display:flex!important;align-items:center;gap:10px;min-height:44px;line-height:1.8}.check-label input{width:20px;height:20px;flex:none;accent-color:var(--orange)}.image-rights{background:#f7fbf4}.submission-bottom{display:grid;gap:16px}.notice{margin:0;padding:17px 20px;border-radius:17px;background:#fff7e3;color:var(--muted);font-size:12px;line-height:1.8}.submit-button{min-height:55px;border:0;border-radius:17px;background:var(--orange);color:#fff;font-size:15px;font-weight:800}.submit-button span{margin-left:10px}.submit-button:disabled{opacity:.55;cursor:not-allowed}#retry-submission{min-height:50px;border:1px solid #c6906f;border-radius:15px;background:#fff1e6;color:var(--orange-deep)}.feedback{margin:0;min-height:18px;font-size:12px;line-height:1.8;color:var(--muted)}.feedback[data-tone=error]{color:#a3312b}.feedback[data-tone=success]{color:var(--green)}.draft{min-height:44px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline}.receipt-panel{margin-top:25px;display:grid;gap:14px}.receipt-panel label{margin:0}.token-control{display:flex;gap:10px}.token-control input{min-width:0}.token-control button{min-width:65px;border:1px solid var(--line);border-radius:12px;background:#fff0e5;color:var(--orange-deep)}.receipt-actions{display:flex;flex-wrap:wrap;gap:15px}.receipt-actions a{display:inline-flex;align-items:center;min-height:44px;color:var(--orange-deep);font-size:13px;font-weight:750}[hidden]{display:none!important}
+  @media(max-width:1000px){.submission-form{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px}.form-section{padding:22px}.row{gap:12px}.attached-body{padding:20px}.attached-review{padding:0}.attached-review summary{padding:20px}.section-heading small{display:none}}
+  @media(max-width:760px){.submit-hero{padding:30px 0}.submission-form{grid-template-columns:1fr}.type-field,.submission-bottom{grid-column:1}.type-field{padding:16px}.type-grid{gap:10px}.type-grid span{padding:14px 12px}.form-section{padding:20px;border-radius:22px}.attached-review{padding:0}.row{grid-template-columns:1fr}.row label{margin-top:17px!important}.row label:first-child{margin-top:0!important}.section-heading{margin-bottom:20px}.submit-hero h1{font-size:36px}.receipt-actions{display:grid}.receipt-panel h2{font-size:23px}}
 </style>

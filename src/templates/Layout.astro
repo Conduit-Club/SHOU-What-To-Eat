@@ -2,12 +2,14 @@
 import '@fontsource-variable/epilogue';
 import '@fontsource-variable/plus-jakarta-sans';
 import SiteHeader from '../components/SiteHeader.astro';
+import FormNotice from '../components/FormNotice.astro';
 
 const { title = '今日海大吃什么' } = Astro.props;
 const pathname = Astro.url.pathname;
 const navItems = [
   { href: '/', label: '餐品', icon: '⌂' },
   { href: '/restaurants/', label: '餐厅', icon: '▦' },
+  { href: '/search/', label: '搜索', icon: '⌕' },
   { href: '/submit/', label: '投稿', icon: '+' },
   { href: '/status/', label: '进度', icon: '◷' },
 ];
@@ -22,6 +24,7 @@ const navItems = [
     <title>{title} · 今日海大吃什么</title>
   </head>
   <body>
+    <FormNotice />
     <SiteHeader />
     <div class="app-content"><slot /></div>
     <nav class="bottom-nav" aria-label="主要导航">
@@ -133,7 +136,7 @@ const navItems = [
       bottom: 12px;
       left: 12px;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       min-height: 68px;
       padding: 6px;
       border: 1px solid rgba(255, 107, 53, .1);

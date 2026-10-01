@@ -65,6 +65,7 @@ test('v2 validates venue auxiliary field lengths and canonical distance pairs', 
     payload: {
       ...baseVenue.payload,
       description: '营业情况待补充',
+      category: 'off-campus',
       openingHours: '工作日 10:00-20:00',
       location: {
         ...baseVenue.payload.location,
