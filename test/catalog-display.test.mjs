@@ -22,6 +22,8 @@ test('safePublicImage keeps approved provenance, hides pending images, and rejec
     author: approved.author,
     license: approved.license,
     isIllustrative: false,
+    width: null,
+    height: null,
   });
   assert.equal(safePublicImage({ ...approved, permission: 'pending' }), null);
   for (const url of ['javascript:alert(1)', 'http://example.test/review.webp', 'https://user:pass@example.test/review.webp', 'https://localhost/review.webp']) {

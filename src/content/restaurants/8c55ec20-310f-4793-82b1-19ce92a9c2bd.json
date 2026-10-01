@@ -39,6 +39,7 @@
   "dates": {
     "visitedAt": null,
     "verifiedAt": null,
-    "updatedAt": null
+    "updatedAt": null,
+    "addedAt": "2026-10-01"
   }
 }

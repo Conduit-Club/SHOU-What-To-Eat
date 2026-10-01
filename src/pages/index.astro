@@ -2,23 +2,17 @@
 import { getCollection } from 'astro:content';
 import Layout from '../templates/Layout.astro';
 import FoodFinder from '../components/FoodFinder';
-import { deriveDistanceTags } from '../lib/catalog';
-import { safePublicImage } from '../utils/catalog-display';
+import { discoveryCatalog } from '../lib/catalog/discovery';
 
 const [venueEntries, foodEntries, reviewEntries] = await Promise.all([
   getCollection('restaurants'), getCollection('foods'), getCollection('reviews'),
 ]);
-const venues = new Map(venueEntries.map(({ data }) => [data.id, { ...data, tags: deriveDistanceTags(data) }]));
-const foods = foodEntries.map(({ data }) => {
-  const reviews = reviewEntries.filter(({ data: review }) => review.targetType === 'food' && review.targetId === data.id);
-  const ratings = reviews.map(({ data: review }) => review.rating).filter((rating): rating is number => rating !== null);
-  return { ...data, venue: venues.get(data.venueId) ?? null, reviewCount: reviews.length,
-    rating: ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null };
-}).sort((a, b) => Number(b.images.some(image => safePublicImage(image))) - Number(a.images.some(image => safePublicImage(image))) || a.name.localeCompare(b.name, 'zh-CN'));
+const catalog = discoveryCatalog({schemaVersion:2,restaurants:venueEntries.map(entry=>entry.data),foods:foodEntries.map(entry=>entry.data),reviews:reviewEntries.map(entry=>entry.data)});
+const initialCatalog={foods:catalog.foods.slice(0,12),venues:catalog.venues};
 ---
 <Layout title="今天吃什么">
   <main class="page-shell">
-    <FoodFinder client:load foods={foods} venueCount={venues.size} />
+    <FoodFinder client:load initialCatalog={initialCatalog} foodCount={catalog.foods.length} />
     <footer><span>口味因人而异，价格与营业信息请以现场为准。没有照片的餐品使用插画占位。</span><a href="/about/">关于本站与信息来源 ↗</a></footer>
   </main>
 </Layout>

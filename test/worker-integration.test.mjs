@@ -324,6 +324,25 @@ test('v2 venue and food submissions preserve receipt binding for an own pending 
   });
 });
 
+test('a new venue hierarchy only accepts an existing published parent', async () => {
+  const database = new SqliteD1();
+  const runtimeValue = runtime(database);
+  await withExternalStubs(async () => {
+    const missing = await submitV2(runtimeValue, database, 'venue', { ...venuePayload(), parentId: 'missing-parent' });
+    assert.equal(missing.response.status, 422);
+    assert.equal(missing.body.error.code, 'parent_venue_unavailable');
+    assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS count FROM submissions').get().count, 0);
+    const parent = await submitV2(runtimeValue, database, 'venue', venuePayload('审核中的父店铺'));
+    const pending = await submitV2(runtimeValue, database, 'venue', { ...venuePayload(), parentId: parent.body.entityId });
+    assert.equal(pending.response.status, 422);
+    assert.equal(pending.body.error.code, 'parent_venue_unavailable');
+    const accepted = await submitV2(runtimeValue, database, 'venue', { ...venuePayload(), parentId: 'first-canteen' });
+    assert.equal(accepted.response.status, 202);
+    const saved = JSON.parse(database.sqlite.prepare('SELECT revision_json FROM submissions WHERE id = ?').get(accepted.body.submissionId).revision_json);
+    assert.equal(saved.payload.parentId, 'first-canteen');
+  });
+});
+
 test('finalize rejects a v2 submission whose declared image is missing', async () => {
   const database = new SqliteD1();
   const runtimeValue = runtime(database);
@@ -404,6 +423,29 @@ test('real SQLite and R2 upload path persists private images and finalizes by ve
     }), runtimeValue, {});
     assert.equal(staleFinalize.status, 409);
     assert.equal((await staleFinalize.json()).error.code, 'version_conflict');
+  });
+});
+
+test('an attached review and its photos remain private and finalize together with venue photos', async () => {
+  const database = new SqliteD1();
+  const bucket = fakeR2Bucket();
+  const env = runtime(database, { MEDIA_MODE: 'r2', IMAGES: bucket });
+  await withExternalStubs(async () => {
+    const created = await submitV2(env, database, 'venue', { ...venuePayload('随稿评价测试'), attachedReview: { rating: 4, text: '测试用评价 😀' } }, { body: { expectedImages: 1, expectedReviewImages: 1 } });
+    assert.equal(created.response.status, 202, JSON.stringify(created.body));
+    const receipt=created.body;
+    const review=database.sqlite.prepare('SELECT target_type,target_id,rating,text,publication_state FROM reviews WHERE submission_id = ?').get(receipt.submissionId);
+    assert.equal(review.rating,4);assert.equal(review.text,'测试用评价 😀');assert.equal(review.target_id,receipt.entityId);assert.equal(review.publication_state,'pending');
+    const upload=async(slot,version)=>worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/images`,{method:'POST',headers:{...imageUploadHeaders(receipt.receiptToken,0,version),'X-Image-Slot':slot},body:uploadWebp()}),env,{});
+    assert.equal((await upload('entity',1)).status,201);
+    const finalize=version=>worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/finalize`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${receipt.receiptToken}`},body:JSON.stringify({expectedVersion:version,expectedImages:1,expectedReviewImages:1})}),env,{});
+    assert.equal((await finalize(2)).status,409);
+    assert.equal((await upload('attachedReview',2)).status,201);
+    assert.equal((await finalize(3)).status,200);
+    const assets=database.sqlite.prepare('SELECT slot,object_state,permission FROM media_assets WHERE submission_id = ? ORDER BY slot').all(receipt.submissionId).map(plain);
+    assert.deepEqual(assets,[{slot:'attachedReview',object_state:'private',permission:'pending'},{slot:'entity',object_state:'private',permission:'pending'}]);
+    const status=await worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/status`,{headers:{Authorization:`Bearer ${receipt.receiptToken}`}}),env,{});
+    const body=await status.json();assert.equal(body.status,'pending');assert.equal(body.uploadedImages,1);assert.equal(body.uploadedReviewImages,1);assert.doesNotMatch(JSON.stringify(body),/测试用评价|receiptToken|revision_json/);
   });
 });
 

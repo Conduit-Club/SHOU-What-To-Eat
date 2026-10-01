@@ -3,7 +3,7 @@ const pathname = Astro.url.pathname;
 ---
 <header class="site-header">
   <a class="site-brand" href="/" aria-label="今日海大吃什么首页"><span class="site-logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 14h20c0 9-5 13-10 13S6 23 6 14Z"/><path d="m9 5 18-2M9 9l18-2"/></svg></span><span>今日吃什么<small>上海海洋大学 · 临港</small></span></a>
-  <nav class="site-links" aria-label="目录导航"><a href="/" aria-current={pathname === '/' || pathname.startsWith('/foods/') ? 'page' : undefined}>餐品食单</a><a href="/restaurants/" aria-current={pathname.startsWith('/restaurants/') ? 'page' : undefined}>餐厅 / 档口</a><a href="/status/" aria-current={pathname.startsWith('/status') ? 'page' : undefined}>投稿进度</a></nav>
+  <nav class="site-links" aria-label="目录导航"><a href="/" aria-current={pathname === '/' || pathname.startsWith('/foods/') ? 'page' : undefined}>餐品食单</a><a href="/restaurants/" aria-current={pathname.startsWith('/restaurants/') ? 'page' : undefined}>餐厅 / 档口</a><a href="/search/" aria-current={pathname.startsWith("/search/") ? "page" : undefined}>搜索</a><a href="/status/" aria-current={pathname.startsWith('/status') ? 'page' : undefined}>投稿进度</a></nav>
   <a class="site-contribute" href="/submit/"><span aria-hidden="true">＋</span> 我要投稿</a>
 </header>
 <style>

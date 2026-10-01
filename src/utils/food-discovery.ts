@@ -1,7 +1,7 @@
 import { formatLocation, tagLabel, type CatalogImage, type CatalogLocation, type CatalogPrice } from './catalog-display';
 
 export type DiscoveryVenue = { id: string; name: string; category: string; location: CatalogLocation & { distanceMeters?: number | null; distanceBasis?: string | null }; tags: string[] };
-export type DiscoveryFood = { id: string; name: string; venueId: string; venue: DiscoveryVenue | null; mealTypes: string[]; tags: string[]; description: string | null; price: CatalogPrice | null; images: CatalogImage[]; reviewCount: number; rating: number | null };
+export type DiscoveryFood = { id: string; name: string; venueId: string; venue: DiscoveryVenue | null; mealTypes: string[]; tags: string[]; description: string | null; price: CatalogPrice | null; images: CatalogImage[]; reviewCount: number; rating: number | null; ratedCount?: number; addedAt?: string | null };
 export type FoodFilters = { scope: string; budget: string; meal: string; tags: string[]; query: string };
 
 export function matchesDiscoveryFood(food: DiscoveryFood, filters: FoodFilters): boolean {

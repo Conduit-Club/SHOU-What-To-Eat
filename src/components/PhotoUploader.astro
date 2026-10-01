@@ -1,0 +1,14 @@
+---
+interface Props { id: string; title?: string; limit?: number }
+const { id, title = '添加照片', limit = 6 } = Astro.props;
+---
+<label class="photo-picker">
+  <input id={id} type="file" accept="image/*" multiple aria-label={`${title}，最多 ${limit} 张`} />
+  <span class="picker-camera" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><circle cx="12" cy="13" r="4"/><path d="M18 10h.01"/></svg></span>
+  <span class="picker-copy"><strong>{title}</strong><small>点击选择 · 最多 {limit} 张 · 每张 ≤12 MB</small></span>
+  <span class="picker-add" aria-hidden="true">＋</span>
+</label>
+<p class="picker-note" data-photo-count={id}>可留空，首张照片将作为封面。</p>
+<style is:global>
+  .photo-picker{position:relative;display:flex!important;align-items:center;gap:14px;padding:22px 18px;border:1.5px dashed #dfbfa9;border-radius:20px;background:linear-gradient(120deg,#fff7ed,#fffdf9);cursor:pointer;transition:background .15s,border-color .15s}.photo-picker:hover{background:#fff0e1;border-color:var(--orange)}.photo-picker:focus-within{outline:3px solid var(--focus);outline-offset:4px}.photo-picker input[type=file]{position:absolute;inset:0;width:100%;height:100%;padding:0!important;opacity:0;cursor:pointer;z-index:1}.picker-camera{display:grid;place-items:center;width:48px;height:48px;flex:none;border-radius:15px;background:#ffe6d2;color:var(--orange-deep)}.picker-camera svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.picker-copy{display:grid;gap:6px;min-width:0}.picker-copy strong{font-size:15px;color:var(--ink)}.picker-copy small{font-size:11px;font-weight:400;line-height:1.7;color:var(--muted)}.picker-add{margin-left:auto;color:var(--orange);font-size:26px}.picker-note{margin:9px 0 0;color:var(--muted);font-size:11px;line-height:1.7}.upload-previews{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:15px}.upload-preview{min-width:0;padding:9px;border:1px solid var(--line);border-radius:15px;background:var(--surface-soft)}.upload-preview img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}.upload-preview label{display:grid;gap:6px;font-size:10px;color:var(--muted);margin-top:10px}.upload-preview input{min-width:0;width:100%;min-height:44px;padding:7px;border:1px solid var(--line);border-radius:9px;background:white;font-size:13px}.upload-preview button{width:100%;min-height:44px;border:0;background:transparent;color:#a43822;font-size:11px}.upload-preview .cover-label{display:block;font-size:10px;color:var(--orange-deep);margin-top:6px}@media(max-width:500px){.photo-picker{padding:18px 13px;gap:10px}.picker-camera{width:42px;height:42px}.picker-copy strong{font-size:14px}.picker-copy small{font-size:10px}.upload-preview input{font-size:16px}}
+</style>
