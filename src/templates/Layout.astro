@@ -16,5 +16,98 @@ const { title = '今日海大吃什么' } = Astro.props;
   <body><slot /></body>
 </html>
 <style is:global>
-  :root{font-family:'DM Sans','Noto Sans SC',sans-serif;color:#202824;background:#f7f8f5;font-synthesis:none;text-rendering:optimizeLegibility;--ink:#202824;--muted:#717a73;--line:#e4e8e2;--orange:#cf613b;--green:#477b5f}*{box-sizing:border-box}body{margin:0;min-width:320px}a{color:inherit}button,input{font:inherit}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #d77e59;outline-offset:3px}::selection{background:#ead5c9}@media(prefers-color-scheme:dark){:root{color:#e4e9e4;background:#1d2521;--ink:#e4e9e4;--muted:#9ba69f;--line:#353e38;--orange:#ef936c;--green:#84b392}::selection{background:#584337}}
+  :root {
+    font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
+    color: #202824;
+    background: #f7f8f5;
+    color-scheme: light;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    --page-bg: #f7f8f5;
+    --ink: #202824;
+    --muted: #717a73;
+    --line: #e4e8e2;
+    --orange: #cf613b;
+    --green: #477b5f;
+    --focus: #d77e59;
+  }
+
+  *,
+  *::before,
+  *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--page-bg);
+  }
+
+  a { color: inherit; }
+
+  button,
+  input,
+  select,
+  textarea { font: inherit; }
+
+  button,
+  input:not([type='radio']):not([type='checkbox']),
+  select { min-height: 44px; }
+
+  button { cursor: pointer; }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  :where(p, li, dd, dt, figcaption, label, summary, code, pre) {
+    overflow-wrap: anywhere;
+  }
+
+  img,
+  svg,
+  video,
+  canvas { max-width: 100%; }
+
+  ::selection { background: #ead5c9; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color: #e4e9e4;
+      background: #1d2521;
+      color-scheme: dark;
+      --page-bg: #1d2521;
+      --ink: #e4e9e4;
+      --muted: #9ba69f;
+      --line: #353e38;
+      --orange: #ef936c;
+      --green: #84b392;
+      --focus: #f0a47f;
+    }
+
+    ::selection { background: #584337; }
+  }
+
+  @media (max-width: 760px) {
+    input:not([type='radio']):not([type='checkbox']),
+    select,
+    textarea { font-size: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>

@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../templates/Layout.astro';
+import { renderSafeMarkdown, safeExternalUrl } from '../../utils/safe-markdown';
 
 export const prerender = true;
 
@@ -28,22 +29,63 @@ const categoryLabel = restaurant.data.category === 'on-campus' ? '校内' : '校
   </main>
 </Layout>
 
-function safeExternalUrl(raw: string) {
-  try { const url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password && !['localhost', '127.0.0.1', '::1'].includes(url.hostname.toLowerCase()) && !/^(10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname); } catch { return false; }
-}
-
-function renderSafeMarkdown(source: string) {
-  const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
-  return source.split('\n').map((line) => {
-    const escaped = escape(line);
-    return escaped
-      .replace(/!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)/g, (_match, alt: string, url: string) => safeExternalUrl(url) ? `<img src="${escape(url)}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer">` : alt)
-      .replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, (_match, label: string, url: string) => safeExternalUrl(url) ? `<a href="${escape(url)}" rel="nofollow noreferrer">${label}</a>` : label)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
-  }).join('<br>');
-}
-
 <style>
-  .detail-page{max-width:900px;margin:auto;padding:0 28px 60px}.top{height:68px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.back,.submit{color:var(--muted);font-size:12px;text-decoration:none}.back{display:flex;align-items:center;gap:8px}.back:first-letter{color:var(--orange)}.submit{color:var(--ink)}.submit span{color:var(--orange)}.crumb{margin:36px 0 9px;color:var(--muted);font-size:11px}.crumb span{padding:0 5px;color:var(--orange)}h1{margin:0;font-size:32px;letter-spacing:0}.lead{max-width:680px;margin:10px 0 30px;color:var(--muted);font-size:14px;line-height:1.8}.columns{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:44px}.columns article>section{padding:20px 0;border-top:1px solid var(--line)}h2{margin:0 0 13px;font-size:14px;font-weight:650}article section>p,.prose{color:var(--ink);font-size:13px;line-height:1.9}.number{display:inline-grid;place-items:center;width:19px;height:19px;margin-left:4px;border-radius:50%;background:color-mix(in srgb,var(--orange) 14%,transparent);color:var(--orange);font-size:10px}.foods{display:grid;gap:0;margin:0;padding:0;list-style:none}.foods li{padding:11px 0;border-bottom:1px solid var(--line)}.foods li:last-child{border:0}.foods strong{font-size:13px;font-weight:600}.food-location{margin-left:9px;color:var(--green);font-size:11px}.foods p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.7}.foods small{display:block;margin-top:5px;color:var(--orange);font-size:11px}.reviews{display:grid;gap:10px}.reviews blockquote{margin:0;padding:14px 15px;border-left:2px solid #d88865;background:color-mix(in srgb,var(--ink) 2%,transparent)}.reviews blockquote p{margin:0;color:var(--ink);font-size:13px;line-height:1.8}.reviews footer{padding:9px 0 0;margin:8px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.reviews footer span{display:block;margin-top:4px;font-size:10px}.muted,.source-note{color:var(--muted);font-size:12px;line-height:1.8}.prose :global(p){margin:0}.prose :global(a){color:var(--orange)}article figure{margin:20px 0}article figure img{display:block;max-width:100%;height:auto;border-radius:7px}figcaption{margin-top:7px;color:var(--muted);font-size:11px}aside{align-self:start;padding:18px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--ink) 1.7%,transparent)}aside h2{padding-bottom:13px;border-bottom:1px solid var(--line)}dl{display:grid;gap:7px;margin:0}dt{margin-top:6px;color:var(--muted);font-size:10px}dd{margin:0;font-size:12px;line-height:1.7}.map{display:block;padding:11px 0;margin-top:15px;border-top:1px solid var(--line);color:var(--orange);font-size:12px;text-decoration:none}.map span{float:right}.source-note{padding-top:12px;margin:0;border-top:1px solid var(--line);font-size:10px}.sources{padding:16px 0;margin-top:25px;border-top:1px solid var(--line);font-size:12px}.sources summary{cursor:pointer;color:var(--muted)}.sources ul{padding-left:18px;color:var(--muted);line-height:1.8} @media(max-width:640px){.detail-page{padding:0 18px 40px}.columns{grid-template-columns:1fr;gap:10px}.columns aside{grid-row:1}h1{font-size:27px}.crumb{margin-top:27px}aside{padding:15px}}
+  .detail-page{width:min(100%,900px);margin:auto;padding:0 28px 60px}
+  .top{min-height:68px;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .back,.submit{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}
+  .back{gap:8px}
+  .back:first-letter{color:var(--orange)}
+  .submit{flex:0 0 auto;color:var(--ink)}
+  .submit span{color:var(--orange)}
+  .crumb{margin:36px 0 9px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+  .crumb span{padding:0 5px;color:var(--orange)}
+  h1{margin:0;font-size:32px;letter-spacing:0;overflow-wrap:anywhere}
+  .lead{max-width:680px;margin:10px 0 30px;color:var(--muted);font-size:14px;line-height:1.8;overflow-wrap:anywhere}
+  .columns{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:44px}
+  .columns article{min-width:0}
+  .columns article>section{padding:20px 0;border-top:1px solid var(--line)}
+  h2{margin:0 0 13px;font-size:14px;font-weight:650;overflow-wrap:anywhere}
+  article section>p,.prose{color:var(--ink);font-size:13px;line-height:1.9;overflow-wrap:anywhere}
+  .number{display:inline-grid;place-items:center;width:19px;height:19px;margin-left:4px;border-radius:50%;background:color-mix(in srgb,var(--orange) 14%,transparent);color:var(--orange);font-size:10px}
+  .foods{display:grid;gap:0;margin:0;padding:0;list-style:none}
+  .foods li{padding:11px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+  .foods li:last-child{border:0}
+  .foods strong{font-size:13px;font-weight:600}
+  .food-location{margin-left:9px;color:var(--green);font-size:11px}
+  .foods p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+  .foods small{display:block;margin-top:5px;color:var(--orange);font-size:11px;overflow-wrap:anywhere}
+  .reviews{display:grid;gap:10px}
+  .reviews blockquote{margin:0;padding:14px 15px;border-left:2px solid #d88865;background:color-mix(in srgb,var(--ink) 2%,transparent);overflow-wrap:anywhere}
+  .reviews blockquote p{margin:0;color:var(--ink);font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+  .reviews footer{padding:9px 0 0;margin:8px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+  .reviews footer span{display:block;margin-top:4px;font-size:10px;overflow-wrap:anywhere}
+  .muted,.source-note{color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+  .prose :global(p){margin:0}
+  .prose :global(a){color:var(--orange);overflow-wrap:anywhere}
+  .prose :global(code){font-family:ui-monospace,monospace;word-break:break-word}
+  .prose :global(img){display:block;max-width:100%;height:auto;margin:12px 0;border-radius:7px}
+  article figure{margin:20px 0}
+  article figure img{display:block;width:auto;max-width:100%;height:auto;border-radius:7px}
+  figcaption{margin-top:7px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+  aside{align-self:start;min-width:0;padding:18px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--ink) 1.7%,transparent)}
+  aside h2{padding-bottom:13px;border-bottom:1px solid var(--line)}
+  dl{display:grid;gap:7px;margin:0}
+  dt{margin-top:6px;color:var(--muted);font-size:10px}
+  dd{margin:0;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+  .map{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0;margin-top:15px;border-top:1px solid var(--line);color:var(--orange);font-size:12px;text-decoration:none}
+  .source-note{padding-top:12px;margin:0;border-top:1px solid var(--line);font-size:10px}
+  .sources{padding:16px 0;margin-top:25px;border-top:1px solid var(--line);font-size:12px}
+  .sources summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted)}
+  .sources ul{padding-left:18px;color:var(--muted);line-height:1.8;overflow-wrap:anywhere}
+  @media(max-width:820px){.columns{grid-template-columns:minmax(0,1fr) 220px;gap:24px}}
+  @media(max-width:640px){
+    .detail-page{padding:0 18px 40px}
+    .top{align-items:flex-start}
+    .columns{grid-template-columns:1fr;gap:10px}
+    .columns aside{grid-row:1}
+    h1{font-size:27px}
+    .crumb{margin-top:27px}
+    aside{padding:15px}
+  }
+  @media(max-width:360px){.detail-page{padding-right:16px;padding-left:16px}.top{gap:8px}.back,.submit{font-size:11px}}
 </style>

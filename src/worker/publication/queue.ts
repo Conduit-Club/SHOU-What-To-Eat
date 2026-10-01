@@ -4,7 +4,6 @@ import type { AppEnv } from '../types.js';
 export async function processPublicationQueue(env: AppEnv['Bindings']) {
   const now = new Date().toISOString();
   const leaseUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const claimId = crypto.randomUUID();
   const claimed = await env.DB.prepare("UPDATE publication_jobs SET status = 'running', attempts = attempts + 1, lease_until = ?, updated_at = ? WHERE id = (SELECT id FROM publication_jobs WHERE status = 'queued' OR status = 'running' AND lease_until < ? ORDER BY created_at LIMIT 1) AND (status = 'queued' OR lease_until < ?) RETURNING id, submission_id, submission_version, content_hash, branch, attempts").bind(leaseUntil, now, now, now).first<{ id: string; submission_id: string; submission_version: number; content_hash: string; branch: string; attempts: number }>();
   if (!claimed) return;
   try {
