@@ -4,6 +4,7 @@ export type AppEnv = {
     ASSETS: Fetcher;
     MEDIA_MODE: 'external' | 'r2';
     ALLOWED_ORIGINS: string;
+    PUBLICATION_ENABLED?: string;
     TURNSTILE_SECRET_KEY: string;
     ACCESS_TEAM_DOMAIN: string;
     ACCESS_AUD: string;

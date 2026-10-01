@@ -2,9 +2,63 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "what-to-eat-in-shou-today-done-right",
   "main": "src/worker/index.ts",
+  "tsconfig": "src/worker/tsconfig.json",
   "compatibility_date": "2026-09-30",
-  "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
-  "d1_databases": [{ "binding": "DB", "database_name": "shou-food", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }],
-  "vars": { "MEDIA_MODE": "external", "ALLOWED_ORIGINS": "http://localhost:4321", "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right" },
-  "triggers": { "crons": ["*/2 * * * *"] }
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api", "/api/*"],
+    "not_found_handling": "404-page"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "shou-food",
+    "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+    "migrations_dir": "migrations"
+  }],
+  "vars": {
+    "MEDIA_MODE": "external",
+    "ALLOWED_ORIGINS": "http://localhost:4321",
+    "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+    "PUBLICATION_ENABLED": "false"
+  },
+  "triggers": { "crons": [] },
+  "env": {
+    "preview": {
+      "name": "what-to-eat-in-shou-today-done-right-preview",
+      "workers_dev": true,
+      "d1_databases": [{
+        "binding": "DB",
+        "database_name": "shou-food-preview",
+        "database_id": "REPLACE_WITH_PREVIEW_D1_DATABASE_ID",
+        "migrations_dir": "migrations"
+      }],
+      "vars": {
+        "MEDIA_MODE": "external",
+        "ALLOWED_ORIGINS": "http://localhost:4321",
+        "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+        "PUBLICATION_ENABLED": "false"
+      },
+      "triggers": { "crons": [] }
+    },
+    "production": {
+      "name": "what-to-eat-in-shou-today-done-right",
+      "workers_dev": false,
+      "routes": [{ "pattern": "eat.shoumc.com", "custom_domain": true }],
+      "d1_databases": [{
+        "binding": "DB",
+        "database_name": "shou-food",
+        "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+        "migrations_dir": "migrations"
+      }],
+      "vars": {
+        "MEDIA_MODE": "external",
+        "ALLOWED_ORIGINS": "https://eat.shoumc.com",
+        "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+        "PUBLICATION_ENABLED": "false"
+      },
+      "triggers": { "crons": [] }
+    }
+  }
 }

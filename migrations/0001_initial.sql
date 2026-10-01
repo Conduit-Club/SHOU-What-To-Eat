@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
   id TEXT PRIMARY KEY,
   submission_id TEXT NOT NULL REFERENCES submissions(id),
   reviewer TEXT NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('edit', 'approve', 'reject', 'export', 'retry', 'publish', 'close')),
+  action TEXT NOT NULL CHECK (action IN ('submit', 'edit', 'approve', 'reject', 'export', 'retry', 'publish', 'close')),
   version INTEGER NOT NULL,
   reason TEXT,
   created_at TEXT NOT NULL
