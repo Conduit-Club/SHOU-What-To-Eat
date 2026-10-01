@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api", "/api/*"],
+    "run_worker_first": ["/api", "/api/*", "/media/*"],
     "not_found_handling": "404-page"
   },
   "d1_databases": [{
@@ -17,9 +17,12 @@
     "database_id": "REPLACE_WITH_D1_DATABASE_ID",
     "migrations_dir": "migrations"
   }],
+  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "REPLACE_WITH_R2_BUCKET_NAME" }],
   "vars": {
-    "MEDIA_MODE": "external",
+    "MEDIA_MODE": "r2",
     "ALLOWED_ORIGINS": "http://localhost:4321",
+    "TURNSTILE_HOSTNAME": "eat.shoumc.com",
+    "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
     "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
     "PUBLICATION_ENABLED": "false"
   },
@@ -35,8 +38,10 @@
         "migrations_dir": "migrations"
       }],
       "vars": {
-        "MEDIA_MODE": "external",
+        "MEDIA_MODE": "r2",
         "ALLOWED_ORIGINS": "http://localhost:4321",
+        "TURNSTILE_HOSTNAME": "eat.shoumc.com",
+        "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
         "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
         "PUBLICATION_ENABLED": "false"
       },
@@ -53,8 +58,10 @@
         "migrations_dir": "migrations"
       }],
       "vars": {
-        "MEDIA_MODE": "external",
+        "MEDIA_MODE": "r2",
         "ALLOWED_ORIGINS": "https://eat.shoumc.com",
+        "TURNSTILE_HOSTNAME": "eat.shoumc.com",
+        "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
         "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
         "PUBLICATION_ENABLED": "false"
       },

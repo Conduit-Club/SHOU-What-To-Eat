@@ -1,3 +1,0 @@
-{
-  "id": "changfen", "name": "肠粉", "category": "on-campus", "kind": "餐品待定位", "location": "学校内，具体食堂或档口待补充。", "price": "待补充。", "reviews": [{ "text": "在学校里面就吃肠粉挂壁得了。", "author": "A", "source": "旧美食站已有评价；上下文不足以确认具体档口。" }], "sources": [{ "repository": "what-to-eat-in-shou-today", "path": "website/docs/on-campus/changfen.md", "revision": "working-tree", "license": "CC BY-NC-SA 4.0", "note": "需沿用来源署名与许可。" }]
-}

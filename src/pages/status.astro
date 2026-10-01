@@ -1,42 +1,104 @@
 ---
 import Layout from '../templates/Layout.astro';
 ---
-<Layout title="查询投稿"><main class="status-page"><header><a href="/">← 返回目录</a><span>投稿回执</span></header><p class="eyebrow">SUBMISSION STATUS</p><h1>查询投稿进度</h1><p class="lead">使用提交时收到的回执编号和查询令牌。令牌只由你持有，本站不会公开展示稿件。</p><form id="status-form"><label>回执编号<input name="id" required autocomplete="off" /></label><label>查询令牌<input name="token" type="password" required autocomplete="off" /></label><button type="submit">查询状态 <span aria-hidden="true">→</span></button><p class="feedback" role="status" aria-live="polite"></p></form><section id="result" hidden><h2>当前状态</h2><p class="state"></p><p class="detail"></p></section></main></Layout>
+<Layout title="查询投稿">
+  <main class="status-page">
+    <header class="top"><a href="/" class="back"><span aria-hidden="true">←</span> 返回目录</a><span class="page-label">投稿回执</span></header>
+    <section class="status-hero">
+      <p class="eyebrow">SUBMISSION STATUS</p>
+      <h1>看看投稿走到哪一步了。</h1>
+      <p class="lead">使用提交时收到的回执编号和查询令牌。令牌只由你持有，本站不会公开展示稿件。</p>
+    </section>
+    <form id="status-form" class="status-form">
+      <label><span>回执编号</span><input name="id" required autocomplete="off" spellcheck="false" placeholder="粘贴回执编号" /></label>
+      <label><span>查询令牌</span><input name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="粘贴查询令牌" /></label>
+      <button type="submit">查询状态 <span aria-hidden="true">→</span></button>
+      <p class="feedback" role="status" aria-live="polite"></p>
+    </form>
+    <section id="result" class="result-card" hidden aria-live="polite">
+      <div class="result-heading"><div><p class="eyebrow">YOUR SUBMISSION</p><h2>当前状态</h2></div><span class="state-badge"></span></div>
+      <p class="detail"></p>
+      <p class="result-note">状态只对持有回执令牌的人可见。</p>
+    </section>
+  </main>
+</Layout>
 <script>
+  type SavedReceipt = { receiptToken?: unknown };
   const form = document.querySelector<HTMLFormElement>('#status-form')!;
   const feedback = document.querySelector<HTMLElement>('.feedback')!;
   const result = document.querySelector<HTMLElement>('#result')!;
-  const states: Record<string, string> = { pending: '等待审核', approved: '审核通过', rejected: '未通过审核', exporting: '正在准备内容 PR', export_failed: 'PR 准备失败，可联系维护者', merged_dev: '已进入预览分支，等待正式发布', merged_main: '已合入正式发布分支', deployed: '已发布' };
+  const badge = document.querySelector<HTMLElement>('.state-badge')!;
+  const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  const idInput = form.elements.namedItem('id') as HTMLInputElement;
+  const tokenInput = form.elements.namedItem('token') as HTMLInputElement;
+  const receiptHistoryKey = 'shou-submission-receipts-v2';
+  const states: Record<string, { label: string; note: string }> = {
+    pending: { label: '等待审核', note: '投稿已收到，正在等待管理员查看。' },
+    approved: { label: '审核通过', note: '内容已通过审核，正在准备发布流程。' },
+    rejected: { label: '未通过审核', note: '投稿暂未通过审核；如需补充信息，可重新投稿。' },
+    exporting: { label: '正在准备内容 PR', note: '审核结果正在整理为内容变更。' },
+    export_failed: { label: 'PR 准备失败', note: '发布准备遇到问题，请联系维护者。' },
+    merged_dev: { label: '已进入预览', note: '内容已进入预览分支，等待正式发布。' },
+    merged_main: { label: '已合入发布分支', note: '内容已进入正式发布流程。' },
+    deployed: { label: '已发布', note: '内容已发布到公开目录。' },
+  };
   const params = new URLSearchParams(location.search);
   const savedId = params.get('id');
-  if (savedId) (form.elements.namedItem('id') as HTMLInputElement).value = savedId;
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault(); feedback.textContent = '正在查询……'; result.hidden = true;
-    const fields = new FormData(form); const id = String(fields.get('id')); const token = String(fields.get('token'));
+  function readSavedReceipt(id: string): SavedReceipt | null {
+    if (!id) return null;
     try {
-      const response = await fetch(`/api/v1/submissions/${encodeURIComponent(id)}/status`, { headers: { Authorization: `Bearer ${token}` } });
-      const body = await response.json(); if (!response.ok) throw new Error(body.error?.message || '查询失败。');
-      document.querySelector<HTMLElement>('.state')!.textContent = states[body.status] ?? body.status;
-      document.querySelector<HTMLElement>('.detail')!.textContent = `回执编号：${body.id} · 最后更新：${new Date(body.updatedAt).toLocaleString('zh-CN')}`;
-      result.hidden = false; feedback.textContent = '';
-    } catch (error) { feedback.textContent = error instanceof Error ? error.message : '暂时无法查询。'; }
-  });
+      const parsed = JSON.parse(sessionStorage.getItem(receiptHistoryKey) ?? 'null') as Record<string, SavedReceipt> | null;
+      const saved = parsed?.[id];
+      return saved && typeof saved === 'object' ? saved : null;
+    } catch { return null; }
+  }
+  async function queryStatus(silent = false) {
+    const id = idInput.value.trim();
+    const token = tokenInput.value;
+    if (!id || !token) {
+      if (!silent) feedback.textContent = '请填写回执编号和查询令牌。';
+      return;
+    }
+    feedback.textContent = '正在查询……';
+    result.hidden = true;
+    submitButton.disabled = true;
+    try {
+      const response = await fetch('/api/v2/submissions/' + encodeURIComponent(id) + '/status', { headers: { Authorization: 'Bearer ' + token } });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message || '查询失败。');
+      const state = states[body.status] ?? { label: body.status, note: '状态已更新。' };
+      badge.textContent = state.label;
+      badge.dataset.state = body.status;
+      const uploadNote = body.uploadState === 'uploading' ? ' · 图片上传：' + body.uploadedImages + '/' + body.expectedImages + (body.expectedReviewImages ? '，附评 ' + body.uploadedReviewImages + '/' + body.expectedReviewImages : '') : '';
+      document.querySelector<HTMLElement>('.detail')!.textContent = '回执编号：' + (body.submissionId ?? body.id ?? id) + uploadNote;
+      document.querySelector<HTMLElement>('.result-note')!.textContent = state.note;
+      result.hidden = false;
+      feedback.textContent = '';
+    } catch (error) {
+      feedback.textContent = error instanceof Error ? error.message : '暂时无法查询。';
+    } finally {
+      submitButton.disabled = false;
+    }
+  }
+  function hydrateSavedReceipt(autoQuery = false) {
+    const id = idInput.value.trim();
+    const saved = readSavedReceipt(id);
+    const savedToken = typeof saved?.receiptToken === 'string' ? saved.receiptToken : '';
+    if (savedToken) {
+      tokenInput.value = savedToken;
+      if (autoQuery) void queryStatus(true);
+    }
+  }
+  if (savedId) idInput.value = savedId;
+  form.addEventListener('submit', (event) => { event.preventDefault(); void queryStatus(false); });
+  idInput.addEventListener('change', () => hydrateSavedReceipt(false));
+  hydrateSavedReceipt(Boolean(savedId));
 </script>
 <style>
-  .status-page{width:min(100%,560px);margin:auto;padding:0 24px 60px}
-  .status-page header{min-height:68px;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
-  .status-page header a{display:flex;align-items:center;min-height:44px;text-decoration:none}
-  .eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}
-  .status-page h1{margin:0;font-size:28px;letter-spacing:0;overflow-wrap:anywhere}
-  .lead{margin:10px 0 26px;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}
-  form{display:grid;gap:14px}
-  form label{display:grid;gap:7px;font-size:12px}
-  form input{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink)}
-  form button{min-height:44px;border:0;border-radius:6px;background:var(--orange);color:#fff;font-size:12px;cursor:pointer}
-  .feedback,.detail{color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
-  #result{padding:14px;margin-top:14px;border:1px solid var(--line);border-radius:7px;overflow-wrap:anywhere}
-  #result h2{font-size:13px}
-  #result p{font-size:13px;overflow-wrap:anywhere}
-  @media(max-width:520px){.status-page{padding:0 18px 45px}.eyebrow{margin-top:30px}.status-page h1{font-size:25px}.status-page form input{font-size:16px}}
-  @media(max-width:360px){.status-page{padding-right:16px;padding-left:16px}.status-page header{gap:8px}}
+  .status-page{width:min(calc(100% - 32px),760px);margin:auto;padding:0 0 60px}.top{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}.back,.page-label{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}.back{gap:8px}.back span{color:var(--orange)}.page-label{font-weight:700;color:var(--ink)}
+  .status-hero{max-width:630px;padding:64px 0 33px}.eyebrow{margin:0 0 14px;color:var(--orange-deep);font-size:10px;font-weight:800;letter-spacing:.15em}.status-hero h1{margin:0;color:var(--ink);font-size:clamp(36px,5vw,52px);line-height:1.1;letter-spacing:-.05em;overflow-wrap:anywhere}.lead{margin:17px 0 0;color:var(--muted);font-size:14px;line-height:1.85;overflow-wrap:anywhere}
+  .status-form{display:grid;gap:16px;padding:25px;border:1px solid rgba(255,107,53,.1);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}.status-form label{display:grid;gap:8px;color:var(--ink);font-size:12px;font-weight:800}.status-form input{width:100%;min-height:50px;padding:0 15px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:16px;outline:0}.status-form input:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,53,.15)}.status-form button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:52px;border:0;border-radius:17px;background:var(--orange);color:#fff;font-size:13px;font-weight:800}.status-form button:disabled{cursor:wait;opacity:.65}.feedback{min-height:22px;margin:0;color:var(--muted);font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+  .result-card{margin-top:18px;padding:25px;border-radius:28px;background:var(--ink);color:#fff;box-shadow:var(--shadow-hover)}.result-heading{display:flex;align-items:start;justify-content:space-between;gap:16px}.result-heading h2{margin:7px 0 0;color:#fff;font-size:24px}.result-heading .eyebrow{color:#ffb69f}.state-badge{flex:0 0 auto;padding:9px 12px;border-radius:999px;background:#fff2eb;color:var(--orange-deep);font-size:11px;font-weight:800}.state-badge[data-state=deployed],.state-badge[data-state=merged_main]{background:#dcfce7;color:#23814d}.state-badge[data-state=rejected],.state-badge[data-state=export_failed]{background:#ffe5e0;color:#ad3e2d}.detail{margin:23px 0 0;padding-top:16px;border-top:1px solid rgba(255,255,255,.14);color:#fff;font-size:12px;line-height:1.8;overflow-wrap:anywhere}.result-note{margin:10px 0 0;color:#d7c6bf;font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+  @media(max-width:640px){.status-page{width:min(calc(100% - 32px),760px)}.status-hero{padding:44px 0 30px}.status-hero h1{font-size:40px}.status-form{padding:20px;border-radius:24px}.result-card{padding:21px;border-radius:24px}}
+  @media(max-width:360px){.status-page{width:calc(100% - 32px)}.top{gap:8px}.back,.page-label{font-size:10px}.status-hero h1{font-size:34px}.result-heading{display:block}.state-badge{display:inline-flex;margin-top:16px}}
 </style>

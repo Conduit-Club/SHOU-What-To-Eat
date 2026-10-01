@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { requireAccess } from '../security.js';
+import { legacySubmissionWritesEnabled } from '../config.js';
 import type { AppEnv } from '../types.js';
 
 export const adminRoutes = new Hono<AppEnv>();
@@ -15,6 +16,7 @@ adminRoutes.get('/submissions', async (context) => {
 });
 
 adminRoutes.patch('/submissions/:id', async (context) => {
+  if (!legacySubmissionWritesEnabled(context.env)) return legacyDisabled(context);
   if (context.req.header('Origin') && context.req.header('Origin') !== new URL(context.req.url).origin) return context.json({ error: { code: 'origin_forbidden', message: '请求来源不允许。' } }, 403);
   const body = await context.req.json().catch(() => null) as { expectedVersion?: unknown; revision?: unknown } | null;
   if (!body || !Number.isSafeInteger(body.expectedVersion) || !isObject(body.revision) || !validRevision(body.revision)) return context.json({ error: { code: 'invalid_revision', message: '审核稿或版本号无效。' } }, 422);
@@ -31,6 +33,7 @@ adminRoutes.patch('/submissions/:id', async (context) => {
 });
 
 adminRoutes.post('/submissions/:id/review', async (context) => {
+  if (!legacySubmissionWritesEnabled(context.env)) return legacyDisabled(context);
   if (context.req.header('Origin') && context.req.header('Origin') !== new URL(context.req.url).origin) return context.json({ error: { code: 'origin_forbidden', message: '请求来源不允许。' } }, 403);
   const body = await context.req.json().catch(() => null) as { action?: unknown; expectedVersion?: unknown; reason?: unknown } | null;
   if (!body || !['approve', 'reject'].includes(String(body.action)) || !Number.isSafeInteger(body.expectedVersion) || body.action === 'reject' && (typeof body.reason !== 'string' || !body.reason.trim())) return context.json({ error: { code: 'invalid_review', message: '审核操作、版本或拒绝理由无效。' } }, 422);
@@ -64,6 +67,7 @@ adminRoutes.get('/submissions/:id', async (context) => {
   return context.json({ submission, audits: audits.results }, 200, { 'Cache-Control': 'no-store' });
 });
 adminRoutes.post('/publications/:id/retry', async (context) => {
+  if (!legacySubmissionWritesEnabled(context.env)) return legacyDisabled(context);
   const now = new Date().toISOString();
   const result = await context.env.DB.batch([
     context.env.DB.prepare("UPDATE publication_jobs SET status = 'queued', error_code = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND status IN ('failed', 'closed')").bind(now, context.req.param('id')),
@@ -78,3 +82,4 @@ function isObject(value: unknown): value is Record<string, unknown> { return Boo
 function validRevision(value: Record<string, unknown>) { return typeof value.name === 'string' && value.name.trim().length > 0 && value.name.length <= 100 && typeof value.location === 'string' && value.location.trim().length > 0 && value.location.length <= 300 && typeof value.body === 'string' && value.body.trim().length > 0 && value.body.length <= 20_000 && ['on-campus', 'off-campus'].includes(String(value.category)); }
 function safeMarkdown(value: string) { return !/<\s*\/?\s*(script|iframe|object|embed|style|svg|math|img|video|audio|form)\b/i.test(value) && !/!\[[^\]]*\]\s*\(\s*(?!https:\/\/)[^)]+\)/i.test(value) && !/\]\(\s*(?:javascript|data|file|vbscript):/i.test(value); }
 async function hash(value: string) { const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join(''); }
+function legacyDisabled(context: import('hono').Context<AppEnv>) { return context.json({ error: { code: 'v2_required', message: '旧版审核写接口已关闭，请使用 v2 审核接口。' } }, 410, { 'Cache-Control': 'no-store' }); }

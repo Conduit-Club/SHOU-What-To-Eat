@@ -4,6 +4,10 @@ export function publicationEnabled(env: AppEnv['Bindings']): boolean {
   return env.PUBLICATION_ENABLED === 'true';
 }
 
+export function legacySubmissionWritesEnabled(env: AppEnv['Bindings']): boolean {
+  return env.LEGACY_SUBMISSIONS_ENABLED === 'true';
+}
+
 /**
  * Configuration needed by a public submission or private review service.
  * Static assets deliberately do not use this check and remain available when
@@ -12,6 +16,8 @@ export function publicationEnabled(env: AppEnv['Bindings']): boolean {
 export function missingSubmissionConfig(env: AppEnv['Bindings']): string[] {
   const missing = missingDatabaseConfig(env);
   if (!env.TURNSTILE_SECRET_KEY?.trim()) missing.push('TURNSTILE_SECRET_KEY');
+  if (!env.TURNSTILE_HOSTNAME?.trim()) missing.push('TURNSTILE_HOSTNAME');
+  if (env.MEDIA_MODE === 'r2' && !env.IMAGES) missing.push('IMAGES');
   return missing;
 }
 
@@ -23,6 +29,7 @@ export function missingReviewConfig(env: AppEnv['Bindings']): string[] {
   const missing = missingSubmissionConfig(env);
   if (!env.ACCESS_TEAM_DOMAIN?.trim()) missing.push('ACCESS_TEAM_DOMAIN');
   if (!env.ACCESS_AUD?.trim()) missing.push('ACCESS_AUD');
+  if (!env.ACCESS_REVIEWER_EMAIL?.trim()) missing.push('ACCESS_REVIEWER_EMAIL');
   return missing;
 }
 

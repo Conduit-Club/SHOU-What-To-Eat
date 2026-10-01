@@ -1,37 +1,45 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
+import { loadCatalog, generateCatalogSnapshot } from '../src/lib/catalog/index.ts';
 
-const contentDir = new URL('../src/content/restaurants/', import.meta.url);
-const records = await Promise.all((await readdir(contentDir)).filter((file) => file.endsWith('.json')).map(async (file) => JSON.parse(await readFile(new URL(file, contentDir), 'utf8'))));
+async function readCollection(name) {
+  const directory = new URL(`../src/content/${name}/`, import.meta.url);
+  const files = (await readdir(directory)).filter((file) => file.endsWith('.json')).sort();
+  return Promise.all(files.map(async (file) => JSON.parse(await readFile(new URL(file, directory), 'utf8'))));
+}
 
-test('migrates all legacy and guide entries without duplicate IDs', () => {
-  assert.equal(records.length, 19);
-  assert.equal(new Set(records.map((record) => record.id)).size, 19);
-  assert.equal(records.filter((record) => record.category === 'on-campus').length, 8);
-  assert.equal(records.filter((record) => record.category === 'off-campus').length, 11);
+const rawCatalog = {
+  restaurants: await readCollection('restaurants'),
+  foods: await readCollection('foods'),
+  reviews: await readCollection('reviews'),
+};
+const catalog = loadCatalog(rawCatalog);
+
+test('migrated content has stable IDs and valid relationships', () => {
+  assert.deepEqual(catalog.restaurants.map((venue) => venue.id).sort(), [
+    'area-a-711', 'area-b-711', 'first-canteen', 'flavor-restaurant', 'mixue-second-canteen', 'second-canteen', 'third-canteen',
+  ]);
+  assert.ok(catalog.foods.length > 20);
+  assert.ok(catalog.reviews.length >= 8);
+  assert.equal(catalog.restaurants.find((venue) => venue.id === 'flavor-restaurant').parentId, 'second-canteen');
+  assert.equal(catalog.restaurants.find((venue) => venue.id === 'mixue-second-canteen').parentId, 'second-canteen');
+  assert.ok(catalog.restaurants.every((venue) => venue.schemaVersion === 2));
+  assert.ok(catalog.foods.every((food) => food.schemaVersion === 2));
+  assert.ok(catalog.reviews.every((review) => review.schemaVersion === 2));
 });
 
-test('every migrated record keeps location, price and source provenance', () => {
-  for (const record of records) {
-    assert.ok(record.name, record.id);
-    assert.ok(record.location, record.id);
-    assert.ok(record.price, record.id);
-    assert.ok(record.sources?.length, record.id);
-    assert.ok(record.visitedAt === undefined || record.visitedAt === null || typeof record.visitedAt === 'string', record.id);
-  }
+test('migration keeps explicit provenance and changes coordinates to latitude first', () => {
+  const first = catalog.restaurants.find((venue) => venue.id === 'first-canteen');
+  assert.deepEqual(first.location.coordinates, [30.8826037, 121.8934382]);
+  assert.ok(first.sources.length >= 2);
+  assert.match(first.description, /酸菜鱼/);
+  assert.equal(catalog.foods.some((food) => food.name === '酸菜鱼'), false);
+  assert.ok(catalog.reviews.some((review) => review.text.includes('酸菜鱼')));
 });
 
-test('all public external images use HTTPS and have alt text and permission state', () => {
-  for (const record of records) for (const image of record.images ?? []) {
-    assert.match(image.url, /^https:\/\//);
-    assert.ok(image.alt);
-    assert.ok(image.permission);
-  }
-});
-
-test('preserves the multiple student reviews and ambiguous location notes', () => {
-  assert.ok(records.find((record) => record.id === 'first-canteen').reviews.length >= 5);
-  assert.ok(records.find((record) => record.id === 'second-canteen').foods.some((food) => food.name.includes('肠粉')));
-  assert.match(records.find((record) => record.id === 'changfen').location, /待补充/);
+test('public snapshot derives no distance tags from unknown campus distances', () => {
+  const snapshot = generateCatalogSnapshot(rawCatalog);
+  assert.ok(snapshot.restaurants.every((venue) => !venue.tags.some((tag) => tag.startsWith('within-'))));
+  assert.ok(snapshot.restaurants.every((venue) => venue.images.every((image) => image.permission === 'approved')));
 });

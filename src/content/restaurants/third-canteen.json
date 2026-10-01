@@ -1,1 +1,18 @@
-{"id":"third-canteen","name":"三食堂","category":"on-campus","kind":"校园食堂","aliases":["第三餐厅","三餐"],"location":"研究生区，与 B 区 7-11 同一栋楼。食堂共两层。","coordinates":[121.8918594,30.8893715],"price":"具体窗口和现价待补充。","foods":[{"name":"豆浆、白粥、油条、豆花、肉包","location":"一楼早餐区"},{"name":"面条","location":"一楼面食区","description":"可添加雪菜、素鸡等配菜。"},{"name":"糕点","location":"一楼糕点房"},{"name":"打菜","location":"一楼正餐时段"},{"name":"铁板炒","location":"一楼","description":"同学分享的吃饱选择；当前窗口状态待核。"},{"name":"麻辣烫、面食","location":"二楼"},{"name":"牛肉牛杂粉丝汤、凉皮","location":"二楼"},{"name":"川香小炒、韩式料理、小碟菜","location":"二楼"}],"reviews":[{"text":"一楼有常见食堂早餐、糕点房和面食窗口；早餐以外可打菜。","author":"SHOU-Online-Manual 编辑整理","source":"手册经验整理，不是逐项现场核验。"},{"text":"想吃铁板炒可以看看一楼窗口；二楼选择较多，价格可能高于一楼。","author":"SHOU-Online-Manual 编辑整理","source":"手册经验整理；价格和营业状态待补充核验。"}],"body":"食堂分两层，一楼偏早餐与常规打菜，二楼窗口更多。具体开放窗口、价格与营业时间可能变化；到店前以现场为准。","sources":[{"repository":"SHOU-Online-Manual","path":"docs/canteen/campus-dining.md","revision":"working-tree","license":"CC BY-SA 4.0","note":"食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。"}]}
+{
+  "schemaVersion": 2,
+  "id": "third-canteen",
+  "name": "三食堂",
+  "kind": "cafeteria",
+  "parentId": null,
+  "category": "on-campus",
+  "aliases": ["第三餐厅", "三餐"],
+  "tags": ["on-campus", "canteen"],
+  "location": {"address": "研究生区，与 B 区 7-11 同一栋楼。食堂共两层。", "campusArea": "研究生区", "floor": "一楼、二楼", "landmark": "B 区 7-11 同栋", "coordinates": [30.8893715, 121.8918594], "distanceMeters": null, "distanceBasis": null},
+  "averagePrice": null,
+  "description": "食堂分两层，一楼偏早餐与常规打菜，二楼窗口更多。具体开放窗口、价格与营业时间可能变化；到店前以现场为准。",
+  "openingHours": null,
+  "foods": ["third-soy-milk", "third-white-porridge", "third-youtiao", "third-tofu-pudding", "third-meat-bun", "third-noodles", "third-pastry", "third-set-meal", "third-iron-plate-stir-fry", "third-malatang", "third-noodle", "third-beef-offal-vermicelli", "third-cold-noodles", "third-sichuan-stir-fry", "third-korean-food", "third-small-plates"],
+  "images": [],
+  "sources": [{"repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0", "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。"}],
+  "dates": {"visitedAt": null, "verifiedAt": null, "updatedAt": null}
+}

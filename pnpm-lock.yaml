@@ -11,6 +11,12 @@ importers:
       '@astrojs/react':
         specifier: ^4.4.0
         version: 4.4.2(@types/node@22.20.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tsx@4.23.15)(yaml@2.9.1)
+      '@fontsource-variable/epilogue':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/plus-jakarta-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
       astro:
         specifier: ^5.13.0
         version: 5.18.2(@types/node@22.20.4)(rollup@4.63.5)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
@@ -898,6 +904,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource-variable/epilogue@5.3.0':
+    resolution: {integrity: sha512-atoQ7bIqgDLX+zlxbxmYpNZ7nqkwwZczkhJhWdaX+UBZufhPWP3vrcKaLVaNcCbRyHeSoX/y/HJNGjKhewEsAg==}
+
+  '@fontsource-variable/plus-jakarta-sans@5.3.0':
+    resolution: {integrity: sha512-/l/4r0yyWK9JzAlmA0LiYgGgmJe/Gswt4jTJEzr5QhJfwMbvJZDmYWyW0M4X7yCK69BajMVlV/Lx8g7WDc1+sw==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -3473,6 +3485,10 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
+
+  '@fontsource-variable/epilogue@5.3.0': {}
+
+  '@fontsource-variable/plus-jakarta-sans@5.3.0': {}
 
   '@img/colour@1.1.0': {}
 

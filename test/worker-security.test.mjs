@@ -13,9 +13,12 @@ function env(overrides = {}) {
     MEDIA_MODE: 'external',
     ALLOWED_ORIGINS: 'http://localhost:4321',
     PUBLICATION_ENABLED: 'true',
+    LEGACY_SUBMISSIONS_ENABLED: 'true',
     TURNSTILE_SECRET_KEY: 'turnstile-test-secret',
+    TURNSTILE_HOSTNAME: 'eat.shoumc.com',
     ACCESS_TEAM_DOMAIN: ACCESS_DOMAIN,
     ACCESS_AUD: ACCESS_AUDIENCE,
+    ACCESS_REVIEWER_EMAIL: 'reviewer@example.com',
     GITHUB_APP_ID: '123',
     GITHUB_PRIVATE_KEY: 'private-key',
     GITHUB_INSTALLATION_ID: '123',
@@ -63,7 +66,7 @@ async function withFetchStub(stub, callback) {
 }
 
 function turnstileResponse(success) {
-  return new Response(JSON.stringify({ success }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ success, action: success ? 'submission' : undefined, hostname: success ? 'eat.shoumc.com' : undefined }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
 test('rejects a streamed request over 64 KiB without Content-Length before external verification', async () => {

@@ -1,1 +1,18 @@
-{"id":"mixue-second-canteen","name":"蜜雪冰城（二食堂）","category":"on-campus","kind":"饮品店","relatedRestaurantIds":["second-canteen"],"location":"第二食堂一楼。","price":"当前菜单、甜度选项及本店实付价格待补充。","foods":[{"name":"蜜雪冰城饮品","description":"具体菜单待补充。"}],"body":"位置来自校园餐饮记录；分店菜单、营业状态和价格以现场为准。","sources":[{"repository":"SHOU-Online-Manual","path":"docs/canteen/campus-dining.md","revision":"working-tree","license":"CC BY-SA 4.0"}]}
+{
+  "schemaVersion": 2,
+  "id": "mixue-second-canteen",
+  "name": "蜜雪冰城（二食堂）",
+  "kind": "cafe",
+  "parentId": "second-canteen",
+  "category": "on-campus",
+  "aliases": ["蜜雪冰城"],
+  "tags": ["on-campus", "drink"],
+  "location": {"address": "第二食堂一楼。", "campusArea": "本科生宿舍区", "floor": "一楼", "landmark": "第二食堂", "coordinates": null, "distanceMeters": null, "distanceBasis": null},
+  "averagePrice": null,
+  "description": "位置来自校园餐饮记录；分店菜单、营业状态和价格以现场为准。",
+  "openingHours": null,
+  "foods": ["mixue-drinks"],
+  "images": [],
+  "sources": [{"repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0"}],
+  "dates": {"visitedAt": null, "verifiedAt": null, "updatedAt": null}
+}
