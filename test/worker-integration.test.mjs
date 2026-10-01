@@ -105,6 +105,56 @@ function plain(value) { return value === null || value === undefined ? value : O
 
 function source() { return { repository: 'integration', path: 'fixture.json', revision: 'test', license: null }; }
 
+function uploadWebp() {
+  const payload = Uint8Array.from([0, 0, 0, 0, 1, 0, 0, 1, 0, 0]);
+  const output = new Uint8Array(12 + 8 + payload.length + (payload.length % 2));
+  output.set(new TextEncoder().encode('RIFF'), 0);
+  new DataView(output.buffer).setUint32(4, output.length - 8, true);
+  output.set(new TextEncoder().encode('WEBP'), 8);
+  output.set(new TextEncoder().encode('VP8X'), 12);
+  new DataView(output.buffer).setUint32(16, payload.length, true);
+  output.set(payload, 20);
+  return output;
+}
+
+function fakeR2Bucket() {
+  const objects = new Map();
+  return {
+    objects,
+    async put(key, body, options = {}) {
+      const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+      objects.set(key, { bytes, customMetadata: { ...(options.customMetadata ?? {}) }, httpMetadata: { ...(options.httpMetadata ?? {}) } });
+    },
+    async get(key) {
+      const object = objects.get(key);
+      if (!object) return null;
+      const bytes = object.bytes.slice();
+      return { body: new Response(bytes).body, customMetadata: { ...object.customMetadata }, httpEtag: '"integration-etag"', async arrayBuffer() { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); } };
+    },
+    async delete(key) { objects.delete(key); },
+  };
+}
+
+function imageUploadHeaders(receiptToken, slotIndex, version) {
+  const encode = encodeURIComponent;
+  return {
+    'Content-Type': 'image/webp',
+    Authorization: `Bearer ${receiptToken}`,
+    'X-Image-Slot': 'entity',
+    'X-Image-Index': String(slotIndex),
+    'X-Submission-Version': String(version),
+    'X-Image-Metadata-Encoding': 'percent-utf8',
+    'X-Image-Alt': encode('酸菜鱼照片'),
+    'X-Image-Source': encode('本人拍摄'),
+    'X-Image-Source-Note': encode('本人拍摄；本人授权；本站 WebP 转码'),
+    'X-Image-Copyright-Holder': encode('投稿同学'),
+    'X-Image-License': encode('本人授权发布'),
+    'X-Image-Permission': 'pending',
+    'X-Image-Rights-Confirmed': 'true',
+    'X-Image-Is-Illustrative': 'false',
+  };
+}
+
 function venuePayload(name = '集成测试 venue') {
   return {
     name, type: 'stall', campusScope: 'on-campus',
@@ -287,6 +337,73 @@ test('finalize rejects a v2 submission whose declared image is missing', async (
     }), runtimeValue, {});
     assert.equal(response.status, 409);
     assert.equal((await response.json()).error.code, 'image_count_mismatch');
+  });
+});
+
+test('real SQLite and R2 upload path persists private images and finalizes by version and count', async () => {
+  const database = new SqliteD1();
+  const bucket = fakeR2Bucket();
+  const runtimeValue = runtime(database, { MEDIA_MODE: 'r2', IMAGES: bucket });
+  const bytes = uploadWebp();
+  await withExternalStubs(async () => {
+    const created = await submitV2(runtimeValue, database, 'venue', venuePayload('待上传图片 venue'), { body: { expectedImages: 2 } });
+    assert.equal(created.response.status, 202, JSON.stringify(created.body));
+    assert.equal(created.body.status, 'uploading');
+    assert.equal(created.body.version, 1);
+
+    const finalizeEarly = await worker.fetch(request(`/api/v2/submissions/${created.body.submissionId}/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${created.body.receiptToken}` },
+      body: JSON.stringify({ expectedVersion: 1, expectedImages: 2, expectedReviewImages: 0 }),
+    }), runtimeValue, {});
+    assert.equal(finalizeEarly.status, 409);
+    assert.equal((await finalizeEarly.json()).error.code, 'image_count_mismatch');
+
+    const upload = (slotIndex, version) => worker.fetch(request(`/api/v2/submissions/${created.body.submissionId}/images`, {
+      method: 'POST',
+      headers: imageUploadHeaders(created.body.receiptToken, slotIndex, version),
+      body: bytes,
+    }), runtimeValue, {});
+    const first = await upload(0, 1);
+    assert.equal(first.status, 201, await first.clone().text());
+    const firstBody = await first.json();
+    assert.equal(firstBody.version, 2);
+
+    const stale = await upload(1, 1);
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).error.code, 'version_conflict');
+
+    const second = await upload(1, 2);
+    assert.equal(second.status, 201, await second.clone().text());
+    const secondBody = await second.json();
+    assert.equal(secondBody.version, 3);
+
+    assert.equal(database.sqlite.prepare("SELECT COUNT(*) AS count FROM media_assets WHERE submission_id = ? AND object_state = 'private'").get(created.body.submissionId).count, 2);
+    assert.equal(database.sqlite.prepare("SELECT COUNT(*) AS count FROM media_reservations WHERE submission_id = ? AND state = 'committed'").get(created.body.submissionId).count, 2);
+    assert.deepEqual(plain(database.sqlite.prepare('SELECT version, upload_state FROM submissions WHERE id = ?').get(created.body.submissionId)), { version: 3, upload_state: 'uploading' });
+    for (const assetId of [firstBody.assetId, secondBody.assetId]) {
+      const object = bucket.objects.get(`media/${assetId}.webp`);
+      assert.ok(object);
+      assert.equal(object.customMetadata.visibility, 'private');
+      assert.equal(object.customMetadata.entityType, 'venue');
+    }
+
+    const finalized = await worker.fetch(request(`/api/v2/submissions/${created.body.submissionId}/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${created.body.receiptToken}` },
+      body: JSON.stringify({ expectedVersion: 3, expectedImages: 2, expectedReviewImages: 0 }),
+    }), runtimeValue, {});
+    assert.equal(finalized.status, 200, await finalized.clone().text());
+    assert.deepEqual(await finalized.json(), { submissionId: created.body.submissionId, status: 'pending', version: 4, uploadedImages: 2, uploadedReviewImages: 0 });
+    assert.deepEqual(plain(database.sqlite.prepare('SELECT version, upload_state FROM submissions WHERE id = ?').get(created.body.submissionId)), { version: 4, upload_state: 'pending' });
+
+    const staleFinalize = await worker.fetch(request(`/api/v2/submissions/${created.body.submissionId}/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${created.body.receiptToken}` },
+      body: JSON.stringify({ expectedVersion: 3, expectedImages: 2, expectedReviewImages: 0 }),
+    }), runtimeValue, {});
+    assert.equal(staleFinalize.status, 409);
+    assert.equal((await staleFinalize.json()).error.code, 'version_conflict');
   });
 });
 

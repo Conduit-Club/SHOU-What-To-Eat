@@ -68,6 +68,9 @@ export class V2ValidationError extends Error {
   constructor(public readonly code: string) { super(code); }
 }
 
+const MEAL_TYPES = new Set(['breakfast', 'meal', 'snack', 'dessert', 'drink']);
+const DISTANCE_BASES = new Set(['reported', 'walking', 'straight-line']);
+
 function validateVenue(value: Record<string, unknown>) {
   stringValue(value.name, 1, 160, 'invalid_name');
   const venueType = value.type ?? value.kind;
@@ -76,7 +79,13 @@ function validateVenue(value: Record<string, unknown>) {
   if (!['on-campus', 'off-campus'].includes(String(value.campusScope ?? value.category))) throw new V2ValidationError('invalid_campus_scope');
   const location = isObject(value.location) ? value.location : value;
   stringValue(location.address, 1, 500, 'invalid_address');
+  optionalString(value.description, 0, 2000, 'invalid_description');
+  optionalString(value.openingHours, 0, 300, 'invalid_opening_hours');
+  optionalString(location.campusArea ?? value.campus, 0, 100, 'invalid_campus_area');
+  optionalString(location.floor ?? value.floor, 0, 100, 'invalid_floor');
+  optionalString(location.landmark ?? value.landmark, 0, 160, 'invalid_landmark');
   validateCoordinates(location.coordinates ?? value.coordinates);
+  validateDistance(location, value);
   validateOptionalTags(value.tags);
   validatePrice(value.averagePrice);
   validateDates(value);
@@ -85,12 +94,24 @@ function validateVenue(value: Record<string, unknown>) {
 function validateFood(value: Record<string, unknown>, parentVenueId: string | null) {
   if (!parentVenueId) throw new V2ValidationError('missing_parent_venue');
   stringValue(value.name, 1, 160, 'invalid_name');
-  optionalString(value.mealType, 1, 80, 'invalid_meal_type');
-  if (value.mealTypes !== undefined && (!Array.isArray(value.mealTypes) || value.mealTypes.length > 5 || value.mealTypes.some((item) => !['breakfast', 'meal', 'snack', 'dessert', 'drink'].includes(String(item))))) throw new V2ValidationError('invalid_meal_type');
+  const mealType = optionalString(value.mealType, 1, 80, 'invalid_meal_type');
+  if (mealType !== null && !MEAL_TYPES.has(mealType)) throw new V2ValidationError('invalid_meal_type');
+  if (value.mealTypes !== undefined && (!Array.isArray(value.mealTypes) || value.mealTypes.length > 5 || value.mealTypes.some((item) => typeof item !== 'string' || !MEAL_TYPES.has(item)) || new Set(value.mealTypes).size !== value.mealTypes.length)) throw new V2ValidationError('invalid_meal_type');
   optionalString(value.description, 0, 2000, 'invalid_description');
   validatePrice(value.price);
   validateOptionalTags(value.tags);
   validateDates(value);
+}
+
+function validateDistance(location: Record<string, unknown>, value: Record<string, unknown>) {
+  const distanceMeters = location.distanceMeters ?? location.distanceM ?? value.distanceM ?? value.distance;
+  const distanceBasis = location.distanceBasis;
+  const hasDistance = distanceMeters !== undefined && distanceMeters !== null;
+  const hasBasis = distanceBasis !== undefined && distanceBasis !== null;
+  if (hasDistance !== hasBasis) throw new V2ValidationError('invalid_distance');
+  if (!hasDistance) return;
+  if (!Number.isInteger(distanceMeters) || Number(distanceMeters) < 0) throw new V2ValidationError('invalid_distance');
+  if (typeof distanceBasis !== 'string' || !DISTANCE_BASES.has(distanceBasis)) throw new V2ValidationError('invalid_distance_basis');
 }
 
 function validateIndependentReview(value: Record<string, unknown>) {

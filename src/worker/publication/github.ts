@@ -17,6 +17,7 @@ export async function exportApprovedSubmission(env: AppEnv['Bindings'], publicat
     throw new Error('publication_branch_exists_without_open_pr');
   }
   const base = await github(`/repos/${owner}/${repo}/git/ref/heads/dev`, installationToken) as { object: { sha: string } };
+  const baseCommit = await github(`/repos/${owner}/${repo}/git/commits/${encodeURIComponent(base.object.sha)}`, installationToken) as { tree: { sha: string } };
   const nameSlug = String(publication.revision.name).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 45) || 'restaurant';
   const slug = `${publication.targetId ?? nameSlug}-${publication.jobId.slice(0, 8)}`;
   const newId = publication.targetId ?? slug;
@@ -40,7 +41,7 @@ export async function exportApprovedSubmission(env: AppEnv['Bindings'], publicat
     const blob = path.endsWith('.md') ? markdownBlob : await github(`/repos/${owner}/${repo}/git/blobs`, installationToken, false, { content, encoding: 'utf-8' }) as { sha: string };
     return { path, mode: '100644', type: 'blob', sha: blob.sha };
   }));
-  const tree = await github(`/repos/${owner}/${repo}/git/trees`, installationToken, false, { base_tree: base.object.sha, tree: treeItems }) as { sha: string };
+  const tree = await github(`/repos/${owner}/${repo}/git/trees`, installationToken, false, { base_tree: baseCommit.tree.sha, tree: treeItems }) as { sha: string };
   const commit = await github(`/repos/${owner}/${repo}/git/commits`, installationToken, false, { message: `content: ${publication.type} ${newId}`, tree: tree.sha, parents: [base.object.sha] }) as { sha: string };
   await github(`/repos/${owner}/${repo}/git/refs`, installationToken, false, { ref: `refs/heads/${branch}`, sha: commit.sha });
   return github(`/repos/${owner}/${repo}/pulls`, installationToken, false, { title: `餐饮信息：${String(publication.revision.name)}`, body: `审核通过的投稿版本：${publication.contentHash}\n\n- 投稿类型：${publication.type}\n- 目标餐厅：${newId}\n- 审核原稿摘要：${String(publication.original.name ?? '')}\n- 确认评价与图片来源、许可后再合并。`, head: branch, base: 'dev' }, 'POST') as Promise<GitHubResponse<{ number: number; html_url: string }>>;
@@ -69,6 +70,7 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
     throw new Error('publication_branch_exists_without_open_pr');
   }
   const base = await github(`/repos/${owner}/${repo}/git/ref/heads/dev`, installationToken) as { object: { sha: string } };
+  const baseCommit = await github(`/repos/${owner}/${repo}/git/commits/${encodeURIComponent(base.object.sha)}`, installationToken) as { tree: { sha: string } };
   const parsed = publication.revision;
   const payload = isRecord(parsed.payload) ? parsed.payload : parsed;
   const entityType = publication.entityType;
@@ -117,7 +119,7 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
     const blob = await github(`/repos/${owner}/${repo}/git/blobs`, installationToken, false, { content: file.content, encoding: file.encoding }) as { sha: string };
     return { path: file.path, mode: '100644', type: 'blob', sha: blob.sha };
   }));
-  const tree = await github(`/repos/${owner}/${repo}/git/trees`, installationToken, false, { base_tree: base.object.sha, tree: treeItems }) as { sha: string };
+  const tree = await github(`/repos/${owner}/${repo}/git/trees`, installationToken, false, { base_tree: baseCommit.tree.sha, tree: treeItems }) as { sha: string };
   const commit = await github(`/repos/${owner}/${repo}/git/commits`, installationToken, false, { message: `content: ${entityType} ${entityId}`, tree: tree.sha, parents: [base.object.sha] }) as { sha: string };
   await github(`/repos/${owner}/${repo}/git/refs`, installationToken, false, { ref: `refs/heads/${branch}`, sha: commit.sha });
   return github(`/repos/${owner}/${repo}/pulls`, installationToken, false, { title: `餐饮信息：${String(payload.name ?? entityId)}`, body: `审核通过的投稿版本：${publication.contentHash}\n\n- 投稿类型：${entityType}\n- 实体：${entityId}\n- 内容哈希必须在生产部署回调中原样回传后才标记图片公开。`, head: branch, base: 'dev' }, 'POST') as Promise<GitHubResponse<{ number: number; html_url: string }>>;
@@ -192,9 +194,8 @@ function concat(...parts: Uint8Array[]): Uint8Array { const result = new Uint8Ar
 function toArrayBuffer(value: Uint8Array): ArrayBuffer { const copy = new Uint8Array(value.length); copy.set(value); return copy.buffer; }
 
 async function github(path: string, token: string, allowMissing = false, body?: unknown, method = body ? 'POST' : 'GET'): Promise<any> {
-  const response = await fetch(`https://api.github.com${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const response = await fetch(`https://api.github.com${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'User-Agent': 'shou-food-publisher', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (allowMissing && response.status === 404) return null;
-  const result = await response.json().catch(() => ({})) as { message?: unknown };
-  if (!response.ok) throw new Error(`github_${response.status}_${String(result.message ?? 'api_error').replace(/\s+/g, '_').slice(0, 50)}`);
-  return result;
+  if (!response.ok) throw new Error(`github_${response.status}`);
+  return response.json().catch(() => ({}));
 }
