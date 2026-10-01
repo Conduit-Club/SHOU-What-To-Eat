@@ -1,20 +1,19 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../templates/Layout.astro';
-import RestaurantFinder from '../../components/RestaurantFinder';
-import { deriveDistanceTags } from '../../lib/catalog';
+import VenueDirectory from '../../components/VenueDirectory';
+import { discoveryCatalog } from '../../lib/catalog/discovery';
 const [venueEntries, foodEntries, reviewEntries] = await Promise.all([
   getCollection('restaurants'), getCollection('foods'), getCollection('reviews'),
 ]);
-const restaurants = venueEntries.map(({ data }) => ({ ...data, tags: deriveDistanceTags(data),
-  reviewCount: reviewEntries.filter(({ data: review }) => review.targetType === 'venue' && review.targetId === data.id).length,
-})).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-const foods = foodEntries.map(({ data }) => data);
+const catalog=discoveryCatalog({schemaVersion:2,restaurants:venueEntries.map(entry=>entry.data),foods:foodEntries.map(entry=>entry.data),reviews:reviewEntries.map(entry=>entry.data)});
+const restaurants=catalog.venues;
+const initialCatalog={foods:[],venues:catalog.venues.slice(0,12)};
 ---
 <Layout title="餐厅与档口">
   <main class="venue-directory">
     <header class="directory-intro"><div><p>FIND YOUR NEXT STOP</p><h1>餐厅与档口<span>{restaurants.length} 个去处</span></h1><p class="intro-copy">先找一家店，再看看同学都点了什么。</p></div><a href="/">回到餐品食单 →</a></header>
-    <RestaurantFinder client:load restaurants={restaurants} foods={foods} />
+    <VenueDirectory client:load initialCatalog={initialCatalog} />
     <footer>价格、距离与营业信息以已知来源和现场为准。 <a href="/about/">关于本站 ↗</a></footer>
   </main>
 </Layout>

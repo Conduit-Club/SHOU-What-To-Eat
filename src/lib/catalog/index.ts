@@ -28,7 +28,10 @@ export const imageSchema = z.object({
   license: optionalText(160),
   permission: z.enum(['approved', 'pending']),
   isIllustrative: z.boolean().default(false),
+  width: z.number().int().positive().max(4096).nullable().default(null),
+  height: z.number().int().positive().max(4096).nullable().default(null),
 }).strict().superRefine((value, context) => {
+  if ((value.width === null) !== (value.height === null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['width'], message: '图片宽高必须同时提供' });
   if (value.permission === 'approved') {
     if (value.sourceUrl === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ['sourceUrl'], message: '已批准图片必须保留 HTTPS 来源页' });
     if (value.license === null || value.license.trim().length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ['license'], message: '已批准图片必须保留许可信息' });
@@ -90,6 +93,7 @@ const foodPrice = z.object({
 });
 
 export const datesSchema = z.object({
+  addedAt: optionalDate,
   visitedAt: optionalDate,
   verifiedAt: optionalDate,
   updatedAt: optionalDate,

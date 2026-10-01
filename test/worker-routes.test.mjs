@@ -109,7 +109,7 @@ test('v2 rejects invalid catalog fields before Turnstile or persistence', async 
       const response = await worker.fetch(new Request('https://eat.shoumc.com/api/v2/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...common, ...value }),
+        body: JSON.stringify({ ...common, entityType: value.entityType, payload: value.payload }),
       }), runtime, {});
       assert.equal(response.status, 422);
       assert.equal((await response.json()).error.code, value.code);

@@ -61,8 +61,8 @@ export function validateImageMetadata(headers: Headers): ImageMetadata | null {
   // Approval is an auditor decision. A submitter may only upload a pending
   // asset; the admin approval CAS changes this field after rights review.
   const sourceNote = declaredSourceNote === undefined ? `${source}；已转码WebP` : declaredSourceNote;
-  if (!alt || !within(alt, 200) || !source || !within(source, 500) || !sourceNote || !within(sourceNote, 500) || !copyrightHolder || !within(copyrightHolder, 200) || !license || !within(license, 120) || !rightsConfirmed || !['true', 'false'].includes(illustrativeValue ?? '') || permissionValue !== 'pending') return null;
-  if (/^https?:\/\//i.test(source)) { try { if (new URL(source).protocol !== 'https:') return null; } catch { return null; } }
+  if (!alt || !within(alt, 200) || !source || !within(source, 480) || !sourceNote || !within(sourceNote, 500) || !copyrightHolder || !within(copyrightHolder, 160) || !license || !within(license, 120) || !rightsConfirmed || !['true', 'false'].includes(illustrativeValue ?? '') || permissionValue !== 'pending') return null;
+  if (/^https?:\/\//i.test(source)) { try { const url = new URL(source); if (url.protocol !== 'https:' || url.username || url.password) return null; } catch { return null; } }
   if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(`${alt}${source}${sourceNote}${copyrightHolder}${license}`)) return null;
   return { alt, source, sourceNote, copyrightHolder, license, permission: permissionValue as 'pending' | 'approved', rightsConfirmed, isIllustrative: illustrativeValue === 'true' };
 }
@@ -72,7 +72,7 @@ function decodeMetadata(value: string | null, encoding: string): string | null {
   try { return (encoding === 'percent-utf8' ? decodeURIComponent(value) : value).trim(); } catch { return null; }
 }
 
-function within(value: string, maximum: number): boolean { return Array.from(value).length <= maximum; }
+function within(value: string, maximum: number): boolean { return value.length <= maximum; }
 
 export function validateWebp(bytes: Uint8Array): WebpInfo {
   if (bytes.length < 20 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 4) !== 'WEBP') throw new Error('invalid_webp');

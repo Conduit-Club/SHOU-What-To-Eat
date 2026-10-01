@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateCatalogSnapshot, generateSeedSql, loadCatalog } from '../src/lib/catalog/index.ts';
+import { discoveryCatalog } from '../src/lib/catalog/discovery.ts';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = dirname(scriptDir);
@@ -31,6 +32,7 @@ await writeFile(join(generatedDirectory, 'seed.sql'), seedSql, 'utf8');
 await writeFile(join(generatedDirectory, 'catalog-snapshot-id.txt'), `${snapshotId}\n`, 'utf8');
 await mkdir(join(projectRoot, 'public'), { recursive: true });
 await writeFile(join(projectRoot, 'public', 'catalog-snapshot.json'), `${JSON.stringify({ schemaVersion: 2, snapshotId }, null, 2)}\n`, 'utf8');
+await writeFile(join(projectRoot, 'public', 'catalog-index.json'), `${JSON.stringify(discoveryCatalog(catalog))}\n`, 'utf8');
 console.log(`Generated ${snapshot.restaurants.length} venues, ${snapshot.foods.length} foods and ${snapshot.reviews.length} reviews.`);
 
 async function appendPublishedEntitySeed(seedSql, catalogSnapshot, catalogSnapshotId) {

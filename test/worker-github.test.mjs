@@ -98,3 +98,31 @@ test('publication queue preserves safe GitHub status codes without accepting res
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 }
+
+test('approved attached review exports with its venue, separate photos and trusted addition date', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } }).privateKey;
+  const blobs=[];let tree;
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async(input,init={})=>{
+    const url=new URL(String(input));const path=decodeURIComponent(url.pathname);const body=typeof init.body==='string'?JSON.parse(init.body):null;
+    if(path.endsWith('/access_tokens'))return jsonResponse({token:'installation-token',expires_at:new Date(Date.now()+3600000).toISOString()});
+    if(path.endsWith('/git/ref/heads/submission/attached'))return jsonResponse({},404);
+    if(path.endsWith('/git/ref/heads/dev'))return jsonResponse({object:{sha:'c'.repeat(40)}});
+    if(path.endsWith('/git/commits/'+'c'.repeat(40)))return jsonResponse({tree:{sha:'e'.repeat(40)}});
+    if(path.endsWith('/git/blobs')){blobs.push(JSON.parse(body.content));return jsonResponse({sha:`blob-${blobs.length}`});}
+    if(path.endsWith('/git/trees')){tree=body.tree;return jsonResponse({sha:'e'.repeat(40)});}
+    if(path.endsWith('/git/commits')||path.endsWith('/git/refs'))return jsonResponse({sha:'d'.repeat(40)});
+    if(path.endsWith('/pulls'))return jsonResponse({number:8,html_url:'https://github.com/owner/repository/pull/8'});
+    throw new Error(`unexpected request ${path}`);
+  };
+  const asset=(id,slot,width,height)=>({id,slot,width,height,alt:'授权测试照片',source:'本人拍摄',source_note:'本人拍摄；已转码WebP',copyright_holder:'匿名同学',license:'本人授权本站展示',permission:'approved',is_illustrative:0});
+  const db={prepare(sql){return{bind(){return{async all(){return{results:[asset('entity-photo','entity',1800,900),asset('review-photo','attachedReview',900,1600)]};},async first(){return{id:'review-id',target_type:'venue',target_id:'venue-id',rating:5,text:'测试评价'};}};}};}};
+  try {
+    await exportApprovedSubmission({GITHUB_REPOSITORY:'owner/repository',GITHUB_APP_ID:'123',GITHUB_INSTALLATION_ID:'123',GITHUB_PRIVATE_KEY:privateKey,DB:db},{jobId:'attached-job',branch:'submission/attached',type:'new',schemaVersion:2,entityType:'venue',entityId:'venue-id',submissionId:'submission-id',targetId:null,original:{},contentHash:'a'.repeat(64),createdAt:'2026-10-01T01:02:03.000Z',revision:{payload:{name:'测试店铺',type:'stall',campusScope:'on-campus',location:{address:'第一食堂'},attachedReview:{rating:5,text:'测试评价'}}}});
+    assert.deepEqual(tree.map(item=>item.path).sort(),['.publication-manifest/attached-job.json','src/content/restaurants/venue-id.json','src/content/reviews/review-id.json']);
+    const venue=blobs.find(record=>record.id==='venue-id');const review=blobs.find(record=>record.id==='review-id');
+    assert.equal(venue.dates.addedAt,'2026-10-01');assert.equal(venue.dates.verifiedAt,null);assert.equal(venue.images[0].width,1800);assert.equal(venue.images[0].height,900);
+    assert.equal(review.rating,5);assert.equal(review.text,'测试评价');assert.equal(review.targetId,venue.id);assert.match(review.images[0].url,/review-photo/);assert.equal(review.images[0].height,1600);
+    assert.doesNotMatch(JSON.stringify(blobs),/installation-token|PRIVATE KEY|receiptToken|reviewer/);
+  } finally {globalThis.fetch=originalFetch;}
+});

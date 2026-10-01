@@ -12,3 +12,4 @@ wrangler.generated*.jsonc
 .generated/
 public/catalog-snapshot.json
 coverage/
+public/catalog-index.json

@@ -1,3 +1,4 @@
+import { SUBMISSION_LIMITS as LIMITS } from '../lib/submission-limits.js';
 export type V2EntityType = 'venue' | 'food' | 'review';
 export type V2Review = { rating: number; text: string };
 export type V2Coordinates = { latitude: number; longitude: number } | null;
@@ -17,9 +18,11 @@ export type V2Submission = {
 
 export function validateV2Submission(value: unknown): V2Submission {
   if (!isObject(value)) throw new V2ValidationError('invalid_submission');
+  allowedKeys(value, ['schemaVersion','entityType','snapshotId','payload','entity','parent','expectedImages','expectedReviewImages','turnstileToken']);
   if (value.schemaVersion !== 2) throw new V2ValidationError('unsupported_schema_version');
   const entityType = value.entityType;
-  if (!['venue', 'food', 'review'].includes(String(entityType))) throw new V2ValidationError('invalid_entity_type');
+  if (typeof entityType !== 'string' || !['venue', 'food', 'review'].includes(entityType)) throw new V2ValidationError('invalid_entity_type');
+  if (value.payload !== undefined && value.entity !== undefined) throw new V2ValidationError('ambiguous_payload');
   const payload = isObject(value.payload) ? value.payload : isObject(value.entity) ? value.entity : null;
   if (!payload) throw new V2ValidationError('invalid_payload');
   const snapshotId = stringValue(value.snapshotId, 1, 160, 'invalid_snapshot_id');
@@ -27,22 +30,28 @@ export function validateV2Submission(value: unknown): V2Submission {
   const expectedReviewImages = boundedInteger(value.expectedReviewImages ?? 0, 0, 3, 'invalid_expected_review_images');
   if (entityType === 'review' && expectedReviewImages !== 0) throw new V2ValidationError('invalid_expected_review_images');
   const turnstileToken = stringValue(value.turnstileToken, 1, 4096, 'invalid_turnstile_token');
+  if (value.parent !== undefined && !isObject(value.parent)) throw new V2ValidationError('invalid_parent_venue');
   const parent = isObject(value.parent) ? value.parent : {};
+  allowedKeys(parent, ['venueEntityId','parentReceiptToken']);
   const parentVenueId = optionalString(parent.venueEntityId ?? payload.venueId, 1, 160, 'invalid_parent_venue');
   const parentReceiptToken = optionalString(parent.parentReceiptToken, 1, 4096, 'invalid_parent_receipt');
+  if (entityType !== 'food' && Object.keys(parent).length) throw new V2ValidationError('invalid_parent_venue');
+  if (parentVenueId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parentVenueId)) throw new V2ValidationError('invalid_parent_venue');
+  if (parent.venueEntityId && payload.venueId && parent.venueEntityId !== payload.venueId) throw new V2ValidationError('parent_venue_mismatch');
+  allowedKeys(payload, entityType === 'venue' ? ['name','type','kind','campusScope','category','location','address','campus','floor','landmark','coordinates','distanceM','distance','description','openingHours','tags','averagePrice','attachedReview','sources','visitedAt','verifiedAt','updatedAt','parentId','aliases','foods'] : entityType === 'food' ? ['name','venueId','mealType','mealTypes','description','price','tags','attachedReview','sources','visitedAt','verifiedAt','updatedAt'] : ['targetType','targetId','rating','text','authorAlias','sources','visitedAt','verifiedAt','updatedAt']);
   const attachedReview = entityType === 'venue' || entityType === 'food' ? parseAttachedReview(payload.attachedReview) : null;
   if (!attachedReview && expectedReviewImages > 0) throw new V2ValidationError('review_images_without_review');
   if (entityType === 'review') validateIndependentReview(payload);
   if (entityType === 'venue') validateVenue(payload);
   if (entityType === 'food') validateFood(payload, parentVenueId);
   validateSources(payload.sources);
-  const publicPayload = structuredClone(payload);
+  const publicPayload = cleanStrings(structuredClone(payload)) as Record<string, unknown>;
   delete publicPayload.turnstileToken;
   delete publicPayload.parentReceiptToken;
   delete publicPayload.venueId;
   if (parentVenueId) publicPayload.venueId = parentVenueId;
   if (attachedReview) publicPayload.attachedReview = attachedReview;
-  return { schemaVersion: 2, entityType: entityType as V2EntityType, snapshotId, payload, parentVenueId, parentReceiptToken, expectedImages, expectedReviewImages, turnstileToken, attachedReview, publicJson: { schemaVersion: 2, entityType, snapshotId, payload: publicPayload } };
+  return { schemaVersion: 2, entityType: entityType as V2EntityType, snapshotId, payload: publicPayload, parentVenueId, parentReceiptToken, expectedImages, expectedReviewImages, turnstileToken, attachedReview, publicJson: { schemaVersion: 2, entityType, snapshotId, payload: publicPayload } };
 }
 
 /** Validate an auditor's public revision with the submission-only fields
@@ -72,32 +81,45 @@ const MEAL_TYPES = new Set(['breakfast', 'meal', 'snack', 'dessert', 'drink']);
 const DISTANCE_BASES = new Set(['reported', 'walking', 'straight-line']);
 
 function validateVenue(value: Record<string, unknown>) {
-  stringValue(value.name, 1, 160, 'invalid_name');
+  stringValue(value.name, 1, LIMITS.name, 'invalid_name');
   const venueType = value.type ?? value.kind;
   stringValue(venueType, 1, 80, 'invalid_venue_type');
   if (!['cafeteria', 'stall', 'restaurant', 'cafe', 'convenience'].includes(String(venueType))) throw new V2ValidationError('invalid_venue_type');
-  if (!['on-campus', 'off-campus'].includes(String(value.campusScope ?? value.category))) throw new V2ValidationError('invalid_campus_scope');
+  const scope = value.campusScope ?? value.category;
+  if (typeof scope !== 'string' || !['on-campus', 'off-campus'].includes(scope)) throw new V2ValidationError('invalid_campus_scope');
+  if (value.kind !== undefined && value.type !== undefined && value.kind !== value.type || value.category !== undefined && value.campusScope !== undefined && value.category !== value.campusScope) throw new V2ValidationError('ambiguous_venue');
+  if (value.location !== undefined && !isObject(value.location)) throw new V2ValidationError('invalid_address');
   const location = isObject(value.location) ? value.location : value;
-  stringValue(location.address, 1, 500, 'invalid_address');
-  optionalString(value.description, 0, 2000, 'invalid_description');
+  if (isObject(value.location)) allowedKeys(location, ['address','campusArea','floor','landmark','coordinates','distanceMeters','distanceM','distanceBasis']);
+  stringValue(location.address, 1, LIMITS.address, 'invalid_address');
+  optionalString(value.description, 0, LIMITS.venueDescription, 'invalid_description');
   optionalString(value.openingHours, 0, 300, 'invalid_opening_hours');
   optionalString(location.campusArea ?? value.campus, 0, 100, 'invalid_campus_area');
   optionalString(location.floor ?? value.floor, 0, 100, 'invalid_floor');
   optionalString(location.landmark ?? value.landmark, 0, 160, 'invalid_landmark');
   validateCoordinates(location.coordinates ?? value.coordinates);
   validateDistance(location, value);
+  if ((value.campusScope ?? value.category) === 'on-campus' && [location.distanceMeters, location.distanceM, value.distanceM, value.distance].some(item => item !== null && item !== undefined)) throw new V2ValidationError('on_campus_distance');
+  optionalString(value.parentId, 1, 80, 'invalid_parent_venue');
+  if (value.parentId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(value.parentId))) throw new V2ValidationError('invalid_parent_venue');
+  validateStringArray(value.aliases, 20, 80, 'invalid_aliases');
+  validateStringArray(value.foods, 200, 80, 'invalid_foods');
+  if (Array.isArray(value.foods) && value.foods.length) throw new V2ValidationError('invalid_foods');
+  if (Array.isArray(value.foods) && value.foods.some(id => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id))) throw new V2ValidationError('invalid_foods');
   validateOptionalTags(value.tags);
   validatePrice(value.averagePrice);
+  if (isObject(value.averagePrice) && value.averagePrice.unit !== undefined && value.averagePrice.unit !== '人') throw new V2ValidationError('invalid_price_unit');
   validateDates(value);
 }
 
 function validateFood(value: Record<string, unknown>, parentVenueId: string | null) {
   if (!parentVenueId) throw new V2ValidationError('missing_parent_venue');
-  stringValue(value.name, 1, 160, 'invalid_name');
+  stringValue(value.name, 1, LIMITS.name, 'invalid_name');
   const mealType = optionalString(value.mealType, 1, 80, 'invalid_meal_type');
   if (mealType !== null && !MEAL_TYPES.has(mealType)) throw new V2ValidationError('invalid_meal_type');
   if (value.mealTypes !== undefined && (!Array.isArray(value.mealTypes) || value.mealTypes.length > 5 || value.mealTypes.some((item) => typeof item !== 'string' || !MEAL_TYPES.has(item)) || new Set(value.mealTypes).size !== value.mealTypes.length)) throw new V2ValidationError('invalid_meal_type');
-  optionalString(value.description, 0, 2000, 'invalid_description');
+  if (mealType && Array.isArray(value.mealTypes) && !value.mealTypes.includes(mealType)) throw new V2ValidationError('invalid_meal_type');
+  optionalString(value.description, 0, LIMITS.foodDescription, 'invalid_description');
   validatePrice(value.price);
   validateOptionalTags(value.tags);
   validateDates(value);
@@ -110,14 +132,16 @@ function validateDistance(location: Record<string, unknown>, value: Record<strin
   const hasBasis = distanceBasis !== undefined && distanceBasis !== null;
   if (hasDistance !== hasBasis) throw new V2ValidationError('invalid_distance');
   if (!hasDistance) return;
-  if (!Number.isInteger(distanceMeters) || Number(distanceMeters) < 0) throw new V2ValidationError('invalid_distance');
+  if (!Number.isSafeInteger(distanceMeters) || Number(distanceMeters) < 0 || Number(distanceMeters) > 100000) throw new V2ValidationError('invalid_distance');
   if (typeof distanceBasis !== 'string' || !DISTANCE_BASES.has(distanceBasis)) throw new V2ValidationError('invalid_distance_basis');
 }
 
 function validateIndependentReview(value: Record<string, unknown>) {
   const targetType = value.targetType;
-  if (!['venue', 'food'].includes(String(targetType))) throw new V2ValidationError('invalid_review_target');
+  if (typeof targetType !== 'string' || !['venue', 'food'].includes(targetType)) throw new V2ValidationError('invalid_review_target');
   stringValue(value.targetId, 1, 160, 'invalid_review_target');
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(value.targetId))) throw new V2ValidationError('invalid_review_target');
+  optionalString(value.authorAlias, 1, 80, 'invalid_author_alias');
   const rating = boundedInteger(value.rating, 1, 5, 'invalid_rating');
   const text = optionalString(value.text, 0, 256, 'invalid_review_text') ?? '';
   if (!rating && !text) throw new V2ValidationError('empty_review');
@@ -127,6 +151,7 @@ function validateIndependentReview(value: Record<string, unknown>) {
 function parseAttachedReview(value: unknown): V2Review | null {
   if (value === undefined || value === null) return null;
   if (!isObject(value)) throw new V2ValidationError('invalid_attached_review');
+  allowedKeys(value, ['rating','text']);
   const rating = boundedInteger(value.rating, 1, 5, 'invalid_rating');
   const text = optionalString(value.text, 0, 256, 'invalid_review_text') ?? '';
   if (!rating && !text) throw new V2ValidationError('empty_review');
@@ -146,22 +171,24 @@ function validatePrice(value: unknown) {
   if (value === undefined || value === null) return;
   if (typeof value === 'number') throw new V2ValidationError('invalid_price_source');
   if (!isObject(value)) throw new V2ValidationError('invalid_price');
+  allowedKeys(value, ['amountCents','minCents','maxCents','currency','unit','source','verifiedAt']);
   const amount = value.amountCents;
   const minimum = value.minCents;
   const maximum = value.maxCents;
   const hasAmount = amount !== undefined && amount !== null;
-  const hasRange = minimum !== undefined || maximum !== undefined;
-  if (hasAmount && hasRange || !hasAmount && (minimum === undefined || maximum === undefined)) throw new V2ValidationError('invalid_price');
+  const hasRange = minimum !== undefined && minimum !== null || maximum !== undefined && maximum !== null;
+  if (hasAmount && hasRange || !hasAmount && (minimum === undefined || minimum === null || maximum === undefined || maximum === null)) throw new V2ValidationError('invalid_price');
   for (const item of [amount, minimum, maximum]) if (item !== undefined && item !== null && (!Number.isInteger(item) || item < 0 || item > 10_000_000)) throw new V2ValidationError('invalid_price');
-  optionalString(value.currency, 3, 8, 'invalid_price_currency');
-  optionalString(value.unit, 1, 40, 'invalid_price_unit');
-  stringValue(value.source, 1, 500, 'invalid_price_source');
+  if (hasRange && Number(maximum) < Number(minimum)) throw new V2ValidationError('invalid_price');
+  if (value.currency !== undefined && value.currency !== 'CNY') throw new V2ValidationError('invalid_price_currency');
+  optionalString(value.unit, 1, LIMITS.priceUnit, 'invalid_price_unit');
+  stringValue(value.source, 1, LIMITS.priceSource, 'invalid_price_source');
   optionalCalendarDate(value.verifiedAt, 'invalid_price_verified_at');
 }
 
 function validateOptionalTags(value: unknown) {
   if (value === undefined || value === null) return;
-  if (!Array.isArray(value) || value.length > 20 || value.some((tag) => typeof tag !== 'string' || !tag.trim() || Array.from(tag).length > 40)) throw new V2ValidationError('invalid_tags');
+  validateStringArray(value, LIMITS.tags, LIMITS.tag, 'invalid_tags');
 }
 
 function validateSources(value: unknown) {
@@ -169,13 +196,14 @@ function validateSources(value: unknown) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 30) throw new V2ValidationError('invalid_sources');
   for (const source of value) {
     if (!isObject(source)) throw new V2ValidationError('invalid_sources');
+    allowedKeys(source, ['repository','path','revision','license','note','sourceUrl','collectedAt']);
     stringValue(source.repository, 1, 160, 'invalid_sources');
     stringValue(source.path, 1, 300, 'invalid_sources');
     stringValue(source.revision, 1, 160, 'invalid_sources');
     optionalString(source.license, 1, 160, 'invalid_sources');
     optionalString(source.note, 1, 500, 'invalid_sources');
     const sourceUrl = optionalString(source.sourceUrl, 1, 2000, 'invalid_sources');
-    if (sourceUrl) { try { if (new URL(sourceUrl).protocol !== 'https:') throw new Error(); } catch { throw new V2ValidationError('invalid_sources'); } }
+    if (sourceUrl) { try { const url = new URL(sourceUrl); if (url.protocol !== 'https:' || url.username || url.password) throw new Error(); } catch { throw new V2ValidationError('invalid_sources'); } }
     optionalCalendarDate(source.collectedAt, 'invalid_sources');
   }
 }
@@ -204,7 +232,8 @@ function boundedInteger(value: unknown, minimum: number, maximum: number, code: 
 }
 
 function stringValue(value: unknown, minimum: number, maximum: number, code: string): string {
-  if (typeof value !== 'string' || Array.from(value.trim()).length < minimum || Array.from(value).length > maximum) throw new V2ValidationError(code);
+  const length = typeof value === 'string' ? (code === 'invalid_review_text' ? Array.from(value).length : value.length) : 0;
+  if (typeof value !== 'string' || Array.from(value.trim()).length < minimum || length > maximum || /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)) throw new V2ValidationError(code);
   return value.trim();
 }
 
@@ -214,3 +243,16 @@ function optionalString(value: unknown, minimum: number, maximum: number, code: 
 }
 
 function isObject(value: unknown): value is Record<string, any> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
+function allowedKeys(value: Record<string, unknown>, keys: string[]) { if (Object.keys(value).some(key => !keys.includes(key))) throw new V2ValidationError('unknown_fields'); }
+function validateStringArray(value: unknown, maximum: number, length: number, code: string) {
+  if (value === undefined || value === null) return;
+  if (!Array.isArray(value) || value.length > maximum) throw new V2ValidationError(code);
+  const strings = value.map(item => stringValue(item, 1, length, code));
+  if (new Set(strings.map(item => item.toLocaleLowerCase())).size !== strings.length) throw new V2ValidationError(code);
+}
+function cleanStrings(value: unknown): unknown {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) return value.map(cleanStrings);
+  if (isObject(value)) return Object.fromEntries(Object.entries(value).map(([key,item]) => [key,cleanStrings(item)]));
+  return value;
+}
