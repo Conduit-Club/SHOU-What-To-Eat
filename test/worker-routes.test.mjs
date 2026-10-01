@@ -90,11 +90,43 @@ test('idempotency prevents a second submission and conflicts on changed content'
   }
 });
 
+test('v2 rejects invalid catalog fields before Turnstile or persistence', async () => {
+  const originalFetch = globalThis.fetch;
+  let turnstileCalls = 0;
+  globalThis.fetch = async (input) => {
+    if (String(input).includes('challenges.cloudflare.com/turnstile')) turnstileCalls += 1;
+    throw new Error('Turnstile must not run for invalid v2 content');
+  };
+  try {
+    const runtime = env({ PUBLICATION_ENABLED: 'true' });
+    const common = { schemaVersion: 2, snapshotId: 'catalog-v2-test', expectedImages: 0, expectedReviewImages: 0, turnstileToken: 'should-not-be-verified' };
+    const invalidPayloads = [
+      { entityType: 'venue', payload: { name: '测试店', type: 'stall', campusScope: 'on-campus', location: { address: '校园内', coordinates: [30.88, 121.89] }, description: 'x'.repeat(2001) }, code: 'invalid_description' },
+      { entityType: 'venue', payload: { name: '测试店', type: 'stall', campusScope: 'on-campus', location: { address: '校园内', coordinates: [30.88, 121.89], distanceMeters: 100 } }, code: 'invalid_distance' },
+      { entityType: 'food', payload: { name: '测试餐品', venueId: 'venue-1', mealType: 'brunch' }, code: 'invalid_meal_type' },
+    ];
+    for (const value of invalidPayloads) {
+      const response = await worker.fetch(new Request('https://eat.shoumc.com/api/v2/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...common, ...value }),
+      }), runtime, {});
+      assert.equal(response.status, 422);
+      assert.equal((await response.json()).error.code, value.code);
+    }
+    assert.equal(turnstileCalls, 0);
+    assert.equal(runtime.DB._submissions.size, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function createDatabase() {
   const submissions = new Map();
   const idempotency = new Map();
   let requestCount = 0;
   return {
+    _submissions: submissions,
     prepare(sql) {
       return {
         bind(...values) {

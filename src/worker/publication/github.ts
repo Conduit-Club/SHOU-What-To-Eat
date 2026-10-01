@@ -192,9 +192,8 @@ function concat(...parts: Uint8Array[]): Uint8Array { const result = new Uint8Ar
 function toArrayBuffer(value: Uint8Array): ArrayBuffer { const copy = new Uint8Array(value.length); copy.set(value); return copy.buffer; }
 
 async function github(path: string, token: string, allowMissing = false, body?: unknown, method = body ? 'POST' : 'GET'): Promise<any> {
-  const response = await fetch(`https://api.github.com${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const response = await fetch(`https://api.github.com${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'User-Agent': 'shou-food-publisher', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (allowMissing && response.status === 404) return null;
-  const result = await response.json().catch(() => ({})) as { message?: unknown };
-  if (!response.ok) throw new Error(`github_${response.status}_${String(result.message ?? 'api_error').replace(/\s+/g, '_').slice(0, 50)}`);
-  return result;
+  if (!response.ok) throw new Error(`github_${response.status}`);
+  return response.json().catch(() => ({}));
 }
