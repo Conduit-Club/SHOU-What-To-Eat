@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "id": "33b3b725-fe68-4a12-b08a-30dddf684174",
+  "name": "肯德基上元路店",
+  "kind": "restaurant",
+  "parentId": null,
+  "category": "off-campus",
+  "aliases": [],
+  "tags": [
+    "KFC",
+    "快餐",
+    "炸鸡"
+  ],
+  "location": {
+    "address": "上元路，六号门门口拐角",
+    "campusArea": null,
+    "floor": null,
+    "landmark": null,
+    "coordinates": null,
+    "distanceMeters": 50,
+    "distanceBasis": "reported"
+  },
+  "averagePrice": {
+    "minCents": 5000,
+    "maxCents": 5000,
+    "currency": "CNY",
+    "unit": "人",
+    "source": "疯狂星期四V我50",
+    "verifiedAt": null
+  },
+  "description": "KFC",
+  "openingHours": null,
+  "foods": [],
+  "images": [],
+  "sources": [
+    {
+      "repository": "what-to-eat-in-shou-today-contributions",
+      "path": "submissions/13131394-5890-41d3-807a-84696feaab18",
+      "revision": "fb843c450b367595c28dee34d7839018dda709d141ee2fc9fdf60744e501d8cd",
+      "license": null,
+      "note": "由审核员依据投稿与来源声明整理。",
+      "sourceUrl": null,
+      "collectedAt": null
+    }
+  ],
+  "dates": {
+    "addedAt": "2026-10-01",
+    "visitedAt": null,
+    "verifiedAt": null,
+    "updatedAt": null
+  }
+}
