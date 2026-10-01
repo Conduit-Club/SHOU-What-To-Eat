@@ -1,14 +1,15 @@
 ---
 import '@fontsource-variable/epilogue';
 import '@fontsource-variable/plus-jakarta-sans';
+import SiteHeader from '../components/SiteHeader.astro';
 
 const { title = '今日海大吃什么' } = Astro.props;
 const pathname = Astro.url.pathname;
 const navItems = [
-  { href: '/', label: '探索', icon: '⌂' },
+  { href: '/', label: '餐品', icon: '⌂' },
+  { href: '/restaurants/', label: '餐厅', icon: '▦' },
   { href: '/submit/', label: '投稿', icon: '+' },
   { href: '/status/', label: '进度', icon: '◷' },
-  { href: '/about/', label: '关于', icon: '⋯' },
 ];
 ---
 <!doctype html>
@@ -21,10 +22,11 @@ const navItems = [
     <title>{title} · 今日海大吃什么</title>
   </head>
   <body>
+    <SiteHeader />
     <div class="app-content"><slot /></div>
     <nav class="bottom-nav" aria-label="主要导航">
       {navItems.map((item) => {
-        const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+        const active = item.href === '/' ? pathname === '/' || pathname.startsWith('/foods/') : pathname.startsWith(item.href);
         return <a href={item.href} class:list={{ active }} aria-current={active ? 'page' : undefined}>
           <span class="bottom-nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
         </a>;
@@ -45,10 +47,10 @@ const navItems = [
     --surface-card: #ffffff;
     --surface-soft: #fffdf9;
     --ink: #1b1c1a;
-    --muted: #594139;
-    --line: #e1bfb5;
-    --orange: #ab3500;
-    --orange-deep: #5f1900;
+    --muted: #705c50;
+    --line: #ecddd1;
+    --orange: #c44312;
+    --orange-deep: #9e310a;
     --orange-bright: #ff6b35;
     --green: #006d3c;
     --honey: #815600;
@@ -121,7 +123,7 @@ const navItems = [
     textarea { font-size: 16px; }
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 760px) {
     body { padding-bottom: 88px; }
 
     .bottom-nav {

@@ -1,81 +1,30 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../templates/Layout.astro';
-import RestaurantFinder from '../components/RestaurantFinder';
+import FoodFinder from '../components/FoodFinder';
 import { deriveDistanceTags } from '../lib/catalog';
+import { safePublicImage } from '../utils/catalog-display';
 
-const [restaurantEntries, foodEntries, reviewEntries] = await Promise.all([
-  getCollection('restaurants'),
-  getCollection('foods'),
-  getCollection('reviews'),
+const [venueEntries, foodEntries, reviewEntries] = await Promise.all([
+  getCollection('restaurants'), getCollection('foods'), getCollection('reviews'),
 ]);
-const reviewCounts = new Map<string, number>();
-for (const { data: review } of reviewEntries) {
-  if (review.targetType === 'venue') reviewCounts.set(review.targetId, (reviewCounts.get(review.targetId) ?? 0) + 1);
-}
-const restaurants = restaurantEntries
-  .map(({ data }) => ({ ...data, tags: deriveDistanceTags(data), reviewCount: reviewCounts.get(data.id) ?? 0 }))
-  .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-const foods = foodEntries.map(({ data }) => data).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+const venues = new Map(venueEntries.map(({ data }) => [data.id, { ...data, tags: deriveDistanceTags(data) }]));
+const foods = foodEntries.map(({ data }) => {
+  const reviews = reviewEntries.filter(({ data: review }) => review.targetType === 'food' && review.targetId === data.id);
+  const ratings = reviews.map(({ data: review }) => review.rating).filter((rating): rating is number => rating !== null);
+  return { ...data, venue: venues.get(data.venueId) ?? null, reviewCount: reviews.length,
+    rating: ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null };
+}).sort((a, b) => Number(b.images.some(image => safePublicImage(image))) - Number(a.images.some(image => safePublicImage(image))) || a.name.localeCompare(b.name, 'zh-CN'));
 ---
-
-<Layout title="今日海大吃什么">
+<Layout title="今天吃什么">
   <main class="page-shell">
-    <header class="masthead">
-      <a class="brand" href="/" aria-label="今日海大吃什么首页"><span class="brand-mark">食</span><span>今日海大吃什么</span></a>
-      <a class="submit-link" href="/submit/">提交餐饮信息 <span aria-hidden="true">↗</span></a>
-    </header>
-    <section class="intro" aria-labelledby="page-title">
-      <div class="hero-copy"><p class="eyebrow"><span class="live-dot"></span> 上海海洋大学 · 临港</p><h1 id="page-title">今天吃点什么？</h1><p class="intro-copy">从同学去过的店里，找一顿合口味的。</p></div>
-      <div class="count" aria-label={`当前目录有 ${restaurants.length} 个去处`}><strong>{restaurants.length}</strong><span>个去处</span><small>今日可探索</small></div>
-    </section>
-    <RestaurantFinder client:load restaurants={restaurants} foods={foods} />
-    <footer><span>口味因人而异，价格与营业信息请以现场为准。</span><a href="/about/">关于本站</a></footer>
+    <FoodFinder client:load foods={foods} venueCount={venues.size} />
+    <footer><span>口味因人而异，价格与营业信息请以现场为准。没有照片的餐品使用插画占位。</span><a href="/about/">关于本站与信息来源 ↗</a></footer>
   </main>
 </Layout>
-
 <style>
-  .page-shell{width:min(calc(100% - 32px),1200px);margin:auto;padding:0 0 8px}
-  .masthead{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;min-width:0;min-height:52px;gap:12px;color:var(--ink);font-size:16px;font-weight:800;text-decoration:none}
-  .brand-mark{display:grid;flex:0 0 42px;place-items:center;width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,var(--orange),var(--orange-deep));box-shadow:0 8px 18px -6px rgba(255,107,53,.35);color:#fff;font-family:'Epilogue',sans-serif;font-size:22px}
-  .brand>span:last-child{overflow-wrap:anywhere}
-  .submit-link{display:flex;align-items:center;flex:0 0 auto;min-height:46px;gap:8px;padding:0 16px;border:1.5px solid var(--orange);border-radius:999px;color:var(--orange-deep);font-size:13px;font-weight:800;text-decoration:none;transition:background .2s,color .2s,transform .2s}
-  .submit-link:hover{background:#fff2eb;color:var(--orange-deep);transform:translateY(-1px)}
-  .submit-link span{color:var(--orange)}
-  .intro{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:32px;padding:64px 0 42px}
-  .eyebrow{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.02em}
-  .live-dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(72,187,120,.14)}
-  .intro h1{max-width:680px;margin:0;font-size:clamp(36px,5vw,56px);line-height:1.08;font-weight:800;letter-spacing:-.04em;overflow-wrap:anywhere}
-  .intro-copy{max-width:500px;margin:15px 0 0;color:var(--muted);font-size:16px;line-height:1.7;overflow-wrap:anywhere}
-  .count{display:grid;grid-template-columns:auto auto;align-items:end;column-gap:8px;min-width:180px;padding:22px 24px;border:1px solid rgba(255,107,53,.13);border-radius:24px;background:var(--surface-card);box-shadow:var(--shadow-card);color:var(--muted);font-size:13px}
-  .count strong{grid-row:span 2;color:var(--orange);font-family:'Epilogue',sans-serif;font-size:48px;line-height:.9}
-  .count span{align-self:end;font-weight:800}
-  .count small{grid-column:2;margin-top:4px;color:var(--green);font-size:11px;font-weight:700}
-  footer{display:flex;justify-content:space-between;gap:18px;padding:32px 0 40px;margin-top:40px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.7}
-  footer a{flex:0 0 auto;color:var(--muted);min-height:44px;display:flex;align-items:center}
-  @media(max-width:760px){
-    .page-shell{width:min(calc(100% - 32px),1200px)}
-    .masthead{min-height:72px}
-    .intro{padding:48px 0 32px}
-    .intro h1{font-size:clamp(34px,9vw,48px)}
-  }
-  @media(max-width:600px){
-    .masthead{min-height:68px;padding:8px 0}
-    .brand{font-size:14px}
-    .brand-mark{width:38px;height:38px;flex-basis:38px;border-radius:12px;font-size:19px}
-    .submit-link{min-height:44px;padding:0 12px;font-size:12px}
-    .intro{display:block;padding:40px 0 28px}
-    .intro h1{font-size:clamp(34px,10vw,42px)}
-    .intro-copy{font-size:14px}
-    .count{display:inline-grid;min-width:160px;margin-top:24px;padding:16px 18px;border-radius:20px}
-    .count strong{font-size:38px}
-    footer{align-items:flex-start;flex-wrap:wrap;gap:10px 16px;padding-bottom:30px}
-  }
-  @media(max-width:390px){
-    .page-shell{width:calc(100% - 32px)}
-    .masthead{align-items:flex-start}
-    .brand{flex:1}
-    .submit-link{font-size:12px}
-  }
+  .page-shell{width:calc(100% - clamp(32px,4vw,96px));margin:auto;padding-bottom:24px}
+  footer{display:flex;justify-content:space-between;gap:24px;margin-top:48px;padding:24px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.8}
+  footer a{display:flex;align-items:center;min-height:44px;flex:none}
+  @media(max-width:640px){footer{flex-direction:column;gap:8px}}
 </style>

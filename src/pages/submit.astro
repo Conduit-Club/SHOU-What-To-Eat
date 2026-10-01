@@ -1,5 +1,7 @@
 ---
 import Layout from '../templates/Layout.astro';
+import { getCollection } from 'astro:content';
+const venues = (await getCollection('restaurants')).map(({ data }) => data).sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
 import snapshot from '../../public/catalog-snapshot.json';
 
 const catalogSnapshotId = snapshot.snapshotId;
@@ -10,7 +12,7 @@ const catalogSnapshotId = snapshot.snapshotId;
     <section class="submit-hero">
       <p class="eyebrow">SHOU FOOD · CONTRIBUTION</p>
       <h1>把你知道的一口，留给下一位同学。</h1>
-      <p class="lead">可以提交餐厅或档口、餐品，也可以为已发布内容写一条独立评价。没有照片也可以投稿，未知信息请留空。</p>
+      <p class="lead">补充餐厅、档口和餐品资料，审核后加入食单。想分享用餐体验？直接到餐品或店铺详情页留下评价。未知信息请留空。</p>
     </section>
 
     <form id="submission-form" class="submission-form" data-snapshot-id={catalogSnapshotId}>
@@ -19,12 +21,11 @@ const catalogSnapshotId = snapshot.snapshotId;
         <div class="type-grid" role="radiogroup" aria-label="投稿类型">
           <label><input type="radio" name="entityType" value="venue" checked /><span><b>餐厅 / 档口</b><small>新增一个餐饮点</small></span></label>
           <label><input type="radio" name="entityType" value="food" /><span><b>餐品</b><small>绑定到一个店铺</small></span></label>
-          <label><input type="radio" name="entityType" value="review" /><span><b>独立评价</b><small>评价已发布内容</small></span></label>
         </div>
       </fieldset>
 
       <section id="venue-fields" class="form-section" aria-labelledby="venue-heading">
-        <div class="section-heading"><div><p class="section-kicker">NEW PLACE</p><h2 id="venue-heading">餐厅或档口</h2></div><span class="section-hint">可不附评价</span></div>
+        <div class="section-heading"><div><p class="section-kicker">NEW PLACE</p><h2 id="venue-heading">餐厅或档口</h2></div><span class="section-hint">资料审核后入册</span></div>
         <div class="row"><label>名称 <input id="venue-name" name="venueName" maxlength="160" placeholder="例如：一食堂二楼" /></label><label>类型<select id="venue-type" name="venueType"><option value="cafeteria">食堂</option><option value="stall">档口</option><option value="restaurant">餐厅</option><option value="cafe">咖啡 / 饮品店</option><option value="convenience">便利店</option></select></label></div>
         <div class="row"><label>范围<select id="venue-category" name="venueCategory"><option value="on-campus">校内</option><option value="off-campus">校外</option></select></label><label>标签 <input name="venueTags" maxlength="800" placeholder="用逗号分隔，可留空" /></label></div>
         <label>位置或地址 <input id="venue-address" name="venueAddress" maxlength="500" placeholder="楼栋、食堂楼层、商圈或附近地标" /></label>
@@ -36,7 +37,7 @@ const catalogSnapshotId = snapshot.snapshotId;
 
       <section id="food-fields" class="form-section" aria-labelledby="food-heading" hidden>
         <div class="section-heading"><div><p class="section-kicker">NEW DISH</p><h2 id="food-heading">餐品</h2></div><span class="section-hint">需要绑定店铺</span></div>
-        <label>所属店铺 ID <input id="food-venue-id" name="foodVenueId" maxlength="160" placeholder="公开店铺 ID，或你刚提交的待审店铺 ID" /></label>
+        <label>所属餐厅 / 档口<select id="food-venue-id" name="foodVenueId"><option value="">请选择已发布的店铺</option>{venues.map(venue => <option value={venue.id}>{venue.name}</option>)}</select><small class="field-note">店铺尚未收录？先投稿店铺，再使用回执里的“添加餐品”。</small></label>
         <p class="field-note">已发布店铺可直接绑定；刚提交的店铺请使用回执页面提供的 entity ID。父回执只会私下发送给 API，不会写进公开内容。</p>
         <div class="row"><label>餐品名称 <input id="food-name" name="foodName" maxlength="160" placeholder="例如：滑蛋饭" /></label><label>餐段<select name="foodMealType"><option value="">未注明</option><option value="breakfast">早餐</option><option value="meal">正餐</option><option value="snack">小吃</option><option value="dessert">甜点</option><option value="drink">饮品</option></select></label></div>
         <label>餐品标签 <input name="foodTags" maxlength="800" placeholder="用逗号分隔，可留空" /></label>
@@ -44,28 +45,10 @@ const catalogSnapshotId = snapshot.snapshotId;
         <div class="row"><label>价格（元）<input name="foodPrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="可留空" /></label><label>价格来源 <input name="foodPriceSource" maxlength="300" placeholder="菜单、现场标价等；可留空" /></label></div>
       </section>
 
-      <section id="review-fields" class="form-section" aria-labelledby="review-heading" hidden>
-        <div class="section-heading"><div><p class="section-kicker">STUDENT NOTE</p><h2 id="review-heading">独立评价</h2></div><span class="section-hint">评分必填</span></div>
-        <div class="row"><label>评价对象<select name="reviewTargetType"><option value="venue">餐厅 / 档口</option><option value="food">餐品</option></select></label><label>对象 ID <input id="review-target-id" name="reviewTargetId" maxlength="160" placeholder="已发布内容的 ID" /></label></div>
-        <fieldset class="rating-field"><legend>评分 <span>请选择 1–5 星</span></legend><div class="rating-options">{[1, 2, 3, 4, 5].map((rating) => <label><input type="radio" name="reviewRating" value={rating} /><span aria-label={rating + ' 星'}>{'★'.repeat(rating)}</span></label>)}</div></fieldset>
-        <label>评价文字 <textarea name="reviewText" maxlength="256" rows="5" placeholder="最多 256 个 Unicode 字符，写下你的实际体验。"></textarea><small class="char-count" data-count-for="reviewText">0 / 256</small></label>
-      </section>
-
-      <section id="attached-review" class="form-section attached-section" aria-labelledby="attached-heading" hidden>
-        <div class="section-heading"><div><p class="section-kicker">OPTIONAL NOTE</p><h2 id="attached-heading">附一条评价</h2></div><span class="section-hint">可关闭</span></div>
-        <label class="check-label"><input id="attached-enabled" type="checkbox" name="attachedEnabled" /><span>同时分享这家店 / 这道餐品的实际体验</span></label>
-        <div id="attached-fields" hidden>
-          <fieldset class="rating-field"><legend>评分 <span>请选择 1–5 星</span></legend><div class="rating-options">{[1, 2, 3, 4, 5].map((rating) => <label><input type="radio" name="attachedRating" value={rating} /><span aria-label={rating + ' 星'}>{'★'.repeat(rating)}</span></label>)}</div></fieldset>
-          <label>评价文字 <textarea name="attachedText" maxlength="256" rows="4" placeholder="可只打星，也可以补充不超过 256 个 Unicode 字符的文字。"></textarea><small class="char-count" data-count-for="attachedText">0 / 256</small></label>
-        </div>
-      </section>
-
       <section class="form-section media-section" aria-labelledby="media-heading">
         <div class="section-heading"><div><p class="section-kicker">OPTIONAL PHOTOS</p><h2 id="media-heading">照片</h2></div><span class="section-hint">图片会压缩为 WebP并移除 EXIF</span></div>
         <label class="file-label"><span>实体照片 <small id="entity-file-hint">最多 6 张；可留空</small></span><input id="entity-images" type="file" accept="image/*" multiple /></label>
         <div id="entity-previews" class="previews" aria-live="polite"></div>
-        <label id="review-file-label" class="file-label" hidden><span>附加评价照片 <small>最多 3 张；可留空</small></span><input id="review-images" type="file" accept="image/*" multiple /></label>
-        <div id="review-previews" class="previews" aria-live="polite"></div>
         <div id="image-metadata" class="metadata" hidden>
           <p class="field-note">上传图片前请填写来源、版权方和许可。每张图片都需要替代文本；浏览器会将图片缩放并转码为 WebP（不超过 2 MiB），同时去除原始 EXIF。公开内容会保留来源页和许可信息。</p>
           <div class="row"><label>图片来源 <input id="image-source" name="imageSource" maxlength="500" placeholder="例如：本人拍摄 / 菜单公开页" /></label><label>版权方 <input id="image-holder" name="imageHolder" maxlength="200" placeholder="本人或明确的权利人" /></label></div>
@@ -93,9 +76,9 @@ const catalogSnapshotId = snapshot.snapshotId;
   </main>
 </Layout>
 <script>
-  import { turnstileWidget } from '../utils/turnstile-client';
+  import { turnstileWidget, resetTurnstile } from '../utils/turnstile-client';
 
-  type EntityType = 'venue' | 'food' | 'review';
+  type EntityType = 'venue' | 'food';
   type ImageSelection = { file: File; preview: string; alt: string };
   type PendingReceipt = { submissionId: string; receiptToken: string; version: number; type: EntityType; expectedImages: number; expectedReviewImages: number; entityId?: string };
   const form = document.querySelector<HTMLFormElement>('#submission-form')!;
@@ -112,20 +95,13 @@ const catalogSnapshotId = snapshot.snapshotId;
   const receiptFoodLink = document.querySelector<HTMLAnchorElement>('#receipt-food-link')!;
   const entityFields = document.querySelector<HTMLElement>('#venue-fields')!;
   const foodFields = document.querySelector<HTMLElement>('#food-fields')!;
-  const reviewFields = document.querySelector<HTMLElement>('#review-fields')!;
-  const attachedSection = document.querySelector<HTMLElement>('#attached-review')!;
-  const attachedFields = document.querySelector<HTMLElement>('#attached-fields')!;
-  const reviewFileLabel = document.querySelector<HTMLElement>('#review-file-label')!;
   const entityInput = document.querySelector<HTMLInputElement>('#entity-images')!;
-  const reviewInput = document.querySelector<HTMLInputElement>('#review-images')!;
   const entityPreviews = document.querySelector<HTMLElement>('#entity-previews')!;
-  const reviewPreviews = document.querySelector<HTMLElement>('#review-previews')!;
   const metadata = document.querySelector<HTMLElement>('#image-metadata')!;
   const snapshotId = form.dataset.snapshotId ?? '';
   const pendingReceiptKey = 'shou-pending-submission-v2';
   const receiptHistoryKey = 'shou-submission-receipts-v2';
   let entityImages: ImageSelection[] = [];
-  let reviewImages: ImageSelection[] = [];
   let pendingReceipt: PendingReceipt | null = null;
 
   function currentType(): EntityType {
@@ -136,35 +112,12 @@ const catalogSnapshotId = snapshot.snapshotId;
   }
   function switchType() {
     const type = currentType();
-    entityFields.hidden = type !== 'venue';
-    foodFields.hidden = type !== 'food';
-    reviewFields.hidden = type !== 'review';
-    attachedSection.hidden = type === 'review';
-    reviewFileLabel.hidden = type === 'review' || !document.querySelector<HTMLInputElement>('#attached-enabled')!.checked;
-    setDisabled(entityFields, type !== 'venue');
-    setDisabled(foodFields, type !== 'food');
-    setDisabled(reviewFields, type !== 'review');
-    setDisabled(attachedFields, type === 'review' || !document.querySelector<HTMLInputElement>('#attached-enabled')!.checked);
-    setDisabled(reviewFileLabel, reviewFileLabel.hidden);
-    if (type === 'review') entityInput.setAttribute('data-max', '3');
-    else entityInput.setAttribute('data-max', '6');
-    updateMetadataVisibility();
-  }
-  function updateAttached() {
-    const enabled = document.querySelector<HTMLInputElement>('#attached-enabled')!.checked && currentType() !== 'review';
-    attachedFields.hidden = !enabled;
-    reviewFileLabel.hidden = !enabled;
-    setDisabled(attachedFields, !enabled);
-    setDisabled(reviewFileLabel, !enabled);
-    updateMetadataVisibility();
+    entityFields.hidden = type !== 'venue'; foodFields.hidden = type !== 'food';
+    setDisabled(entityFields, type !== 'venue'); setDisabled(foodFields, type !== 'food');
+    entityInput.setAttribute('data-max','6'); updateMetadataVisibility();
   }
   function updateMetadataVisibility() {
-    metadata.hidden = entityImages.length === 0 && reviewImages.length === 0;
-  }
-  function updateCount(name: string) {
-    const control = form.elements.namedItem(name) as HTMLTextAreaElement | null;
-    const count = document.querySelector<HTMLElement>('[data-count-for="' + name + '"]');
-    if (control && count) count.textContent = Array.from(control.value).length + ' / 256';
+    metadata.hidden = entityImages.length === 0;
   }
   function showMessage(message: string, tone: 'error' | 'success' | 'info' = 'info') {
     feedback.textContent = message;
@@ -218,16 +171,16 @@ const catalogSnapshotId = snapshot.snapshotId;
   function restorePendingReceipt() {
     try {
       const parsed = JSON.parse(readSession(pendingReceiptKey) ?? 'null') as Partial<PendingReceipt> | null;
-      if (!parsed || typeof parsed.submissionId !== 'string' || typeof parsed.receiptToken !== 'string' || !parsed.submissionId || !parsed.receiptToken || !['venue', 'food', 'review'].includes(String(parsed.type)) || !Number.isSafeInteger(parsed.version) || !Number.isSafeInteger(parsed.expectedImages) || !Number.isSafeInteger(parsed.expectedReviewImages)) return;
+      if (!parsed || typeof parsed.submissionId !== 'string' || typeof parsed.receiptToken !== 'string' || !parsed.submissionId || !parsed.receiptToken || !['venue', 'food'].includes(String(parsed.type)) || !Number.isSafeInteger(parsed.version) || !Number.isSafeInteger(parsed.expectedImages) || !Number.isSafeInteger(parsed.expectedReviewImages)) return;
       pendingReceipt = parsed as PendingReceipt;
       retryButton.hidden = false;
       const typeInput = form.querySelector<HTMLInputElement>(`input[name="entityType"][value="${pendingReceipt.type}"]`);
       if (typeInput) { typeInput.checked = true; switchType(); }
     } catch { /* Ignore malformed or unavailable private storage. */ }
   }
-  function renderPreviews(kind: 'entity' | 'review') {
-    const list = kind === 'entity' ? entityPreviews : reviewPreviews;
-    const images = kind === 'entity' ? entityImages : reviewImages;
+  function renderPreviews() {
+    const list = entityPreviews;
+    const images = entityImages;
     list.replaceChildren();
     images.forEach((image, index) => {
       const item = document.createElement('div');
@@ -252,7 +205,7 @@ const catalogSnapshotId = snapshot.snapshotId;
       remove.addEventListener('click', () => {
         URL.revokeObjectURL(image.preview);
         images.splice(index, 1);
-        renderPreviews(kind);
+        renderPreviews();
         updateMetadataVisibility();
       });
       item.append(preview, label, remove);
@@ -264,21 +217,21 @@ const catalogSnapshotId = snapshot.snapshotId;
     const preview = URL.createObjectURL(file);
     return { file, preview, alt: '' };
   }
-  async function addFiles(kind: 'entity' | 'review', fileList: FileList | null) {
+  async function addFiles(fileList: FileList | null) {
     if (!fileList) return;
-    const maxCount = kind === 'entity' ? (currentType() === 'review' ? 3 : 6) : 3;
-    const target = kind === 'entity' ? entityImages : reviewImages;
+    const maxCount = 6;
+    const target = entityImages;
     const incoming = Array.from(fileList).slice(0, Math.max(0, maxCount - target.length));
     if (fileList.length > incoming.length) showMessage('图片数量已按当前投稿类型限制。', 'info');
     for (const file of incoming) {
       const image = await readImage(file);
       if (image) target.push(image);
     }
-    renderPreviews(kind);
+    renderPreviews();
     updateMetadataVisibility();
   }
-  function inputFiles(input: HTMLInputElement, kind: 'entity' | 'review') {
-    input.addEventListener('change', async () => { await addFiles(kind, input.files); input.value = ''; });
+  function inputFiles(input: HTMLInputElement) {
+    input.addEventListener('change', async () => { await addFiles(input.files); input.value = ''; });
   }
   async function compressImage(selection: ImageSelection): Promise<Blob> {
     const source = await createImageBitmap(selection.file);
@@ -331,20 +284,14 @@ const catalogSnapshotId = snapshot.snapshotId;
     if (amount === null) return null;
     return { amountCents: Math.round(amount * 100), currency: 'CNY', unit, source: value(sourceName) };
   }
-  function selectedRating(name: string) { const selected = form.querySelector<HTMLInputElement>('input[name="' + name + '"]:checked'); return selected ? Number(selected.value) : null; }
   function buildPayload(type: EntityType) {
     if (type === 'venue') {
       const distanceMeters = numberOrNull('venueDistanceMeters');
       const distanceBasis = value('venueDistanceBasis');
       const hasDistance = distanceMeters !== null && Boolean(distanceBasis);
-      return { name: value('venueName'), type: value('venueType'), campusScope: value('venueCategory'), location: { address: value('venueAddress'), campusArea: value('venueCampusArea') || null, floor: value('venueFloor') || null, distanceMeters: hasDistance ? Math.round(distanceMeters!) : null, distanceBasis: hasDistance ? distanceBasis : null }, tags: tags('venueTags'), description: value('venueDescription') || null, averagePrice: price('venuePrice', 'venuePriceSource', '人'), attachedReview: attachedReviewPayload() };
+      return { name: value('venueName'), type: value('venueType'), campusScope: value('venueCategory'), location: { address: value('venueAddress'), campusArea: value('venueCampusArea') || null, floor: value('venueFloor') || null, distanceMeters: hasDistance ? Math.round(distanceMeters!) : null, distanceBasis: hasDistance ? distanceBasis : null }, tags: tags('venueTags'), description: value('venueDescription') || null, averagePrice: price('venuePrice', 'venuePriceSource', '人') };
     }
-    if (type === 'food') return { name: value('foodName'), venueId: value('foodVenueId'), mealType: value('foodMealType') || null, description: value('foodDescription') || null, price: price('foodPrice', 'foodPriceSource', '份'), tags: tags('foodTags'), attachedReview: attachedReviewPayload() };
-    return { targetType: value('reviewTargetType'), targetId: value('reviewTargetId'), rating: selectedRating('reviewRating'), text: value('reviewText') };
-  }
-  function attachedReviewPayload() {
-    if (!document.querySelector<HTMLInputElement>('#attached-enabled')!.checked) return undefined;
-    return { rating: selectedRating('attachedRating'), text: value('attachedText') };
+    return { name: value('foodName'), venueId: value('foodVenueId'), mealType: value('foodMealType') || null, description: value('foodDescription') || null, price: price('foodPrice', 'foodPriceSource', '份'), tags: tags('foodTags') };
   }
   function parentData(type: EntityType) {
     if (type !== 'food') return undefined;
@@ -353,18 +300,11 @@ const catalogSnapshotId = snapshot.snapshotId;
     return { venueEntityId: parentId, ...(parentReceiptToken ? { parentReceiptToken } : {}) };
   }
   function validate(type: EntityType) {
-    const description = type === 'venue' ? value('venueDescription') : type === 'food' ? value('foodDescription') : value('reviewText');
-    if (type === 'review' && !selectedRating('reviewRating')) return '独立评价必须选择 1–5 星。';
-    if (type === 'review' && Array.from(description).length > 256) return '评价文字不能超过 256 个 Unicode 字符。';
     if ((type === 'venue' && (!value('venueName') || !value('venueAddress'))) || (type === 'food' && (!value('foodName') || !value('foodVenueId')))) return '请先填写名称和必要的位置或店铺信息。';
     if (type === 'venue' && Boolean(value('venueDistanceMeters')) !== Boolean(value('venueDistanceBasis'))) return '填写距离时，请同时选择距离依据；未知信息可留空。';
     if (type === 'venue' && value('venuePrice') && !value('venuePriceSource')) return '填写价格时，请同时填写价格来源。';
     if (type === 'food' && value('foodPrice') && !value('foodPriceSource')) return '填写价格时，请同时填写价格来源。';
-    if (type !== 'review' && document.querySelector<HTMLInputElement>('#attached-enabled')!.checked) {
-      if (!selectedRating('attachedRating')) return '附加评价需要选择 1–5 星。';
-      if (Array.from(value('attachedText')).length > 256) return '附加评价文字不能超过 256 个 Unicode 字符。';
-    }
-    const allImages = entityImages.concat(reviewImages);
+    const allImages = entityImages;
     if (allImages.length) {
       if (!value('image-source') || !value('image-holder') || !value('image-license') || !document.querySelector<HTMLInputElement>('#rights-confirmed')!.checked) return '请填写图片来源、版权方、许可并确认使用权。';
       if (allImages.some((image) => !image.alt.trim())) return '请为每张图片填写替代文本。';
@@ -398,11 +338,8 @@ const catalogSnapshotId = snapshot.snapshotId;
   function resetSubmissionForm() {
     form.reset();
     entityImages.forEach((image) => URL.revokeObjectURL(image.preview));
-    reviewImages.forEach((image) => URL.revokeObjectURL(image.preview));
     entityImages = [];
-    reviewImages = [];
-    renderPreviews('entity');
-    renderPreviews('review');
+    renderPreviews();
     updateMetadataVisibility();
     switchType();
   }
@@ -416,7 +353,6 @@ const catalogSnapshotId = snapshot.snapshotId;
       draftFields[control.name] = control.value;
     });
     draftFields.entityImageCount = String(entityImages.length);
-    draftFields.reviewImageCount = String(reviewImages.length);
     return data;
   }
   const widget = turnstileWidget();
@@ -426,10 +362,7 @@ const catalogSnapshotId = snapshot.snapshotId;
     showMessage('当前投稿服务暂不可用，请稍后再试；你仍可下载本地草稿。', 'info');
   }
   document.querySelectorAll<HTMLInputElement>('input[name="entityType"]').forEach((input) => input.addEventListener('change', switchType));
-  document.querySelector<HTMLInputElement>('#attached-enabled')!.addEventListener('change', updateAttached);
-  document.querySelectorAll<HTMLTextAreaElement>('textarea[maxlength="256"]').forEach((input) => input.addEventListener('input', () => updateCount(input.name)));
-  inputFiles(entityInput, 'entity');
-  inputFiles(reviewInput, 'review');
+  inputFiles(entityInput);
   receiptTokenToggle.addEventListener('click', () => {
     const reveal = receiptTokenInput.type === 'password';
     receiptTokenInput.type = reveal ? 'text' : 'password';
@@ -440,9 +373,9 @@ const catalogSnapshotId = snapshot.snapshotId;
   const initialVenue = query.get('venue');
   const initialVenueEntityId = query.get('venueEntityId');
   const initialFood = query.get('food');
-  if (initialVenue) { (fields('reviewTargetType') as HTMLSelectElement).value = 'venue'; (fields('reviewTargetId') as HTMLInputElement).value = initialVenue; (form.querySelector('input[name="entityType"][value="review"]') as HTMLInputElement).checked = true; }
-  if (initialVenueEntityId) { (fields('foodVenueId') as HTMLInputElement).value = initialVenueEntityId; (form.querySelector('input[name="entityType"][value="food"]') as HTMLInputElement).checked = true; }
-  if (initialFood) { (fields('reviewTargetType') as HTMLSelectElement).value = 'food'; (fields('reviewTargetId') as HTMLInputElement).value = initialFood; (form.querySelector('input[name="entityType"][value="review"]') as HTMLInputElement).checked = true; }
+  if (initialVenue) location.replace('/restaurants/' + encodeURIComponent(initialVenue) + '/#review-form');
+  if (initialVenueEntityId) { const select = fields('foodVenueId') as HTMLSelectElement; if (![...select.options].some(option => option.value === initialVenueEntityId)) { const option = new Option('刚投稿的店铺（审核中）', initialVenueEntityId); select.add(option); } select.value = initialVenueEntityId; (form.querySelector('input[name="entityType"][value="food"]') as HTMLInputElement).checked = true; }
+  if (initialFood) location.replace('/foods/' + encodeURIComponent(initialFood) + '/#review-form');
   switchType();
   restorePendingReceipt();
   form.addEventListener('submit', async (event) => {
@@ -456,9 +389,8 @@ const catalogSnapshotId = snapshot.snapshotId;
     try {
       const token = String(form.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')?.value ?? '');
       if (!token.trim()) { showMessage('请先完成人机验证。', 'error'); return; }
-      const entityImagesCount = Math.min(entityImages.length, type === 'review' ? 3 : 6);
-      const attachedEnabled = type !== 'review' && document.querySelector<HTMLInputElement>('#attached-enabled')!.checked;
-      const reviewImagesCount = attachedEnabled ? Math.min(reviewImages.length, 3) : 0;
+      const entityImagesCount = Math.min(entityImages.length, 6);
+      const reviewImagesCount = 0;
       const payload = buildPayload(type);
       const response = await fetch('/api/v2/submissions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID().replaceAll('-', '') }, body: JSON.stringify({ schemaVersion: 2, entityType: type, snapshotId, payload, parent: parentData(type), expectedImages: entityImagesCount, expectedReviewImages: reviewImagesCount, turnstileToken: token }) });
       const result = await response.json();
@@ -471,13 +403,13 @@ const catalogSnapshotId = snapshot.snapshotId;
       savePendingReceipt(receipt);
       let version = receipt.version;
       if (entityImagesCount) version = await submitImages(submissionId, receiptToken, version, entityImages.slice(0, entityImagesCount), 'entity', 0, updatePendingVersion);
-      if (reviewImagesCount) version = await submitImages(submissionId, receiptToken, version, reviewImages.slice(0, reviewImagesCount), 'attachedReview', 0, updatePendingVersion);
       await finalizeReceipt(receipt, version);
       if ((type === 'venue' || type === 'food') && receipt.entityId) writeSession('shou-parent-receipt:' + receipt.entityId, receiptToken);
       clearPendingReceipt();
       showReceipt(receipt);
       showMessage('投稿已收到，请在下方保存回执信息。', 'success');
       resetSubmissionForm();
+      resetTurnstile();
     } catch (error) {
       const detail = error instanceof Error ? error.message : '暂时无法提交，请稍后再试。';
       showMessage(pendingReceipt ? detail + ' 已保留回执，可点击“继续保存上一份投稿”重试。' : detail, 'error');
@@ -499,9 +431,8 @@ const catalogSnapshotId = snapshot.snapshotId;
       const missingEntity = retryReceipt.expectedImages - current.uploadedImages;
       const missingReview = retryReceipt.expectedReviewImages - current.uploadedReviewImages;
       if (missingEntity > 0 && entityImages.length < retryReceipt.expectedImages) throw new Error('上一份投稿仍缺少实体图片，请重新选择未保存的图片后重试。');
-      if (missingReview > 0 && reviewImages.length < retryReceipt.expectedReviewImages) throw new Error('上一份投稿仍缺少附加评价图片，请重新选择未保存的图片后重试。');
+      if (missingReview > 0) throw new Error('这份旧投稿仍缺少附加评价图片，请保存回执并联系审核员处理；请勿重复提交。');
       if (missingEntity > 0) version = await submitImages(retryReceipt.submissionId, retryReceipt.receiptToken, version, entityImages.slice(0, retryReceipt.expectedImages), 'entity', current.uploadedImages, updatePendingVersion);
-      if (missingReview > 0) version = await submitImages(retryReceipt.submissionId, retryReceipt.receiptToken, version, reviewImages.slice(0, retryReceipt.expectedReviewImages), 'attachedReview', current.uploadedReviewImages, updatePendingVersion);
       const finalized = await finalizeReceipt(retryReceipt, version);
       const finalizedEntityId = finalized && typeof finalized === 'object' && typeof finalized.entityId === 'string' ? finalized.entityId.trim() : '';
       const completedReceipt: PendingReceipt = { ...retryReceipt, ...(finalizedEntityId ? { entityId: finalizedEntityId } : {}) };
@@ -528,22 +459,22 @@ const catalogSnapshotId = snapshot.snapshotId;
   });
 </script>
 <style>
-  .submit-page{width:min(calc(100% - 32px),900px);margin:auto;padding:0 0 60px}.top{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}.back,.page-label{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}.back{gap:8px}.back span{color:var(--orange)}.page-label{font-weight:700;color:var(--ink)}
+  .submit-page{width:calc(100% - clamp(32px,4vw,96px));margin:auto;padding:0 0 60px}.top{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}.back,.page-label{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}.back{gap:8px}.back span{color:var(--orange)}.page-label{font-weight:700;color:var(--ink)}
   .submit-hero{max-width:760px;padding:62px 0 35px}.eyebrow,.section-kicker{margin:0 0 14px;color:var(--orange-deep);font-size:10px;font-weight:800;letter-spacing:.15em}.submit-hero h1{margin:0;color:var(--ink);font-size:clamp(38px,5vw,58px);line-height:1.08;letter-spacing:-.05em;overflow-wrap:anywhere}.lead{max-width:670px;margin:18px 0 0;color:var(--muted);font-size:14px;line-height:1.9;overflow-wrap:anywhere}
-  .submission-form{display:grid;gap:18px}.type-field,.form-section{min-width:0;margin:0;padding:24px;border:1px solid rgba(255,107,53,.1);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}fieldset{border:0}.type-field legend{margin-bottom:14px;color:var(--ink);font-size:14px;font-weight:800}.type-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.type-grid label{min-width:0;cursor:pointer}.type-grid input{position:absolute;width:1px;height:1px;opacity:0}.type-grid span{display:grid;min-height:72px;align-content:center;gap:5px;padding:11px 12px;border:1px solid var(--line);border-radius:17px;color:var(--muted)}.type-grid b{color:var(--ink);font-size:12px}.type-grid small{font-size:10px;line-height:1.4}.type-grid input:checked+span{border-color:var(--orange);background:#fff2eb}.type-grid input:checked+span b{color:var(--orange-deep)}.type-grid input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}
+  .submission-form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:18px;align-items:start}.submission-form>*{grid-column:1/-1}.submission-form>#venue-fields,.submission-form>#food-fields{grid-column:1;grid-row:2}.submission-form>.media-section{grid-column:2;grid-row:2}.type-field,.form-section{min-width:0;margin:0;padding:24px;border:1px solid rgba(255,107,53,.1);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}fieldset{border:0}.type-field legend{margin-bottom:14px;color:var(--ink);font-size:14px;font-weight:800}.type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.type-grid label{min-width:0;cursor:pointer}.type-grid input{position:absolute;width:1px;height:1px;opacity:0}.type-grid span{display:grid;min-height:72px;align-content:center;gap:5px;padding:11px 12px;border:1px solid var(--line);border-radius:17px;color:var(--muted)}.type-grid b{color:var(--ink);font-size:12px}.type-grid small{font-size:10px;line-height:1.4}.type-grid input:checked+span{border-color:var(--orange);background:#fff2eb}.type-grid input:checked+span b{color:var(--orange-deep)}.type-grid input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}
   .section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:18px}.section-heading h2{margin:0;color:var(--ink);font-size:22px;letter-spacing:-.03em}.section-kicker{margin-bottom:7px}.section-hint{flex:0 0 auto;color:var(--muted);font-size:10px;font-weight:700}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.form-section>label,.row label,.rating-field legend{display:grid;gap:8px;color:var(--ink);font-size:12px;font-weight:800}.form-section>label+label,.form-section>.row,.form-section>.field-note{margin-top:14px}
   input:not([type=radio]):not([type=checkbox]),select,textarea{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:16px;outline:0}textarea{min-height:120px;padding:13px 14px;resize:vertical;line-height:1.7}input:not([type=radio]):not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,53,.15)}.field-note{margin-bottom:0;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}.char-count{display:block;margin-top:-3px;color:var(--muted);font-size:10px;font-weight:500}
-  .rating-field{margin-top:15px;padding:0}.rating-field legend{display:flex;align-items:center;gap:8px}.rating-field legend span{color:var(--muted);font-size:10px;font-weight:500}.rating-options{display:flex;gap:6px;margin-top:9px}.rating-options label{cursor:pointer}.rating-options input{position:absolute;width:1px;height:1px;opacity:0}.rating-options span{display:grid;min-width:44px;min-height:44px;place-items:center;border:1px solid var(--line);border-radius:14px;color:#d6cbc3;font-size:18px;letter-spacing:-.1em}.rating-options input:checked+span{border-color:var(--honey);background:#fff8e6;color:var(--honey)}.rating-options input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}
-  .check-label{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px!important;min-height:44px;cursor:pointer}.check-label input{width:20px;height:20px;min-height:20px;accent-color:var(--orange)}.check-label span{color:var(--ink);font-size:12px;line-height:1.5}.attached-section{background:#fffdf9}
+  .check-label{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px!important;min-height:44px;cursor:pointer}.check-label input{width:20px;height:20px;min-height:20px;accent-color:var(--orange)}.check-label span{color:var(--ink);font-size:12px;line-height:1.5}
   .file-label{display:flex!important;align-items:center;justify-content:space-between;gap:12px;min-height:55px!important;padding:0 14px;border:1px dashed #decfc5;border-radius:17px;background:#fffdf9;cursor:pointer}.file-label>span{display:grid;gap:4px}.file-label small{color:var(--muted);font-size:10px;font-weight:500}.file-label input{min-width:0;max-width:170px;min-height:44px;font-size:12px}.previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.preview-item{min-width:0;padding:9px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft)}.preview-item img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f5eee7}.preview-item label{display:grid;gap:5px;margin-top:8px;color:var(--muted);font-size:10px;font-weight:700}.preview-item input{width:100%;min-height:40px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-card);font-size:12px}.remove-image{width:100%;min-height:40px;margin-top:7px;border:0;border-radius:10px;background:#fff0ed;color:#ad3e2d;font-size:10px;font-weight:800}.metadata{margin-top:16px;padding:15px;border-radius:17px;background:#f0fff4}.metadata .field-note{margin:0 0 12px}.metadata .row{gap:10px}.metadata input:not([type=radio]):not([type=checkbox]){min-height:44px;background:#fff;font-size:16px}.metadata-checks{display:grid;align-content:end;gap:4px}.rights{align-self:end;min-height:44px}
   .notice{display:flex;align-items:flex-start;gap:10px;padding:15px 16px;border-radius:18px;background:#fff8e6;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}.notice>span{flex:0 0 auto;color:#ce7e00;font-size:17px}.notice p{margin:0}
   #turnstile-slot{min-height:0}#turnstile-slot:empty{display:none}.submit-button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:54px;border:0;border-radius:18px;background:linear-gradient(135deg,var(--orange),var(--orange-deep));box-shadow:0 14px 26px -12px rgba(255,107,53,.5);color:#fff;font-size:14px;font-weight:800}.submit-button:disabled{cursor:not-allowed;opacity:.55}.retry-button{justify-self:center;min-height:44px;padding:0 15px;border:1px solid var(--orange);border-radius:14px;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}.retry-button:disabled{cursor:wait;opacity:.6}.feedback{min-height:22px;margin:-7px 0 0;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}.feedback[data-tone=error]{color:#ad3e2d}.feedback[data-tone=success]{color:#23814d}.draft{justify-self:center;min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline}
-  @media(max-width:640px){.submit-page{width:min(calc(100% - 32px),900px)}.submit-hero{padding:44px 0 30px}.submit-hero h1{font-size:40px}.type-field,.form-section{padding:20px;border-radius:24px}.type-grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.previews{grid-template-columns:repeat(2,minmax(0,1fr))}.file-label{align-items:flex-start;flex-direction:column;padding:11px 13px}.file-label input{max-width:none;width:100%}}
-  @media(max-width:360px){.submit-page{width:calc(100% - 32px)}.top{gap:8px}.back,.page-label{font-size:10px}.submit-hero h1{font-size:34px}.type-field,.form-section{padding:18px}.rating-options{gap:3px}.rating-options span{min-width:42px}}
+  @media(max-width:640px){.submit-page{width:calc(100% - clamp(32px,4vw,96px))}.submit-hero{padding:44px 0 30px}.submit-hero h1{font-size:40px}.type-field,.form-section{padding:20px;border-radius:24px}.type-grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.previews{grid-template-columns:repeat(2,minmax(0,1fr))}.file-label{align-items:flex-start;flex-direction:column;padding:11px 13px}.file-label input{max-width:none;width:100%}}
+  @media(max-width:360px){.submit-page{width:calc(100% - 32px)}.top{gap:8px}.back,.page-label{font-size:10px}.submit-hero h1{font-size:34px}.type-field,.form-section{padding:18px}}
+  @media(max-width:900px){.submission-form{grid-template-columns:1fr}.submission-form>#venue-fields,.submission-form>#food-fields,.submission-form>.media-section{grid-column:1;grid-row:auto}}
 </style>
 <style>
-  #entity-previews :global(.preview-item),#review-previews :global(.preview-item){min-width:0;padding:9px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft)}#entity-previews :global(.preview-item img),#review-previews :global(.preview-item img){display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f5eee7}#entity-previews :global(.preview-item label),#review-previews :global(.preview-item label){display:grid;gap:5px;margin-top:8px;color:var(--muted);font-size:10px;font-weight:700}#entity-previews :global(.preview-item input),#review-previews :global(.preview-item input){width:100%;min-height:44px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-card);color:var(--ink);font-size:12px}#entity-previews :global(.remove-image),#review-previews :global(.remove-image){width:100%;min-height:44px;margin-top:7px;border:0;border-radius:10px;background:#fff0ed;color:#ad3e2d;font-size:10px;font-weight:800}
-  @media(max-width:800px){#entity-previews :global(.preview-item input),#review-previews :global(.preview-item input){font-size:16px}}
+  #entity-previews :global(.preview-item){min-width:0;padding:9px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft)}#entity-previews :global(.preview-item img){display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f5eee7}#entity-previews :global(.preview-item label){display:grid;gap:5px;margin-top:8px;color:var(--muted);font-size:10px;font-weight:700}#entity-previews :global(.preview-item input){width:100%;min-height:44px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface-card);color:var(--ink);font-size:12px}#entity-previews :global(.remove-image){width:100%;min-height:44px;margin-top:7px;border:0;border-radius:10px;background:#fff0ed;color:#ad3e2d;font-size:10px;font-weight:800}
+  @media(max-width:800px){#entity-previews :global(.preview-item input){font-size:16px}}
 </style>
 <style>
   .receipt-panel{display:grid;gap:16px;margin-top:18px;padding:24px;border:1px solid rgba(0,109,60,.18);border-radius:28px;background:var(--surface-card);box-shadow:var(--shadow-card)}.receipt-panel[hidden],.receipt-fields>label[hidden],.receipt-actions a[hidden],.file-label[hidden]{display:none!important}.receipt-panel .section-heading{margin-bottom:0}.receipt-note{margin:0;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}.receipt-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.receipt-fields>label{display:grid;gap:8px;color:var(--ink);font-size:12px;font-weight:800}.receipt-fields>label:last-child{grid-column:1/-1}.receipt-fields input{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:16px;overflow-wrap:anywhere}.token-control{display:flex;min-width:0;gap:8px}.token-control input{min-width:0}.token-control button{flex:0 0 auto;min-width:64px;min-height:50px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}.receipt-actions{display:flex;flex-wrap:wrap;gap:10px}.receipt-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:14px;background:var(--orange);color:#fff;font-size:12px;font-weight:800;text-decoration:none}.receipt-actions a:last-child{background:#e4f6ea;color:var(--green)}
