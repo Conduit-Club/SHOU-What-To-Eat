@@ -4,7 +4,7 @@ import { getCollection } from 'astro:content';
 import PhotoUploader from '../components/PhotoUploader.astro';
 import StarRating from '../components/StarRating.astro';
 import snapshot from '../../public/catalog-snapshot.json';
-const venues = (await getCollection('restaurants')).map(({ data }) => data).sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
+const venues = (await getCollection('restaurants')).map(({ data }) => data).filter(data=>data.status!=='archived').sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
 ---
 <Layout title="提交餐饮信息">
   <main class="submit-page">
@@ -35,7 +35,7 @@ const venues = (await getCollection('restaurants')).map(({ data }) => data).sort
         <div class="row"><label><span>价格（元 / 份）</span><input name="foodPrice" type="number" min="0" max="100000" step="0.01" inputmode="decimal" data-label="餐品价格" placeholder="未知可留空" /></label><label><span>价格来源 <b data-price-required="food" class="required-mark" aria-hidden="true" hidden>*</b></span><input name="foodPriceSource" maxlength="300" data-label="餐品价格来源" placeholder="例如：店内菜单标价" /></label></div>
       </section>
       <aside class="media-column">
-        <section class="form-section"><div class="section-heading"><div><p class="eyebrow">A PICTURE OF THIS PLACE</p><h2>给它添张照片</h2></div><small>选填</small></div>
+        <section class="form-section"><div class="section-heading"><div><p class="eyebrow">A PICTURE OF THIS PLACE</p><h2>给它添张照片 <b class="required-mark" data-entity-photo-required hidden>*</b></h2></div><small data-photo-required-label>店铺选填 · 餐品必填</small></div>
           <PhotoUploader id="entity-images" title="添加店铺 / 餐品照片" />
           <div id="entity-previews" class="upload-previews" aria-live="polite"></div>
           <p class="field-note">图片会在你的浏览器内压缩为 WebP，并移除照片位置数据。</p>

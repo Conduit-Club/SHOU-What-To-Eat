@@ -6,7 +6,7 @@ import { validateImageMetadata } from '../src/worker/media.ts';
 const envelope={schemaVersion:2,snapshotId:'catalog-v2-test',expectedImages:0,expectedReviewImages:0,turnstileToken:'test-token'};
 const venue={name:'一餐二楼',type:'stall',campusScope:'on-campus',location:{address:'第一食堂二楼'},tags:[],averagePrice:null};
 const food={name:'酸菜鱼',venueId:'venue-1',mealType:'meal',tags:[],price:{amountCents:1900,currency:'CNY',unit:'份',source:'菜单'}};
-const validate=(type,payload,extra={})=>validateV2Submission({...envelope,entityType:type,payload,...extra});
+const validate=(type,payload,extra={})=>validateV2Submission({...envelope,expectedImages:type==='food'?1:0,entityType:type,payload,...extra});
 test('decimal yuan is exact and refuses silent rounding, signs and exponent notation',()=>{
   assert.equal(parseYuan('19'),1900);assert.equal(parseYuan('0.01'),1);assert.equal(parseYuan('19.90'),1990);assert.equal(parseYuan('100000'),10000000);
   for(const value of ['19.001','1e2','-1','NaN','Infinity','100000.01','', '+19'])assert.equal(parseYuan(value),null,value);

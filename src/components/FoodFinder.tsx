@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatPrice, mealLabel, safePublicImage, tagLabel } from '../utils/catalog-display';
-import CatalogCards from './CatalogCards';
 import CatalogShelves from './CatalogShelves';
 import { useCatalog } from './useCatalog';
-import { foodCard, type DiscoveryCatalog } from '../utils/catalog-discovery';
+import { foodCard, venueCard, type DiscoveryCatalog } from '../utils/catalog-discovery';
 import { matchesDiscoveryFood, pickFoodId, type DiscoveryFood } from '../utils/food-discovery';
 
 function Star({ filled = false }: { filled?: boolean }) { return <svg viewBox="0 0 24 24" aria-hidden="true" className={filled ? 'mini-star filled' : 'mini-star'}><path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-2.9-5.6 2.9 1-6.2L3 9.6l6.2-.9Z"/></svg>; }
 function DishPhoto({ food, eager = false }: { food: DiscoveryFood; eager?: boolean }) {
   const photo = food.images.map(safePublicImage).find(Boolean);
   return <div className={'dish-photo ' + (photo ? '' : 'dish-placeholder')}>
-    {photo ? <><img src={photo.url} alt={photo.alt} loading={eager ? 'eager' : 'lazy'} referrerPolicy="no-referrer" />{photo.isIllustrative && <span className="illustration-label">网络示意图</span>}</> : <>
+    {photo ? <><img style={photo.position?{objectPosition:`${photo.position.x}% ${photo.position.y}%`}:undefined} src={photo.url} alt={photo.alt} loading={eager ? 'eager' : 'lazy'} referrerPolicy="no-referrer" />{photo.isIllustrative && <span className="illustration-label">网络示意图</span>}</> : <>
       <svg viewBox="0 0 320 210" aria-hidden="true"><circle cx="256" cy="46" r="42" fill="#fff5e7"/><circle cx="69" cy="167" r="56" fill="#f8e8d6"/><ellipse cx="163" cy="166" rx="95" ry="13" fill="#dcc8b2" opacity=".4"/><path d="M76 102h170c-7 58-44 65-85 65s-78-14-85-65Z" fill="#fffcf4" stroke="#c98f64" strokeWidth="3"/><ellipse cx="161" cy="103" rx="85" ry="25" fill="#efc98f" stroke="#c98f64" strokeWidth="3"/><path d="M100 106c22-27 48 23 74-4s34-5 43 3M116 96c11-20 43 13 62-5" fill="none" stroke="#fff6ce" strokeWidth="8" strokeLinecap="round"/><path d="m185 77 80-41M195 84l79-38" stroke="#996e4e" strokeWidth="5" strokeLinecap="round"/><path d="M117 77c-12-18 11-24 0-39M145 72c-12-18 11-24 0-39" fill="none" stroke="#d7a779" strokeWidth="3" strokeLinecap="round"/><circle cx="142" cy="107" r="8" fill="#669957"/><circle cx="183" cy="108" r="6" fill="#dd764a"/></svg>
       <span className="photo-pending">照片待补充</span>
     </>}
@@ -36,11 +35,11 @@ export default function FoodFinder({ initialCatalog, foodCount }: { initialCatal
   const allTags = useMemo(() => [...new Set(foods.flatMap(food => food.tags))].sort((a,b) => tagLabel(a).localeCompare(tagLabel(b),'zh-CN')), [foods]);
   const quickTags = ['noodles','rice','spicy','fried-food','soup'].filter(tag => allTags.includes(tag));
   useEffect(() => { const keydown = (event: KeyboardEvent) => { const target=event.target as HTMLElement; if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !target.closest('input,textarea,select,button,a,[contenteditable]')) { event.preventDefault(); if(!loading&&results.length)pick(); } }; document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown); }, [pick,results.length,loading]);
-  useEffect(() => { const keydown = (event: KeyboardEvent) => { if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();location.href='/search/';}};document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown); }, []);
+  useEffect(() => { const keydown = (event: KeyboardEvent) => { if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();location.href='/foods/';}};document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown); }, []);
   return <div className="food-finder">
     <div className="catalog-toolbar">
       <div className="meal-tabs" role="group" aria-label="餐品分类">{[['all','全部餐品'],['meal','正餐'],['breakfast','早餐'],['snack','小吃'],['drink','饮品'],['dessert','甜点']].map(([value,label])=><button key={value} className={meal===value?'selected':''} onClick={()=>setMeal(value)} aria-pressed={meal===value}>{label}</button>)}</div>
-      <a className="open-search" href="/search/">⌕ 找一家店或一道菜 <span aria-hidden="true">↗</span></a>
+      <a className="open-search" href="/foods/">⌕ 去餐品目录仔细找 <span aria-hidden="true">↗</span></a>
     </div>
     <section className="decision-section" aria-labelledby="decision-title">
       <header className="decision-heading"><div><span className="hero-eyebrow">一份食单，结束选择困难</span><h1 id="decision-title">今天这一顿，<span>想吃点什么？</span></h1><p>先挑餐品，再去找到它。早餐、正餐、甜点饮品，轻轻抽一次。</p></div><span className="catalog-count"><i/> <b>{foodCount}</b> 个餐品 <span>来自 {venueCount} 个餐饮点</span></span></header>
@@ -63,10 +62,7 @@ export default function FoodFinder({ initialCatalog, foodCount }: { initialCatal
     </section>
     {error && <p className="catalog-load-error">完整目录加载失败，先显示已载入的内容。 <button onClick={retry}>重新加载</button></p>}
     <CatalogShelves items={foods.map(foodCard)} type="food" />
-    <section className="food-list" id="all-foods" aria-labelledby="food-list-title"><header className="food-list-heading"><div><p className="list-eyebrow">THE CAMPUS MENU</p><h2 id="food-list-title">慢慢逛，总有你想吃的<span className="result-badge" aria-live="polite">{loading?'正在加载食单…':results.length+' 个餐品'}</span></h2></div><a href="/search/?type=food">按口味、预算仔细找 →</a></header>
-      {results.length ? <CatalogCards items={results.map(foodCard)} progressive resetKey={JSON.stringify([scope,meal,budget,tags])}/> : <div className="empty-foods"><p>没有匹配的餐品，放宽条件试试。</p><button onClick={reset}>重置筛选</button></div>}
-      <p className="catalog-load-note">继续向下逛逛，或前往搜索页按条件仔细找。</p>
-    </section>
+    <CatalogShelves items={catalog.venues.map(venueCard)} type="venue" />
     <style>{`
       .mobile-filter-toggle{display:none}.preference-settings{min-width:0}
       .catalog-toolbar{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 0}.meal-tabs{display:flex;gap:26px;flex-wrap:wrap}.meal-tabs button{min-height:44px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-weight:750;font-size:14px}.meal-tabs button.selected{color:var(--orange-deep);border-bottom-color:var(--orange)}

@@ -7,9 +7,9 @@ import FormNotice from '../components/FormNotice.astro';
 const { title = '今日海大吃什么' } = Astro.props;
 const pathname = Astro.url.pathname;
 const navItems = [
-  { href: '/', label: '餐品', icon: '⌂' },
+  { href: '/', label: '首页', icon: '⌂' },
+  { href: '/foods/', label: '餐品', icon: '⌕' },
   { href: '/restaurants/', label: '餐厅', icon: '▦' },
-  { href: '/search/', label: '搜索', icon: '⌕' },
   { href: '/submit/', label: '投稿', icon: '+' },
   { href: '/status/', label: '进度', icon: '◷' },
 ];
@@ -29,7 +29,7 @@ const navItems = [
     <div class="app-content"><slot /></div>
     <nav class="bottom-nav" aria-label="主要导航">
       {navItems.map((item) => {
-        const active = item.href === '/' ? pathname === '/' || pathname.startsWith('/foods/') : pathname.startsWith(item.href);
+        const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
         return <a href={item.href} class:list={{ active }} aria-current={active ? 'page' : undefined}>
           <span class="bottom-nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
         </a>;

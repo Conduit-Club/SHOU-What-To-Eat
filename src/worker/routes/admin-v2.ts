@@ -1,3 +1,5 @@
+import { hasOpenPublication } from '../publication/github.js';
+import { contentAdminRoutes } from './content-admin.js';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { requireAccess } from '../security.js';
@@ -9,6 +11,7 @@ import type { AppEnv } from '../types.js';
 
 export const adminV2Routes = new Hono<AppEnv>();
 adminV2Routes.use('/*', requireAccess);
+adminV2Routes.route('/content', contentAdminRoutes);
 
 adminV2Routes.get('/submissions', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
@@ -17,14 +20,14 @@ adminV2Routes.get('/submissions', async (context) => {
   if (!allowed.includes(status)) return fail(context, 'invalid_status', '状态筛选无效。', 400);
   const limit = Math.min(Math.max(Number(context.req.query('limit') ?? 30), 1), 100);
   const cursor = context.req.query('cursor') ?? '';
-  const result = await context.env.DB.prepare("SELECT id, entity_type, entity_id, status, version, upload_state, expected_images, expected_review_images, snapshot_id, created_at, updated_at, reviewed_at, reviewer, rejection_reason FROM submissions WHERE schema_version = 2 AND status = ? AND id > ? ORDER BY id LIMIT ?").bind(status, cursor, limit + 1).all();
+  const result = await context.env.DB.prepare("SELECT id, entity_type, entity_id, (SELECT id FROM media_assets WHERE submission_id = submissions.id AND object_state IN ('private','published') ORDER BY slot, slot_index LIMIT 1) AS thumbnail_id, json_extract(revision_json, '$.payload.name') AS name, json_extract(revision_json, '$.payload.text') AS review_text, status, version, upload_state, expected_images, expected_review_images, snapshot_id, created_at, updated_at, reviewed_at, reviewer, rejection_reason FROM submissions WHERE schema_version = 2 AND status = ? AND id > ? ORDER BY id LIMIT ?").bind(status, cursor, limit + 1).all();
   const rows = result.results.slice(0, limit);
   return context.json({ submissions: rows, nextCursor: result.results.length > limit ? rows.at(-1)?.id ?? null : null }, 200, { 'Cache-Control': 'no-store' });
 });
 
 adminV2Routes.get('/publications', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
-  const result = await context.env.DB.prepare("SELECT jobs.id, jobs.submission_id, jobs.submission_version, jobs.status, jobs.branch, jobs.pr_number, jobs.pr_url, jobs.attempts, jobs.error_code, jobs.created_at, jobs.updated_at FROM publication_jobs AS jobs INNER JOIN submissions AS submissions ON submissions.id = jobs.submission_id AND submissions.schema_version = 2 ORDER BY jobs.updated_at DESC LIMIT 100").all();
+  const result = await context.env.DB.prepare("SELECT submissions.status AS submission_status, submissions.entity_type, submissions.entity_id, COALESCE(json_extract(submissions.revision_json, '$.record.name'), json_extract(submissions.revision_json, '$.payload.name')) AS name, jobs.id, jobs.submission_id, jobs.submission_version, jobs.status, jobs.branch, jobs.pr_number, jobs.pr_url, jobs.attempts, jobs.error_code, jobs.created_at, jobs.updated_at FROM publication_jobs AS jobs INNER JOIN submissions AS submissions ON submissions.id = jobs.submission_id AND submissions.schema_version = 2 ORDER BY jobs.updated_at DESC LIMIT 100").all();
   return context.json({ publications: result.results }, 200, { 'Cache-Control': 'no-store' });
 });
 
@@ -51,10 +54,11 @@ adminV2Routes.patch('/submissions/:id', async (context) => {
   const body = await context.req.json().catch(() => null) as { expectedVersion?: unknown; revision?: unknown } | null;
   if (!body || !Number.isSafeInteger(body.expectedVersion) || !body.revision || typeof body.revision !== 'object') return fail(context, 'invalid_revision', '审核稿或版本号无效。', 422);
   const id = context.req.param('id');
-  const current = await context.env.DB.prepare("SELECT entity_type, entity_id, attached_review_id, snapshot_id, expected_images, expected_review_images, upload_state, status, version FROM submissions WHERE id = ? AND schema_version = 2").bind(id).first<{ entity_type: V2EntityType; entity_id: string; attached_review_id: string | null; snapshot_id: string; expected_images: number; expected_review_images: number; upload_state: string; status: string; version: number }>();
+  const current = await context.env.DB.prepare("SELECT entity_type, entity_id, parent_entity_id, attached_review_id, snapshot_id, expected_images, expected_review_images, upload_state, status, version FROM submissions WHERE id = ? AND schema_version = 2").bind(id).first<{ entity_type: V2EntityType; entity_id: string; parent_entity_id: string | null; attached_review_id: string | null; snapshot_id: string; expected_images: number; expected_review_images: number; upload_state: string; status: string; version: number }>();
   if (!current || current.status !== 'pending' || current.upload_state !== 'pending' || current.version !== body.expectedVersion) return fail(context, 'revision_conflict', '稿件已更新、图片未完成或不在待审状态。', 409);
   let revision;
   try { revision = validateV2Revision(body.revision, { entityType: current.entity_type, snapshotId: current.snapshot_id, expectedImages: current.expected_images, expectedReviewImages: current.expected_review_images }); } catch (cause) { return fail(context, cause instanceof V2ValidationError ? cause.code : 'invalid_revision', '审核稿内容无效。', 422); }
+  if (current.entity_type === 'food' && revision.parentVenueId !== current.parent_entity_id) return fail(context,'parent_immutable','待审餐品请保留原店铺，发布后可在内容管理中迁移。',409);
   if (revision.expectedImages !== current.expected_images || revision.expectedReviewImages !== current.expected_review_images) return fail(context, 'image_count_immutable', '审核编辑不能改变已声明的图片数量。', 409);
   const revisionJson = JSON.stringify(revision.publicJson);
   const revisionHash = await sha256(revisionJson);
@@ -131,14 +135,35 @@ adminV2Routes.post('/submissions/:id/review', async (context) => {
 
 adminV2Routes.post('/publications/:id/retry', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
+  if (crossOrigin(context)) return fail(context, 'origin_forbidden', '请求来源不允许。', 403);
   const id = context.req.param('id'); const now = new Date().toISOString();
   const result = await context.env.DB.batch([
-    context.env.DB.prepare("UPDATE publication_jobs SET status = 'queued', error_code = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND status IN ('failed', 'closed')").bind(now, id),
+    context.env.DB.prepare("UPDATE publication_jobs SET status = 'queued', error_code = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND status IN ('failed', 'closed') AND EXISTS (SELECT 1 FROM submissions WHERE id = publication_jobs.submission_id AND status = 'export_failed')").bind(now, id),
     context.env.DB.prepare("UPDATE submissions SET status = 'exporting', updated_at = ? WHERE id = (SELECT submission_id FROM publication_jobs WHERE id = ? AND status = 'queued') AND schema_version = 2 AND status = 'export_failed'").bind(now, id),
     context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, reason, created_at) SELECT ?, submission_id, ?, 'retry', submission_version, 'v2_retry', ? FROM publication_jobs WHERE id = ? AND status = 'queued'").bind(crypto.randomUUID(), context.get('reviewer'), now, id),
   ]).catch(() => null);
   if (!result?.[0]?.meta?.changes) return fail(context, 'not_retryable', '该发布任务不存在或不能重试。', 409);
   return context.json({ publicationJobId: id, status: 'queued' }, 202, { 'Cache-Control': 'no-store' });
+});
+
+adminV2Routes.post('/content-changes/:id/cancel', async context => {
+  if (!publicationEnabled(context.env)) return unavailable(context);
+  if (crossOrigin(context)) return fail(context,'origin_forbidden','请求来源不允许。',403);
+  const job=await context.env.DB.prepare("SELECT j.status,j.branch,j.error_code FROM publication_jobs j JOIN submissions s ON s.id=j.submission_id WHERE j.id=? AND s.entity_type='management' AND s.status='export_failed' AND j.status IN ('failed','closed')").bind(context.req.param('id')).first<{status:string;branch:string;error_code:string|null}>();
+  if(!job)return fail(context,'not_cancellable','只有失败或关闭的内容修改可以取消。',409);
+  // A transport error can happen after GitHub accepted a PR. Do not assume
+  // pr_number=NULL means no remote PR exists; recover its state first.
+  const preflightErrors=['catalog_revision_conflict','cover_not_eligible','invalid_cover_review','venue_has_active_children','parent_venue_unpublished'];
+  if(!preflightErrors.includes(job.error_code??'')){
+    try{if(await hasOpenPublication(context.env,job.branch))return fail(context,'publication_still_open','发布申请仍开放，请先关闭对应 PR，或重试以恢复发布记录。',409);}catch{return unavailable(context,'github_unavailable','暂时无法确认 GitHub 发布状态，请稍后重试。');}
+  }
+  const now=new Date().toISOString();
+  const result=await context.env.DB.batch([
+    context.env.DB.prepare("UPDATE submissions SET status='rejected',updated_at=?,rejection_reason='管理员取消失败的内容修改' WHERE entity_type='management' AND status='export_failed' AND id=(SELECT submission_id FROM publication_jobs WHERE id=? AND (status='closed' OR (status='failed' AND pr_number IS NULL)))").bind(now,context.req.param('id')),
+    context.env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) SELECT ?,s.id,?,'reject',s.version,'cancel_content_edit',? FROM submissions s JOIN publication_jobs j ON j.submission_id=s.id WHERE j.id=? AND s.status='rejected' AND s.updated_at=?").bind(crypto.randomUUID(),context.get('reviewer'),now,context.req.param('id'),now),
+  ]);
+  if(!result[0]?.meta.changes)return fail(context,'not_cancellable','只有失败且没有开放发布申请的修改可以取消。',409);
+  return context.json({cancelled:true},200,{'Cache-Control':'no-store'});
 });
 
 async function publishedParent(context: Context<AppEnv>, row: { entity_type: V2EntityType; entity_id: string; parent_entity_id: string | null; snapshot_id: string }) {

@@ -93,6 +93,7 @@ submissionV2Routes.post('/:id/images', async (context) => {
   const metadata = validateImageMetadata(context.req.raw.headers);
   if (!metadata) return error(context, 'invalid_image_metadata', '图片来源、版权或替代文本声明无效。', 422);
   const slot = context.req.header('X-Image-Slot') === 'attachedReview' ? 'attachedReview' : context.req.header('X-Image-Slot') === 'entity' ? 'entity' : null;
+  if (receipt.entity_type === 'food' && slot === 'entity' && metadata.isIllustrative) return error(context, 'food_photo_must_be_real', '餐品照片必须是对应餐品的实拍图。', 422);
   const slotIndex = Number(context.req.header('X-Image-Index') ?? -1);
   if (!slot || !Number.isInteger(slotIndex) || slotIndex < 0 || !validSlot(receipt, slot, slotIndex)) return error(context, 'invalid_image_slot', '图片槽位无效。', 422);
   const expectedVersion = optionalVersion(context.req.header('X-Submission-Version') ?? null);

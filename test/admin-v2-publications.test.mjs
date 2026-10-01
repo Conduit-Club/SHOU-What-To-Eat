@@ -12,7 +12,7 @@ const ACCESS_CERTS_URL = `https://${ACCESS_DOMAIN}/cdn-cgi/access/certs`;
 function createDatabase() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`
-    CREATE TABLE submissions (id TEXT PRIMARY KEY, schema_version INTEGER NOT NULL);
+    CREATE TABLE submissions (id TEXT PRIMARY KEY, schema_version INTEGER NOT NULL, status TEXT DEFAULT 'exporting', entity_type TEXT, entity_id TEXT, revision_json TEXT DEFAULT '{}');
     CREATE TABLE publication_jobs (
       id TEXT PRIMARY KEY,
       submission_id TEXT NOT NULL,

@@ -32,6 +32,8 @@ export function initSubmissionForm() {
   const enableSection = (root: HTMLElement, enabled: boolean) => root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea').forEach(control => { control.disabled = !enabled || busy; });
   function syncFields() {
     const type = currentType();
+    form!.querySelector<HTMLElement>('[data-photo-count=entity-images]')!.textContent = photos.entity.length ? `已选 ${photos.entity.length} 张，首张作为默认封面。` : type==='food' ? '必填：至少一张这道餐品的实拍照片。' : '选填：推荐门头或窗口实拍，方便同学找到。';
+    form!.querySelector<HTMLElement>('[data-entity-photo-required]')!.hidden = type !== 'food';
     for (const kind of ['venue','food']) { const root = form!.querySelector<HTMLElement>(`#${kind}-fields`)!; root.hidden = kind !== type; enableSection(root,kind === type); }
     const offCampus = type === 'venue' && value('venueCategory') === 'off-campus';
     const distances = form!.querySelector<HTMLElement>('#distance-fields')!; distances.hidden = !offCampus; enableSection(distances,offCampus);
@@ -44,7 +46,7 @@ export function initSubmissionForm() {
     const external = form!.querySelector<HTMLElement>('#external-rights')!; external.hidden = !licensed; enableSection(external,licensed);
     for (const name of ['imageSource','imageHolder','imageLicense']) field(name).required = licensed;
     field('rightsConfirmed').required = hasPhotos;
-    form!.querySelector('[data-rights-label]')!.textContent = licensed ? '我确认已获得相应使用权，并授权本站按所填许可展示。' : '这些照片由本人拍摄，我授权本站展示。';
+    form!.querySelector('[data-rights-label]')!.textContent = licensed ? '我确认已获得相应使用权，并授权本站按所填许可展示。' : '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。';
     submit.disabled = busy || !widget || Boolean(pending);
     retry.disabled = busy;
   }
@@ -115,13 +117,15 @@ export function initSubmissionForm() {
   }
   function photoMetadata() {
     const own = value('photoOrigin') === 'own';
-    return { source: own ? '本人拍摄' : value('imageSource'),holder: own ? '匿名投稿者' : value('imageHolder'),license: own ? '本人授权本站展示' : value('imageLicense'),rights: checked('rightsConfirmed'),illustrative: !own && checked('imageIllustrative') };
+    return { source: own ? '本人拍摄' : value('imageSource'),holder: own ? '匿名投稿者' : value('imageHolder'),license: own ? '本人授权本站展示及选作对应内容封面' : value('imageLicense'),rights: checked('rightsConfirmed'),coverAllowed: own && checked('rightsConfirmed'),illustrative: !own && checked('imageIllustrative') };
   }
   function validate() {
     syncFields(); clearFormErrors(form!);
     const problems = formProblems(form!);
     const add = (name: string, message: string) => problems.push({ element: field(name),message });
     const type = currentType();
+    if(type==='food'&&!photos.entity.length)problems.push({element:form!.querySelector('#entity-images'),message:'餐品照片：请至少上传一张这道餐品的实拍图。'});
+    if(type==='food'&&checked('imageIllustrative')&&value('photoOrigin')==='licensed')problems.push({element:field('imageIllustrative'),message:'新餐品需要实拍照片，请勿使用网络示意图。'});
     if (value(type+'Price') && parseYuan(value(type+'Price')) === null) add(type+'Price','价格：请输入 0–100000 元，最多两位小数。');
     const tags = splitTags(value(type+'Tags'));
     if (tags.length > LIMITS.tags || tags.some(tag => tag.length > LIMITS.tag) || new Set(tags.map(tag => tag.toLocaleLowerCase())).size !== tags.length) add(type+'Tags','标签：最多 30 个，每个最多 60 字，请去掉重复标签。');
@@ -169,7 +173,7 @@ export function initSubmissionForm() {
       if (uploaded < limits[slot] && (!metadata.rights || photos[slot].some(photo => !photo.alt.trim()))) throw new Error('请补全照片说明并确认使用权。');
       for (let index = uploaded; index < limits[slot]; index++) {
         const photo = photos[slot][index];
-        const body = await request(base+'/images',{ method:'POST',headers: { ...authorization,'Content-Type':'image/webp','X-Image-Slot':slot,'X-Image-Index':String(index),'X-Submission-Version':String(version),'X-Image-Metadata-Encoding':'percent-utf8','X-Image-Alt':encodeURIComponent(photo.alt.trim()),'X-Image-Source':encodeURIComponent(metadata.source),'X-Image-Copyright-Holder':encodeURIComponent(metadata.holder),'X-Image-License':encodeURIComponent(metadata.license),'X-Image-Rights-Confirmed':String(metadata.rights),'X-Image-Is-Illustrative':String(metadata.illustrative) },body:photo.blob });
+        const body = await request(base+'/images',{ method:'POST',headers: { ...authorization,'Content-Type':'image/webp','X-Image-Slot':slot,'X-Image-Index':String(index),'X-Submission-Version':String(version),'X-Image-Metadata-Encoding':'percent-utf8','X-Image-Alt':encodeURIComponent(photo.alt.trim()),'X-Image-Source':encodeURIComponent(metadata.source),'X-Image-Copyright-Holder':encodeURIComponent(metadata.holder),'X-Image-License':encodeURIComponent(metadata.license),'X-Image-Rights-Confirmed':String(metadata.rights),'X-Image-Is-Illustrative':String(metadata.illustrative),'X-Image-Cover-Allowed':String(metadata.coverAllowed) },body:photo.blob });
         if (!Number.isSafeInteger(body.version)) throw new Error('图片回执版本无效。');
         version = body.version; updateVersion(version);
       }
@@ -192,7 +196,7 @@ export function initSubmissionForm() {
   else message('当前投稿服务暂不可用，请稍后再试；你仍可填写并下载本地草稿。');
   const updateCount = () => { const count = Array.from(field('attachedText').value).length; form.querySelector<HTMLElement>('#attached-count')!.textContent = `${count} / 256`; field('attachedText').setCustomValidity(count > 256 ? '评价最多 256 字。' : ''); };
   form.querySelector('#remove-attached-review')!.addEventListener('click', () => { if(busy)return; form.querySelectorAll<HTMLInputElement>('input[name=attachedRating]').forEach(radio => { radio.checked = false; radio.dispatchEvent(new Event('change')); }); field('attachedText').value=''; photos.attachedReview.forEach(photo => URL.revokeObjectURL(photo.url)); photos.attachedReview=[]; renderPhotos('attachedReview'); updateCount(); syncFields(); });
-  field('photoOrigin').addEventListener('change', () => { (field('rightsConfirmed') as HTMLInputElement).checked=false; form.querySelector('[data-rights-label]')!.textContent=value('photoOrigin') === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。'; syncFields(); });
+  field('photoOrigin').addEventListener('change', () => { (field('rightsConfirmed') as HTMLInputElement).checked=false; form.querySelector('[data-rights-label]')!.textContent=value('photoOrigin') === 'own' ? '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。' : '我确认已获得相应使用权，并授权本站按所填许可展示。'; syncFields(); });
   form.addEventListener('input', () => { if(!busy){updateCount();syncFields();} });
   form.addEventListener('change', () => { if(!busy){clearFormErrors(form);syncFields();} });
   form.addEventListener('submit', async event => {

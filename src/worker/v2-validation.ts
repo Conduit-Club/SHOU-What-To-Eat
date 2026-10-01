@@ -16,7 +16,7 @@ export type V2Submission = {
   publicJson: Record<string, unknown>;
 };
 
-export function validateV2Submission(value: unknown): V2Submission {
+export function validateV2Submission(value: unknown, existingRevision = false): V2Submission {
   if (!isObject(value)) throw new V2ValidationError('invalid_submission');
   allowedKeys(value, ['schemaVersion','entityType','snapshotId','payload','entity','parent','expectedImages','expectedReviewImages','turnstileToken']);
   if (value.schemaVersion !== 2) throw new V2ValidationError('unsupported_schema_version');
@@ -44,6 +44,7 @@ export function validateV2Submission(value: unknown): V2Submission {
   if (entityType === 'review') validateIndependentReview(payload);
   if (entityType === 'venue') validateVenue(payload);
   if (entityType === 'food') validateFood(payload, parentVenueId);
+  if (entityType === 'food' && expectedImages < 1 && !existingRevision) throw new V2ValidationError('food_photo_required');
   validateSources(payload.sources);
   const publicPayload = cleanStrings(structuredClone(payload)) as Record<string, unknown>;
   delete publicPayload.turnstileToken;
@@ -68,7 +69,7 @@ export function validateV2Revision(value: unknown, defaults: { expectedImages: n
     expectedReviewImages: value.expectedReviewImages ?? defaults.expectedReviewImages,
     turnstileToken: 'review-only',
   };
-  const result = validateV2Submission(candidate);
+  const result = validateV2Submission(candidate, true);
   if (result.entityType !== defaults.entityType) throw new V2ValidationError('entity_type_immutable');
   return result;
 }
