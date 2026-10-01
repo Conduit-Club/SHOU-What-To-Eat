@@ -2,10 +2,14 @@ import type { Context } from 'hono';
 import { missingReviewConfig, publicationEnabled } from './config.js';
 import type { AppEnv } from './types.js';
 
-export async function verifyTurnstile(token: unknown, secret: string, remoteIp?: string | null): Promise<boolean> {
+export async function verifyTurnstile(token: unknown, secret: string, remoteIp?: string | null, expectedHostname?: string): Promise<boolean> {
   if (typeof token !== 'string' || !token) return false;
   const form = new FormData(); form.set('secret', secret); form.set('response', token); if (remoteIp) form.set('remoteip', remoteIp);
-  try { const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form }); const result = await response.json() as { success?: boolean }; return response.ok && Boolean(result.success); } catch { return false; }
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form });
+    const result = await response.json() as { success?: boolean; action?: string; hostname?: string };
+    return response.ok && result.success === true && result.action === 'submission' && (!expectedHostname || result.hostname === expectedHostname);
+  } catch { return false; }
 }
 
 export async function requireAccess(context: Context<AppEnv>, next: () => Promise<void>) {
@@ -20,7 +24,7 @@ export async function requireAccess(context: Context<AppEnv>, next: () => Promis
     const { keys } = await response.json() as { keys: JsonWebKey[] };
     const claims = await verifyJwt(assertion, keys, context.env.ACCESS_AUD, `https://${context.env.ACCESS_TEAM_DOMAIN}`);
     const email = typeof claims.email === 'string' ? claims.email : null;
-    if (!email) throw new Error('missing_email');
+    if (!email || email.toLowerCase() !== context.env.ACCESS_REVIEWER_EMAIL.trim().toLowerCase()) throw new Error('reviewer_not_allowed');
     context.set('reviewer', email);
     context.header('Cache-Control', 'no-store');
     await next();

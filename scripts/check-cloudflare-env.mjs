@@ -5,6 +5,7 @@ const environment = valueAfter('--environment') ?? 'local';
 const includeCallback = args.has('--callback');
 const requireApiToken = args.has('--ci') || process.env.CI === 'true';
 const publicationEnabled = process.env.PUBLICATION_ENABLED === 'true';
+const mediaMode = process.env.MEDIA_MODE?.trim() || (environment === 'local' ? 'external' : 'r2');
 
 if (!['local', 'preview', 'production'].includes(environment)) {
   fail(`未知 Cloudflare 环境：${environment}。可用值为 local、preview、production。`);
@@ -21,6 +22,12 @@ if (requireApiToken && environment !== 'local') required[environment].unshift('C
 if (environment === 'production' && (includeCallback || publicationEnabled)) {
   required.production.push('DEPLOY_WEBHOOK_URL', 'DEPLOY_WEBHOOK_SECRET');
 }
+if (environment === 'production' && publicationEnabled) {
+  required.production.push('PUBLIC_TURNSTILE_SITE_KEY');
+}
+if (environment !== 'local' && mediaMode === 'r2' && publicationEnabled) {
+  required[environment].push(environment === 'production' ? 'CLOUDFLARE_R2_BUCKET_NAME' : 'CLOUDFLARE_PREVIEW_R2_BUCKET_NAME');
+}
 
 const missing = required[environment].filter((name) => !process.env[name]?.trim());
 if (missing.length) {
@@ -32,7 +39,13 @@ if (environment !== 'local') {
   const databaseId = environment === 'production' ? process.env.CLOUDFLARE_D1_DATABASE_ID : process.env.CLOUDFLARE_PREVIEW_D1_DATABASE_ID;
   if (!/^[a-f0-9]{32}$/i.test(accountId)) fail('CLOUDFLARE_ACCOUNT_ID 必须是 32 位十六进制 Cloudflare Account ID。');
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(databaseId)) fail(`Cloudflare ${environment} D1 database ID 格式无效。`);
-  if (includeCallback && !/^https:\/\//i.test(process.env.DEPLOY_WEBHOOK_URL ?? '')) fail('DEPLOY_WEBHOOK_URL 必须使用 HTTPS。');
+  if (includeCallback || (environment === 'production' && publicationEnabled)) {
+    if (!isHttpsUrl(process.env.DEPLOY_WEBHOOK_URL)) fail('DEPLOY_WEBHOOK_URL 必须使用 HTTPS。');
+  }
+  if (environment === 'production' && publicationEnabled && isPlaceholder(process.env.PUBLIC_TURNSTILE_SITE_KEY)) {
+    fail('PUBLIC_TURNSTILE_SITE_KEY 必须是非空且非占位值的 Turnstile 公钥。');
+  }
+  if (!['external', 'r2'].includes(mediaMode)) fail('MEDIA_MODE 必须是 external 或 r2。');
 }
 
 process.stdout.write(`Cloudflare ${environment} deployment environment is configured.\n`);
@@ -40,6 +53,20 @@ process.stdout.write(`Cloudflare ${environment} deployment environment is config
 function valueAfter(flag) {
   const index = process.argv.indexOf(flag);
   return index === -1 ? undefined : process.argv[index + 1];
+}
+
+function isHttpsUrl(value) {
+  try {
+    const url = new URL(value ?? '');
+    return url.protocol === 'https:' && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isPlaceholder(value) {
+  const normalized = value?.trim().toLowerCase() ?? '';
+  return !normalized || /(?:replace[-_ ]?with|your[-_ ]|placeholder|example|changeme|<[^>]+>)/i.test(normalized);
 }
 
 function fail(message) {

@@ -13,8 +13,11 @@ jobs:
     environment: production
     env:
       PUBLICATION_ENABLED: ${{ vars.PUBLICATION_ENABLED || 'false' }}
+      MEDIA_MODE: ${{ vars.MEDIA_MODE || 'r2' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -28,6 +31,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_R2_BUCKET_NAME: ${{ vars.CLOUDFLARE_R2_BUCKET_NAME || secrets.CLOUDFLARE_R2_BUCKET_NAME }}
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY || '' }}
           DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
           DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
           CI: true
@@ -35,19 +40,24 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+        env:
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY || '' }}
       - run: pnpm worker:deploy:production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_R2_BUCKET_NAME: ${{ vars.CLOUDFLARE_R2_BUCKET_NAME || secrets.CLOUDFLARE_R2_BUCKET_NAME }}
           PUBLICATION_ENABLED: ${{ vars.PUBLICATION_ENABLED || 'false' }}
+          MEDIA_MODE: ${{ vars.MEDIA_MODE || 'r2' }}
+          TURNSTILE_HOSTNAME: ${{ vars.TURNSTILE_HOSTNAME || 'eat.shoumc.com' }}
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY || '' }}
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
       - name: Record deployed content
         if: ${{ env.PUBLICATION_ENABLED == 'true' }}
         env:
           DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
           DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
-          DEPLOY_COMMIT: ${{ github.sha }}
         run: |
-          DEPLOY_BODY="{\"commit\":\"${DEPLOY_COMMIT}\"}"
-          DEPLOY_SIGNATURE="sha256=$(printf %s "$DEPLOY_BODY" | openssl dgst -sha256 -hmac "$DEPLOY_WEBHOOK_SECRET" -hex | sed 's/^.* //')"
-          curl --fail-with-body --request POST "$DEPLOY_WEBHOOK_URL" --header 'Content-Type: application/json' --header "X-Deploy-Signature: $DEPLOY_SIGNATURE" --data "$DEPLOY_BODY"
+          pnpm exec node scripts/postdeploy-callback.mjs

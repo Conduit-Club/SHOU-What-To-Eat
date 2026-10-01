@@ -29,6 +29,15 @@ const sourceText = await readFile('wrangler.jsonc', 'utf8');
 const source = JSON.parse(sourceText.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
 const selected = environment === 'local' ? {} : source.env?.[environment];
 if (environment !== 'local' && !selected) fail(`wrangler.jsonc 未定义 ${environment} 环境。`);
+const configuredVars = selected?.vars ?? source.vars;
+const mediaMode = process.env.MEDIA_MODE?.trim() || configuredVars.MEDIA_MODE || (environment === 'local' ? 'external' : 'r2');
+if (!['external', 'r2'].includes(mediaMode)) fail('MEDIA_MODE 必须是 external 或 r2。');
+const bucketName = environment === 'production'
+  ? process.env.CLOUDFLARE_R2_BUCKET_NAME?.trim()
+  : environment === 'preview'
+    ? process.env.CLOUDFLARE_PREVIEW_R2_BUCKET_NAME?.trim()
+    : process.env.CLOUDFLARE_R2_BUCKET_NAME?.trim();
+if (mediaMode === 'r2' && publicationEnabled && !bucketName) fail(`PUBLICATION_ENABLED=true 时必须设置 ${environment === 'production' ? 'CLOUDFLARE_R2_BUCKET_NAME' : 'CLOUDFLARE_PREVIEW_R2_BUCKET_NAME'}。`);
 
 const config = {
   ...source,
@@ -42,12 +51,16 @@ const config = {
     database_id: databaseId,
     migrations_dir: `${projectPath}migrations`,
   }],
+  ...(mediaMode === 'r2' && bucketName ? { r2_buckets: [{ binding: 'IMAGES', bucket_name: bucketName }] } : mediaMode === 'r2' ? { r2_buckets: [] } : {}),
   assets: {
     ...(selected?.assets ?? source.assets),
     directory: `${projectPath}dist`,
   },
   vars: {
-    ...(selected?.vars ?? source.vars),
+    ...configuredVars,
+    MEDIA_MODE: mediaMode,
+    ...(process.env.TURNSTILE_HOSTNAME?.trim() ? { TURNSTILE_HOSTNAME: process.env.TURNSTILE_HOSTNAME.trim() } : {}),
+    ...(process.env.PUBLIC_TURNSTILE_SITE_KEY?.trim() ? { PUBLIC_TURNSTILE_SITE_KEY: process.env.PUBLIC_TURNSTILE_SITE_KEY.trim() } : {}),
     PUBLICATION_ENABLED: publicationEnabled ? 'true' : 'false',
   },
   triggers: { crons: publicationEnabled ? ['*/2 * * * *'] : [] },

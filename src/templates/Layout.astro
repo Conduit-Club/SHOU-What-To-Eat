@@ -1,35 +1,62 @@
 ---
+import '@fontsource-variable/epilogue';
+import '@fontsource-variable/plus-jakarta-sans';
+
 const { title = '今日海大吃什么' } = Astro.props;
+const pathname = Astro.url.pathname;
+const navItems = [
+  { href: '/', label: '探索', icon: '⌂' },
+  { href: '/submit/', label: '投稿', icon: '+' },
+  { href: '/status/', label: '进度', icon: '◷' },
+  { href: '/about/', label: '关于', icon: '⋯' },
+];
 ---
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f7f8f5" />
+    <meta name="theme-color" content="#fbf9f6" />
     <meta name="description" content="上海海洋大学校内和周边餐饮目录，同学分享的位置、餐品与用餐体验。" />
     <title>{title} · 今日海大吃什么</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
-  <body><slot /></body>
+  <body>
+    <div class="app-content"><slot /></div>
+    <nav class="bottom-nav" aria-label="主要导航">
+      {navItems.map((item) => {
+        const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+        return <a href={item.href} class:list={{ active }} aria-current={active ? 'page' : undefined}>
+          <span class="bottom-nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+        </a>;
+      })}
+    </nav>
+  </body>
 </html>
 <style is:global>
   :root {
-    font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
-    color: #202824;
-    background: #f7f8f5;
+    font-family: 'Plus Jakarta Sans Variable', 'Noto Sans SC', sans-serif;
+    color: #1b1c1a;
+    background: #fbf9f6;
     color-scheme: light;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
-    --page-bg: #f7f8f5;
-    --ink: #202824;
-    --muted: #717a73;
-    --line: #e4e8e2;
-    --orange: #cf613b;
-    --green: #477b5f;
-    --focus: #d77e59;
+    --page-bg: #fbf9f6;
+    --surface: #fbf9f6;
+    --surface-card: #ffffff;
+    --surface-soft: #fffdf9;
+    --ink: #1b1c1a;
+    --muted: #594139;
+    --line: #e1bfb5;
+    --orange: #ab3500;
+    --orange-deep: #5f1900;
+    --orange-bright: #ff6b35;
+    --green: #006d3c;
+    --honey: #815600;
+    --focus: #ab3500;
+    --shadow-card: 0 4px 16px -2px rgba(214, 107, 63, .06), 0 2px 6px -1px rgba(0, 0, 0, .03);
+    --shadow-hover: 0 12px 32px -4px rgba(214, 107, 63, .12), 0 4px 12px -2px rgba(255, 107, 53, .08);
+    --radius-card: 24px;
+    --radius-control: 16px;
   }
 
   *,
@@ -44,7 +71,16 @@ const { title = '今日海大吃什么' } = Astro.props;
     background: var(--page-bg);
   }
 
+  .app-content { min-height: 100vh; }
+
   a { color: inherit; }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Epilogue Variable', 'Plus Jakarta Sans Variable', 'Noto Sans SC', sans-serif;
+  }
 
   button,
   input,
@@ -75,29 +111,55 @@ const { title = '今日海大吃什么' } = Astro.props;
   video,
   canvas { max-width: 100%; }
 
-  ::selection { background: #ead5c9; }
+  ::selection { background: #ffdbd0; }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color: #e4e9e4;
-      background: #1d2521;
-      color-scheme: dark;
-      --page-bg: #1d2521;
-      --ink: #e4e9e4;
-      --muted: #9ba69f;
-      --line: #353e38;
-      --orange: #ef936c;
-      --green: #84b392;
-      --focus: #f0a47f;
-    }
-
-    ::selection { background: #584337; }
-  }
+  .bottom-nav { display: none; }
 
   @media (max-width: 760px) {
     input:not([type='radio']):not([type='checkbox']),
     select,
     textarea { font-size: 16px; }
+  }
+
+  @media (max-width: 640px) {
+    body { padding-bottom: 88px; }
+
+    .bottom-nav {
+      position: fixed;
+      z-index: 20;
+      right: 12px;
+      bottom: 12px;
+      left: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      min-height: 68px;
+      padding: 6px;
+      border: 1px solid rgba(255, 107, 53, .1);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 20px 48px -8px rgba(255, 107, 53, .18), 0 8px 16px -4px rgba(45, 49, 66, .08);
+      backdrop-filter: blur(16px);
+    }
+
+    .bottom-nav a {
+      display: grid;
+      min-height: 56px;
+      place-items: center;
+      align-content: center;
+      gap: 2px;
+      border-radius: 18px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .bottom-nav a.active {
+      background: #fff2eb;
+      color: var(--orange-deep);
+    }
+
+    .bottom-nav-icon { font-family: 'Epilogue Variable', sans-serif; font-size: 20px; line-height: 1; }
   }
 
   @media (prefers-reduced-motion: reduce) {

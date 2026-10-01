@@ -1,1 +1,18 @@
-{"id":"area-b-711","name":"B 区 7-11 便利店","category":"on-campus","kind":"便利店","location":"研究生区，和第三食堂同一栋楼。","price":"待补充。","foods":[{"name":"便利店商品与熟食","description":"具体商品和菜单待补充。"}],"body":"尚未收集到具体熟食、营业时间和实际消费记录。","sources":[{"repository":"SHOU-Online-Manual","path":"docs/canteen/campus-dining.md","revision":"working-tree","license":"CC BY-SA 4.0"}]}
+{
+  "schemaVersion": 2,
+  "id": "area-b-711",
+  "name": "B 区 7-11 便利店",
+  "kind": "convenience",
+  "parentId": null,
+  "category": "on-campus",
+  "aliases": ["B 区 7-11"],
+  "tags": ["on-campus", "convenience-store"],
+  "location": {"address": "研究生区，和第三食堂同一栋楼。", "campusArea": "研究生区", "floor": null, "landmark": "第三食堂同栋", "coordinates": null, "distanceMeters": null, "distanceBasis": null},
+  "averagePrice": null,
+  "description": "尚未收集到具体熟食、营业时间和实际消费记录。",
+  "openingHours": null,
+  "foods": [],
+  "images": [],
+  "sources": [{"repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0"}],
+  "dates": {"visitedAt": null, "verifiedAt": null, "updatedAt": null}
+}

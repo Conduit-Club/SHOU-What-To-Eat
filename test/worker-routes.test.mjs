@@ -10,8 +10,11 @@ function env(overrides = {}) {
     MEDIA_MODE: 'external',
     ALLOWED_ORIGINS: 'http://localhost:4321',
     TURNSTILE_SECRET_KEY: 'turnstile-test-secret',
+    LEGACY_SUBMISSIONS_ENABLED: 'true',
+    TURNSTILE_HOSTNAME: 'eat.shoumc.com',
     ACCESS_TEAM_DOMAIN: 'team.example.cloudflareaccess.com',
     ACCESS_AUD: 'access-audience',
+    ACCESS_REVIEWER_EMAIL: 'reviewer@example.com',
     GITHUB_APP_ID: '123',
     GITHUB_PRIVATE_KEY: 'private-key',
     GITHUB_INSTALLATION_ID: '123',
@@ -66,7 +69,7 @@ test('idempotency prevents a second submission and conflicts on changed content'
   const originalFetch = globalThis.fetch;
   let turnstileCalls = 0;
   globalThis.fetch = async (input) => {
-    if (String(input).includes('challenges.cloudflare.com/turnstile')) { turnstileCalls += 1; return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+    if (String(input).includes('challenges.cloudflare.com/turnstile')) { turnstileCalls += 1; return new Response(JSON.stringify({ success: true, action: 'submission', hostname: 'eat.shoumc.com' }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
     return originalFetch(input);
   };
   try {
@@ -123,8 +126,26 @@ test('D1 migrations preserve submission audit and idempotency constraints', asyn
   const initial = await readFile(new URL('../migrations/0001_initial.sql', import.meta.url), 'utf8');
   const idempotency = await readFile(new URL('../migrations/0002_submission_idempotency.sql', import.meta.url), 'utf8');
   const audit = await readFile(new URL('../migrations/0003_audit_submission_action.sql', import.meta.url), 'utf8');
+  const catalog = await readFile(new URL('../migrations/0004_catalog_v2.sql', import.meta.url), 'utf8');
+  const media = await readFile(new URL('../migrations/0005_r2_media_quota.sql', import.meta.url), 'utf8');
+  const retrySafety = await readFile(new URL('../migrations/0006_publication_retry_safety.sql', import.meta.url), 'utf8');
   assert.match(initial, /'submit'/);
   assert.match(idempotency, /key_hash TEXT PRIMARY KEY/);
   assert.match(idempotency, /request_hash TEXT NOT NULL/);
   assert.match(audit, /ALTER TABLE audit_events_v2 RENAME TO audit_events/);
+  assert.doesNotMatch(catalog, /PRAGMA\s+foreign_keys\s*=\s*OFF/i);
+  assert.match(catalog, /average_price_min INTEGER/);
+  assert.match(catalog, /food_meal_types/);
+  assert.match(catalog, /content_hash TEXT NOT NULL/);
+  assert.match(catalog, /metadata_json TEXT NOT NULL/);
+  assert.match(media, /media_reservations/);
+  assert.match(media, /media_upload_attempts/);
+  assert.match(media, /OLD\.object_state <> 'deleted'/);
+  assert.match(retrySafety, /job_id TEXT NOT NULL/);
+  assert.match(retrySafety, /status TEXT NOT NULL DEFAULT 'completed'/);
+  assert.match(retrySafety, /status TEXT NOT NULL DEFAULT 'processed'/);
+  assert.match(retrySafety, /source_note TEXT/);
+  assert.match(retrySafety, /write_operation_id TEXT/);
+  assert.match(await readFile(new URL('../src/worker/routes/webhooks.ts', import.meta.url), 'utf8'), /catalog_mirror/);
+  assert.match(await readFile(new URL('../src/worker/routes/admin-v2.ts', import.meta.url), 'utf8'), /write_operation_id/);
 });
