@@ -15,7 +15,7 @@ const { targetType, targetId, targetName } = Astro.props;
     <div class="photo-rights" data-photo-rights hidden>
       <label>照片来源<select name="photoOrigin"><option value="own">我自己拍的</option><option value="licensed">已获得授权的其他图片</option></select></label>
       <div data-external-rights hidden><label>来源页或来源说明 <b class="required-mark" aria-hidden="true">*</b><input name="source" maxlength="480" data-label="图片来源" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="rights-row"><label>作者 / 版权方 <b class="required-mark" aria-hidden="true">*</b><input name="holder" maxlength="160" data-label="图片版权方" /></label><label>许可 / 授权说明 <b class="required-mark" aria-hidden="true">*</b><input name="license" maxlength="120" data-label="图片许可" /></label></div><label class="rights-check"><input type="checkbox" name="illustrative" />这是示意图，并非本店实拍</label></div>
-      <label class="rights-check"><input type="checkbox" name="rights" data-label="照片使用权" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示。</span><b class="required-mark" aria-hidden="true">*</b></label>
+      <label class="rights-check"><input type="checkbox" name="rights" data-label="照片使用权" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。</span><b class="required-mark" aria-hidden="true">*</b></label>
     </div>
     <div class="quick-bottom"><div class="quick-turnstile" data-review-turnstile></div><div class="quick-actions"><p>可以只打星。评价通过审核后会展示在这里。</p><button type="submit" class="send-review">提交评价 <span aria-hidden="true">↗</span></button><button type="button" data-review-retry hidden>继续完成图片上传 ↻</button></div></div>
     <p class="quick-feedback" data-review-feedback role="status" aria-live="polite"></p>
@@ -78,19 +78,19 @@ const { targetType, targetId, targetName } = Astro.props;
     });
     origin.addEventListener('change', () => {
       form.querySelector<HTMLElement>('[data-external-rights]')!.hidden = origin.value === 'own';
-      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
+      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
       field('rights').checked = false;
       syncPhotoRights();
     });
     function syncPhotoRights() {
       field('rights').required = images.length > 0;
-      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
+      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
       for(const name of ['source','holder','license']) { field(name).disabled = origin.value === 'own' || !images.length; field(name).required = origin.value === 'licensed' && images.length > 0; }
     }
     function reviewImages(): ReviewImage[] {
       if(images.length && !field('rights').checked) throw new Error('请确认照片使用权。');
       const own = origin.value === 'own';
-      const metadata = { source: own ? '本人拍摄' : field('source').value.trim(), holder: own ? '匿名投稿者' : field('holder').value.trim(), license: own ? '本人授权本站展示' : field('license').value.trim(), rightsConfirmed: field('rights').checked, isIllustrative: !own && field('illustrative').checked };
+      const metadata = { source: own ? '本人拍摄' : field('source').value.trim(), holder: own ? '匿名投稿者' : field('holder').value.trim(), license: own ? '本人授权本站展示及选作对应内容封面' : field('license').value.trim(), rightsConfirmed: field('rights').checked, coverAllowed: own && field('rights').checked, isIllustrative: !own && field('illustrative').checked };
       if(images.length && (!metadata.source || !metadata.holder || !metadata.license || images.some(image => !image.alt.trim()))) throw new Error('请补全照片说明、来源与授权信息。');
       return images.map(image => ({ blob: image.blob, alt: image.alt, ...metadata }));
     }

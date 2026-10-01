@@ -19,6 +19,8 @@ export type CatalogImage = {
   license?: string | null;
   permission?: 'approved' | 'pending';
   isIllustrative?: boolean;
+  hidden?: boolean;
+  position?: { x: number; y: number };
   width?: number | null;
   height?: number | null;
 };
@@ -58,7 +60,7 @@ export function formatPrice(price: CatalogPrice | null | undefined): string {
   return '价格待补充';
 }
 
-export type PublicImage = Pick<CatalogImage, 'url' | 'sourceUrl' | 'sourceNote' | 'author' | 'license' | 'isIllustrative' | 'width' | 'height'> & { alt: string };
+export type PublicImage = Pick<CatalogImage, 'url' | 'sourceUrl' | 'sourceNote' | 'author' | 'license' | 'isIllustrative' | 'width' | 'height' | 'position'> & { alt: string };
 
 export function safePublicLink(value: string | null | undefined): string | null {
   if (!value?.trim()) return null;
@@ -85,7 +87,7 @@ export function licenseLink(license: string | null | undefined): string | null {
 }
 
 export function safePublicImage(image: CatalogImage | string | null | undefined): PublicImage | null {
-  if (!image) return null;
+  if (!image || (typeof image !== 'string' && image.hidden)) return null;
   const raw = typeof image === 'string' ? image : image.url;
   if (!raw || (typeof image !== 'string' && image.permission === 'pending')) return null;
   try {
@@ -102,6 +104,7 @@ export function safePublicImage(image: CatalogImage | string | null | undefined)
       isIllustrative: image.isIllustrative ?? false,
       width: image.width ?? null,
       height: image.height ?? null,
+      ...(image.position ? { position: image.position } : {}),
     };
   } catch {
     return null;

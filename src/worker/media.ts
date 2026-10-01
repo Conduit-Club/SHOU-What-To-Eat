@@ -18,6 +18,7 @@ export type ImageMetadata = {
   permission: 'pending' | 'approved';
   rightsConfirmed: boolean;
   isIllustrative: boolean;
+  coverAllowed?: boolean;
 };
 export type WebpInfo = { width: number; height: number };
 
@@ -57,6 +58,8 @@ export function validateImageMetadata(headers: Headers): ImageMetadata | null {
   const license = decodeMetadata(headers.get('X-Image-License'), encoding);
   const permissionValue = headers.get('X-Image-Permission')?.trim().toLowerCase() ?? 'pending';
   const rightsConfirmed = headers.get('X-Image-Rights-Confirmed')?.trim().toLowerCase() === 'true';
+  const coverValue = headers.get('X-Image-Cover-Allowed');
+  if (coverValue !== null && !['true','false'].includes(coverValue)) return null;
   const illustrativeValue = headers.get('X-Image-Is-Illustrative')?.trim().toLowerCase();
   // Approval is an auditor decision. A submitter may only upload a pending
   // asset; the admin approval CAS changes this field after rights review.
@@ -64,7 +67,7 @@ export function validateImageMetadata(headers: Headers): ImageMetadata | null {
   if (!alt || !within(alt, 200) || !source || !within(source, 480) || !sourceNote || !within(sourceNote, 500) || !copyrightHolder || !within(copyrightHolder, 160) || !license || !within(license, 120) || !rightsConfirmed || !['true', 'false'].includes(illustrativeValue ?? '') || permissionValue !== 'pending') return null;
   if (/^https?:\/\//i.test(source)) { try { const url = new URL(source); if (url.protocol !== 'https:' || url.username || url.password) return null; } catch { return null; } }
   if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(`${alt}${source}${sourceNote}${copyrightHolder}${license}`)) return null;
-  return { alt, source, sourceNote, copyrightHolder, license, permission: permissionValue as 'pending' | 'approved', rightsConfirmed, isIllustrative: illustrativeValue === 'true' };
+  return { alt, source, sourceNote, copyrightHolder, license, permission: permissionValue as 'pending' | 'approved', rightsConfirmed, isIllustrative: illustrativeValue === 'true', ...(coverValue === null ? {} : { coverAllowed: coverValue === 'true' }) };
 }
 
 function decodeMetadata(value: string | null, encoding: string): string | null {

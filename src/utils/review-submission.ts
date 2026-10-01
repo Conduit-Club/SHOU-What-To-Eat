@@ -1,6 +1,6 @@
 /** Receipt-authenticated review transport. Public catalog browsing stays static. */
 export type ReviewReceipt = { submissionId: string; receiptToken: string; version: number; type: 'review'; expectedImages: number; expectedReviewImages: 0 };
-export type ReviewImage = { blob: Blob; alt: string; source: string; holder: string; license: string; rightsConfirmed: boolean; isIllustrative: boolean };
+export type ReviewImage = { blob: Blob; alt: string; source: string; holder: string; license: string; rightsConfirmed: boolean; coverAllowed?: boolean; isIllustrative: boolean };
 type Fetcher = typeof fetch;
 export class ReviewRequestError extends Error {
   constructor(message: string, public code: string, public status: number, public submissionId?: string) { super(message); }
@@ -31,7 +31,7 @@ export async function completeReview(receipt: ReviewReceipt, images: ReviewImage
   for (let index = status.uploadedImages; index < receipt.expectedImages; index++) {
     const image = images[index];
     if (!image.rightsConfirmed || !image.alt.trim() || !image.source.trim() || !image.holder.trim() || !image.license.trim()) throw new Error('请确认照片使用权，并补全图片说明与来源。');
-    const body = await request(base + '/images', { method: 'POST', headers: { ...authorization, 'Content-Type': 'image/webp', 'X-Image-Slot': 'entity', 'X-Image-Index': String(index), 'X-Submission-Version': String(version), 'X-Image-Metadata-Encoding': 'percent-utf8', 'X-Image-Alt': encodeURIComponent(image.alt.trim()), 'X-Image-Source': encodeURIComponent(image.source.trim()), 'X-Image-Copyright-Holder': encodeURIComponent(image.holder.trim()), 'X-Image-License': encodeURIComponent(image.license.trim()), 'X-Image-Rights-Confirmed': 'true', 'X-Image-Is-Illustrative': String(image.isIllustrative) }, body: image.blob }, send);
+    const body = await request(base + '/images', { method: 'POST', headers: { ...authorization, 'Content-Type': 'image/webp', 'X-Image-Slot': 'entity', 'X-Image-Index': String(index), 'X-Submission-Version': String(version), 'X-Image-Metadata-Encoding': 'percent-utf8', 'X-Image-Alt': encodeURIComponent(image.alt.trim()), 'X-Image-Source': encodeURIComponent(image.source.trim()), 'X-Image-Copyright-Holder': encodeURIComponent(image.holder.trim()), 'X-Image-License': encodeURIComponent(image.license.trim()), 'X-Image-Rights-Confirmed': 'true', 'X-Image-Is-Illustrative': String(image.isIllustrative), 'X-Image-Cover-Allowed': String(image.coverAllowed === true) }, body: image.blob }, send);
     if (!Number.isSafeInteger(body.version)) throw new Error('图片回执版本无效，请稍后重试。');
     version = body.version;
     onVersion(version);

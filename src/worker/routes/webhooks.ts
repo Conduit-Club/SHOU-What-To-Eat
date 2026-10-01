@@ -22,7 +22,7 @@ webhookRoutes.post('/github', async (context) => {
     const pr = payload.pull_request;
     if (pr?.number && pr.head?.ref?.startsWith('submission/') && pr.base?.ref === 'dev') {
       const job = await context.env.DB.prepare('SELECT id, submission_id, submission_version FROM publication_jobs WHERE branch = ?').bind(pr.head.ref).first<{ id: string; submission_id: string; submission_version: number }>();
-      if (job && ['opened', 'synchronize', 'closed'].includes(payload.action ?? '')) {
+      if (job && ['opened', 'reopened', 'synchronize', 'closed'].includes(payload.action ?? '')) {
         const now = new Date().toISOString();
         const prUrl = `https://github.com/${context.env.GITHUB_REPOSITORY}/pull/${pr.number}`;
         if (pr.merged) {
@@ -35,7 +35,9 @@ webhookRoutes.post('/github', async (context) => {
           ]);
         } else if (payload.action === 'closed') {
           await context.env.DB.prepare("UPDATE publication_jobs SET status = 'closed', pr_number = ?, pr_url = ?, updated_at = ? WHERE id = ? AND status IN ('queued', 'running', 'pr_open')").bind(pr.number, prUrl, now, job.id).run();
+          await context.env.DB.prepare("UPDATE submissions SET status = 'export_failed', updated_at = ? WHERE id = ? AND status = 'exporting' AND EXISTS (SELECT 1 FROM publication_jobs WHERE id = ? AND status = 'closed')").bind(now,job.submission_id,job.id).run();
         } else {
+          await context.env.DB.prepare("UPDATE submissions SET status = 'exporting', updated_at = ? WHERE id = ? AND status = 'export_failed' AND EXISTS (SELECT 1 FROM publication_jobs WHERE id = ? AND status = 'closed')").bind(now,job.submission_id,job.id).run();
           await context.env.DB.prepare("UPDATE publication_jobs SET status = 'pr_open', pr_number = ?, pr_url = ?, updated_at = ? WHERE id = ? AND status IN ('queued', 'running', 'pr_open', 'closed')").bind(pr.number, prUrl, now, job.id).run();
         }
       }

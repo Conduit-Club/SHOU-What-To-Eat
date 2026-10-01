@@ -1,6 +1,5 @@
 ---
 import Layout from '../templates/Layout.astro';
-import CatalogSearch from '../components/CatalogSearch';
 ---
-<Layout title="搜索餐品与店铺"><main class="search-page"><header><p>FIND YOUR NEXT BITE</p><h1>想吃什么，在这里找。</h1><span>按名字、位置、口味和预算，找到你要的餐品与店铺。</span></header><CatalogSearch client:load /><noscript>搜索需要启用 JavaScript。你仍可从<a href="/">食单</a>查看餐品。</noscript></main></Layout>
-<style>.search-page{width:calc(100% - clamp(32px,4vw,96px));margin:auto}.search-page>header{padding:42px 0 30px}.search-page>header p{margin:0 0 12px;color:var(--orange-deep);font-size:10px;font-weight:750;letter-spacing:.13em}.search-page h1{margin:0 0 15px;font-size:clamp(30px,3.2vw,46px);letter-spacing:-.04em}.search-page>header>span{font-size:13px;color:var(--muted);line-height:1.8}@media(max-width:600px){.search-page>header{padding:32px 0 25px}.search-page h1{font-size:31px}}</style>
+<Layout title="选择目录"><main style="padding:40px"><h1>从目录开始找</h1><a href="/foods/">找餐品 →</a> · <a href="/restaurants/">找店铺 →</a></main></Layout>
+<script>const params=new URLSearchParams(location.search);const type=params.get('type');params.delete('type');if(type==='stall')params.set('kind','stall');location.replace((type==='venue'||type==='stall'?'/restaurants/':'/foods/')+(params.size?'?'+params.toString():''));</script>

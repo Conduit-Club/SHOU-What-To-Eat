@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import { publicCatalog } from '../../lib/catalog/visibility';
 import Layout from '../../templates/Layout.astro';
 import QuickReview from '../../components/QuickReview.astro';
 import RatingDisplay from '../../components/RatingDisplay.astro';
@@ -9,11 +10,15 @@ import { formatLocation, formatPrice, kindLabel, licenseLink, mealLabel, safePub
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const [venueEntries, foodEntries, reviewEntries] = await Promise.all([
+  const [rawVenues, rawFoods, rawReviews] = await Promise.all([
     getCollection('restaurants'),
     getCollection('foods'),
     getCollection('reviews'),
   ]);
+  const catalog=publicCatalog({schemaVersion:2,restaurants:rawVenues.map(entry=>entry.data),foods:rawFoods.map(entry=>entry.data),reviews:rawReviews.map(entry=>entry.data)});
+  const foodEntries=catalog.foods.map(data=>({id:data.id,data}));
+  const venueEntries=catalog.restaurants.map(data=>({id:data.id,data}));
+  const reviewEntries=catalog.reviews.map(data=>({id:data.id,data}));
   return venueEntries.map(({ id, data: restaurant }) => ({
     params: { id },
     props: {
@@ -56,7 +61,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
         </div>
       </div>
       <div class="hero-image">
-        {heroImage ? <img src={heroImage.url} alt={heroImage.alt} /> : <div class="photo-placeholder" role="img" aria-label="暂无图片"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 64c0-20 18-37 40-37s40 17 40 37" /><path d="M13 65h94M33 65v10h54V65M40 27l7-13h26l7 13" /><circle cx="60" cy="42" r="8" /></svg><span>暂无图片</span></div>}
+        {heroImage ? <img style={heroImage.position ? `object-position:${heroImage.position.x}% ${heroImage.position.y}%` : undefined} src={heroImage.url} alt={heroImage.alt} /> : <div class="photo-placeholder" role="img" aria-label="暂无图片"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 64c0-20 18-37 40-37s40 17 40 37" /><path d="M13 65h94M33 65v10h54V65M40 27l7-13h26l7 13" /><circle cx="60" cy="42" r="8" /></svg><span>暂无图片</span></div>}
       </div>
       {heroImage && <p class="image-credit">{heroImage.isIllustrative ? '示意图' : '图片'}{heroImage.author && <> · {heroImage.author}</>}{heroSourceUrl && <> · <a href={heroSourceUrl} target="_blank" rel="noreferrer">来源页</a></>}{heroImage.license && <> · {licenseLink(heroImage.license) ? <a href={licenseLink(heroImage.license)!} target="_blank" rel="noreferrer">{heroImage.license}</a> : heroImage.license}</>}</p>}
     </section>

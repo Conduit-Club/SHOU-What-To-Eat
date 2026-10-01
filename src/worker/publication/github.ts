@@ -1,10 +1,12 @@
+import { parseManaged, validateManagedEdit, validateManagedRelations, type ManagedType, type ManagedRecord } from '../../lib/catalog/management.js';
 import type { AppEnv } from '../types.js';
-import { foodSchema, reviewSchema, venueSchema } from '../../lib/catalog/index.js';
+import { foodSchema, reviewSchema, venueSchema, deriveDistanceTags } from '../../lib/catalog/index.js';
 
 export type Publication = { jobId: string; branch: string; type: string; targetId: string | null; revision: Record<string, unknown>; original: Record<string, unknown>; contentHash: string; schemaVersion?: number; entityType?: string | null; entityId?: string | null; parentEntityId?: string | null; submissionId?: string; createdAt?: string };
 type GitHubResponse<T> = T & { html_url?: string; number?: number };
 
 export async function exportApprovedSubmission(env: AppEnv['Bindings'], publication: Publication): Promise<GitHubResponse<{ number: number; html_url: string }>> {
+  if (publication.entityType === 'management') return exportManagedEdit(env, publication);
   if (publication.schemaVersion === 2 || publication.entityType) return exportV2Submission(env, publication);
   const [owner, repo] = env.GITHUB_REPOSITORY.split('/');
   if (!owner || !repo || env.GITHUB_REPOSITORY.split('/').length !== 2) throw new Error('invalid_github_repository');
@@ -126,7 +128,7 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
 }
 
 type ExportFile = { path: string; content: string; encoding: 'utf-8' | 'base64' };
-type MediaExport = { id: string; slot: string; alt: string; source: string; source_note: string | null; copyright_holder: string; license: string; permission: string; is_illustrative: number; width: number; height: number };
+type MediaExport = { metadata_json?: string; id: string; slot: string; alt: string; source: string; source_note: string | null; copyright_holder: string; license: string; permission: string; is_illustrative: number; width: number; height: number };
 function jsonFile(path: string, value: unknown): ExportFile { return { path, content: `${JSON.stringify(value, null, 2)}\n`, encoding: 'utf-8' }; }
 function slugify(value: string): string { return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'submission'; }
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
@@ -145,10 +147,10 @@ function canonicalFoodPrice(value: unknown) { if (!isRecord(value)) return null;
 function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean) : []; }
 function nullableString(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
 function integerOrNull(value: unknown): number | null { return Number.isInteger(value) ? Number(value) : null; }
-function imageRecord(asset: MediaExport) { const publicUrl = `https://eat.shoumc.com/media/${asset.id}.webp`; return { url: publicUrl, alt: asset.alt, sourceUrl: /^https:\/\//i.test(asset.source) ? asset.source : publicUrl, sourceNote: asset.source_note?.trim() || `${asset.source}；已转码WebP`, author: asset.copyright_holder, license: asset.license, permission: asset.permission === 'approved' ? 'approved' : 'pending', isIllustrative: Boolean(asset.is_illustrative), width: asset.width ?? null, height: asset.height ?? null }; }
+function imageRecord(asset: MediaExport) { const publicUrl = `https://eat.shoumc.com/media/${asset.id}.webp`; return { url: publicUrl, alt: asset.alt, sourceUrl: /^https:\/\//i.test(asset.source) ? asset.source : publicUrl, sourceNote: asset.source_note?.trim() || `${asset.source}；已转码WebP`, author: asset.copyright_holder, license: asset.license, permission: asset.permission === 'approved' ? 'approved' : 'pending', isIllustrative: Boolean(asset.is_illustrative), coverEligible: asset.metadata_json ? JSON.parse(asset.metadata_json).coverAllowed === true : false, width: asset.width ?? null, height: asset.height ?? null }; }
 async function loadPublishedAssets(env: AppEnv['Bindings'], submissionId?: string): Promise<MediaExport[]> {
   if (!submissionId) return [];
-  const rows = await env.DB.prepare("SELECT id, slot, object_key, alt, source, source_note, copyright_holder, license, permission, is_illustrative, width, height FROM media_assets WHERE submission_id = ? AND object_state = 'private' AND permission = 'approved' ORDER BY slot, slot_index").bind(submissionId).all<MediaExport & { object_key: string }>();
+  const rows = await env.DB.prepare("SELECT id, slot, metadata_json, object_key, alt, source, source_note, copyright_holder, license, permission, is_illustrative, width, height FROM media_assets WHERE submission_id = ? AND object_state = 'private' AND permission = 'approved' ORDER BY slot, slot_index").bind(submissionId).all<MediaExport & { object_key: string }>();
   if (!rows.results.length) return [];
   return rows.results;
 }
@@ -198,4 +200,79 @@ async function github(path: string, token: string, allowMissing = false, body?: 
   if (allowMissing && response.status === 404) return null;
   if (!response.ok) throw new Error(`github_${response.status}`);
   return response.json().catch(() => ({}));
+}
+
+async function exportManagedEdit(env: AppEnv['Bindings'], publication: Publication): Promise<{number:number;html_url:string}> {
+  const [owner,repo]=env.GITHUB_REPOSITORY.split('/');
+  if(!owner||!repo||env.GITHUB_REPOSITORY.split('/').length!==2)throw new Error('invalid_github_repository');
+  const token=await createInstallationToken(env,repo);
+  const root=`/repos/${owner}/${repo}`;
+  const existing=await github(`${root}/git/ref/heads/${encodeURIComponent(publication.branch)}`,token,true);
+  if(existing){
+    const filter=`${root}/pulls?head=${encodeURIComponent(owner+':'+publication.branch)}`;
+    const pulls=await github(filter+'&state=open',token);if(pulls.length)return pulls[0];
+    const closed=await github(filter+'&state=closed',token);
+    const retryable=closed.find((pr:{merged_at:string|null;base:{ref:string}})=>!pr.merged_at&&pr.base.ref==='dev');
+    if(retryable)return github(`${root}/pulls/${retryable.number}`,token,false,{state:'open'},'PATCH');
+    throw new Error('publication_branch_exists_without_open_pr');
+  }
+  const change=publication.revision;
+  const type=change.entityType as ManagedType;
+  if(change.operation!=='catalog-edit'||!['venue','food','review'].includes(type))throw new Error('invalid_catalog_edit');
+  const desired=parseManaged(type,change.record);
+  const base=await github(`${root}/git/ref/heads/dev`,token);
+  const commit=await github(`${root}/git/commits/${base.object.sha}`,token);
+  const folder=(kind:ManagedType)=>kind==='venue'?'restaurants':kind==='food'?'foods':'reviews';
+  const path=(kind:ManagedType,id:string)=>`src/content/${folder(kind)}/${id}.json`;
+  const cache=new Map<string,ManagedRecord>();
+  async function read(kind:ManagedType,id:string){
+    const key=kind+':'+id;if(cache.has(key))return cache.get(key)!;
+    const file=await github(`${root}/contents/${encodeURIComponent(path(kind,id))}?ref=${base.object.sha}`,token);
+    const record=parseManaged(kind,JSON.parse(decodeGithubContent(file.content)));cache.set(key,record);return record;
+  }
+  const before=await read(type,desired.id);
+  const mirror={...before,...(type==='venue'?{tags:deriveDistanceTags(before as import('../../lib/catalog/index.js').Venue)}:{}),images:before.images.filter(image=>image.permission==='approved')};
+  const hashBytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(mirror)));
+  const hash=Array.from(new Uint8Array(hashBytes),byte=>byte.toString(16).padStart(2,'0')).join('');
+  if(hash!==change.expectedHash)throw new Error('catalog_revision_conflict');
+  // Edit against the same normalized version shown in the admin, preserving
+  // pending source images that are deliberately absent from the mirror.
+  const next=validateManagedEdit(type,mirror,desired);
+  const treeFiles=await github(`${root}/git/trees/${commit.tree.sha}?recursive=1`,token);
+  if(treeFiles.truncated)throw new Error('catalog_tree_truncated');
+  const venueFiles=treeFiles.tree.filter((item:{path:string})=>/^src\/content\/restaurants\/[a-z0-9-]+\.json$/.test(item.path));
+  // Parent cycles / active child venues must use the same Git base, not a stale D1 mirror.
+  for(const file of venueFiles)await read('venue',file.path.split('/').at(-1).slice(0,-5));
+  if(type==='venue')for(const id of (before as import('../../lib/catalog/index.js').Venue).foods)await read('food',id);
+  if(type!=='review'){
+    const cover=(next as import('../../lib/catalog/index.js').Food).cover;
+    if(cover?.reviewId)await read('review',cover.reviewId);
+  }
+  validateManagedRelations(type,next,[...cache.entries()].map(([key,record])=>({type:key.split(':')[0] as ManagedType,record})));
+  const files=new Map<string,ManagedRecord>();
+  // Preserve unpublished image provenance, even though the admin cannot select it.
+  next.images=[...next.images,...before.images.filter(image=>image.permission!=='approved')];
+  if('dates' in next)next.dates.updatedAt=new Date().toISOString().slice(0,10);
+  if(type==='food'&&(before as import('../../lib/catalog/index.js').Food).venueId!==(next as import('../../lib/catalog/index.js').Food).venueId){
+    const oldParent=await read('venue',(before as import('../../lib/catalog/index.js').Food).venueId) as import('../../lib/catalog/index.js').Venue;
+    const newParent=await read('venue',(next as import('../../lib/catalog/index.js').Food).venueId) as import('../../lib/catalog/index.js').Venue;
+    oldParent.foods=oldParent.foods.filter(id=>id!==next.id);newParent.foods=[...new Set([...newParent.foods,next.id])];
+    files.set(path('venue',oldParent.id),oldParent);files.set(path('venue',newParent.id),newParent);
+  }
+  files.set(path(type,next.id),next);
+  const output:ExportFile[]=[...files].map(([path,record])=>jsonFile(path,record));
+  output.push(jsonFile(`.publication-manifest/${publication.jobId}.json`,{jobId:publication.jobId,contentHash:publication.contentHash,submissionId:publication.submissionId}));
+  const items=await Promise.all(output.map(async file=>({path:file.path,mode:'100644',type:'blob',sha:(await github(`${root}/git/blobs`,token,false,{content:file.content,encoding:'utf-8'})).sha})));
+  const tree=await github(`${root}/git/trees`,token,false,{base_tree:commit.tree.sha,tree:items});
+  const created=await github(`${root}/git/commits`,token,false,{message:`content: update ${type} ${next.id}`,tree:tree.sha,parents:[base.object.sha]});
+  await github(`${root}/git/refs`,token,false,{ref:`refs/heads/${publication.branch}`,sha:created.sha});
+  return github(`${root}/pulls`,token,false,{title:`内容维护：${'name' in next?next.name:next.id}`,body:`更新已有内容，保留来源、评价和修改历史。\n\n内容版本：${publication.contentHash}\n\n检查字段变化、关联及封面来源；生产部署成功后才标记已发布。`,head:publication.branch,base:'dev'},'POST');
+}
+
+export async function hasOpenPublication(env:AppEnv['Bindings'],branch:string):Promise<boolean>{
+ const [owner,repo]=env.GITHUB_REPOSITORY.split('/');
+ if(!owner||!repo||env.GITHUB_REPOSITORY.split('/').length!==2)throw new Error('invalid_github_repository');
+ const token=await createInstallationToken(env,repo);
+ const pulls=await github(`/repos/${owner}/${repo}/pulls?head=${encodeURIComponent(owner+':'+branch)}&state=open`,token);
+ return Array.isArray(pulls)&&pulls.length>0;
 }
