@@ -21,7 +21,7 @@ webhookRoutes.post('/github', async (context) => {
   try {
     const pr = payload.pull_request;
     if (pr?.number && pr.head?.ref?.startsWith('submission/') && pr.base?.ref === 'dev') {
-      const job = await context.env.DB.prepare('SELECT id, submission_id, submission_version FROM publication_jobs WHERE branch = ?').bind(pr.head.ref).first<{ id: string; submission_id: string; submission_version: number }>();
+      const job = await context.env.DB.prepare("SELECT id, submission_id, submission_version FROM publication_jobs WHERE branch = ? AND EXISTS (SELECT 1 FROM submissions WHERE submissions.id = publication_jobs.submission_id AND submissions.status != 'rejected')").bind(pr.head.ref).first<{ id: string; submission_id: string; submission_version: number }>();
       if (job && ['opened', 'reopened', 'synchronize', 'closed'].includes(payload.action ?? '')) {
         const now = new Date().toISOString();
         const prUrl = `https://github.com/${context.env.GITHUB_REPOSITORY}/pull/${pr.number}`;
