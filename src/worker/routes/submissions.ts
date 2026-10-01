@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { missingDatabaseConfig, missingSubmissionConfig, publicationEnabled } from '../config.js';
+import { legacySubmissionWritesEnabled, missingDatabaseConfig, missingSubmissionConfig, publicationEnabled } from '../config.js';
 import { validateSubmission } from '../validation.js';
 import { verifyTurnstile } from '../security.js';
 import type { AppEnv } from '../types.js';
@@ -8,6 +8,7 @@ import type { AppEnv } from '../types.js';
 export const submissionRoutes = new Hono<AppEnv>();
 submissionRoutes.post('/', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
+  if (!legacySubmissionWritesEnabled(context.env)) return legacyDisabled(context);
   if (missingSubmissionConfig(context.env).length) return unavailable(context);
   const ip = context.req.header('CF-Connecting-IP') ?? 'unknown';
   const ipHash = await sha256(ip);
@@ -34,7 +35,7 @@ submissionRoutes.post('/', async (context) => {
       return unavailable(context);
     }
   }
-  if (!await verifyTurnstile(payload.turnstileToken, context.env.TURNSTILE_SECRET_KEY, ip)) return context.json({ error: { code: 'challenge_failed', message: '请完成人机验证后重试。' } }, 400);
+  if (!await verifyTurnstile(payload.turnstileToken, context.env.TURNSTILE_SECRET_KEY, ip, context.env.TURNSTILE_HOSTNAME)) return context.json({ error: { code: 'challenge_failed', message: '请完成人机验证后重试。' } }, 400);
   const id = crypto.randomUUID(); const receiptToken = crypto.randomUUID(); const receiptHash = await sha256(receiptToken); const createdAt = new Date().toISOString();
   try {
     const used = await context.env.DB.prepare('SELECT request_count FROM rate_limits WHERE key_hash = ? AND window_start = ?').bind(ipHash, windowStart).first<{ request_count: number }>();
@@ -107,5 +108,6 @@ function replayOrConflict(context: Context<AppEnv>, existing: { submission_id: s
 }
 
 function unavailable(context: Context<AppEnv>) { return context.json({ error: { code: 'service_unavailable', message: '投稿服务暂未配置完成，请稍后重试。' } }, 503, { 'Cache-Control': 'no-store' }); }
+function legacyDisabled(context: Context<AppEnv>) { return context.json({ error: { code: 'v2_required', message: '旧版投稿接口已关闭，请使用 v2 投稿接口。' } }, 410, { 'Cache-Control': 'no-store' }); }
 
 export async function sha256(value: string) { const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join(''); }

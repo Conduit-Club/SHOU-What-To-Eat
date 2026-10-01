@@ -1,15 +1,26 @@
 ---
 import Layout from '../templates/Layout.astro';
 ---
-<Layout title="关于本站"><main class="about"><a class="back" href="/">← 返回目录</a><p class="eyebrow">ABOUT</p><h1>关于「今日海大吃什么」</h1><p>这里记录上海海洋大学校内与周边餐饮。我们区分来源信息、同学体验与待核实内容，不将个人口味写成普遍结论。</p><h2>内容与许可</h2><p>餐厅内容按条目记录来源和适用许可。迁移内容中的原有作者署名、图片权限及上游授权应以各条目为准；未获图片使用许可的图片不会随内容复制发布。</p><h2>补充与纠错</h2><p>可以通过<a href="/submit/">提交餐饮信息</a>提供实际体验、价格、位置或纠错。投稿须经审核和内容仓库发布后，才会出现在目录中。</p><h2>信息边界</h2><p>档口、营业时间、价格和活动可能变化。除标明来源与核验日期的信息外，请把投稿经验视为个人参考。</p></main></Layout>
+<Layout title="关于本站">
+  <main class="about-page">
+    <header class="top"><a class="back" href="/"><span aria-hidden="true">←</span> 返回目录</a><span class="page-label">关于本站</span></header>
+    <section class="about-hero">
+      <p class="eyebrow">ABOUT SHOU FOOD</p>
+      <h1>一份温暖、诚实的校园餐饮目录。</h1>
+      <p>这里记录上海海洋大学校内与周边餐饮，帮助你在下一顿饭前少一点犹豫。我们把可核实信息、同学体验和待补充内容分开呈现。</p>
+    </section>
+    <div class="about-grid">
+      <article class="about-card accent"><span class="card-icon" aria-hidden="true">✦</span><h2>内容原则</h2><p>餐厅、档口、餐品和评价按条目记录来源与适用许可；未知的价格、日期和评分会保留为待补充，不用猜测填满。</p></article>
+      <article class="about-card"><span class="card-icon green" aria-hidden="true">✓</span><h2>同学分享</h2><p>可以通过<a href="/submit/">投稿</a>提供实际体验、价格、位置或纠错。投稿需要经过审核和发布流程，才会进入公开目录。</p></article>
+      <article class="about-card wide"><span class="card-icon honey" aria-hidden="true">◎</span><h2>使用边界</h2><p>档口、营业时间、价格和活动可能变化。除标明来源与核验日期的信息外，请把投稿经验视为个人参考；到店前仍建议以现场信息为准。</p></article>
+    </div>
+    <p class="source-note">未获图片使用许可的图片不会随内容复制发布。内容中的作者署名、图片权限和上游授权以各条目来源为准。</p>
+  </main>
+</Layout>
 <style>
-  .about{width:min(100%,670px);margin:auto;padding:32px 25px 60px}
-  .back{display:inline-flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}
-  .eyebrow{margin:42px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}
-  .about h1{margin:0;font-size:28px;letter-spacing:0;overflow-wrap:anywhere}
-  .about h2{margin:30px 0 8px;font-size:14px}
-  .about p{color:var(--muted);font-size:13px;line-height:2;overflow-wrap:anywhere}
-  .about p a{color:var(--orange)}
-  @media(max-width:520px){.about{padding:25px 18px 45px}.about h1{font-size:24px}}
-  @media(max-width:360px){.about{padding-right:16px;padding-left:16px}}
+  .about-page{width:min(calc(100% - 32px),1000px);margin:auto;padding:0 0 60px}.top{min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}.back,.page-label{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}.back{gap:8px}.back span{color:var(--orange)}.page-label{font-weight:700;color:var(--ink)}
+  .about-hero{max-width:760px;padding:70px 0 52px}.eyebrow{margin:0 0 15px;color:var(--orange-deep);font-size:11px;font-weight:800;letter-spacing:.15em}.about-hero h1{max-width:700px;margin:0;color:var(--ink);font-size:clamp(38px,5vw,62px);line-height:1.08;letter-spacing:-.05em;overflow-wrap:anywhere}.about-hero>p:last-child{max-width:620px;margin:20px 0 0;color:var(--muted);font-size:15px;line-height:1.9;overflow-wrap:anywhere}
+  .about-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.about-card{min-width:0;padding:25px;border-radius:26px;background:var(--surface-card);box-shadow:var(--shadow-card)}.about-card.accent{background:var(--orange);color:#fff;box-shadow:var(--shadow-hover)}.about-card.wide{grid-column:span 2;background:#f0fff4}.card-icon{display:grid;width:42px;height:42px;place-items:center;margin-bottom:20px;border-radius:15px;background:#fff2eb;color:var(--orange-deep);font-size:21px}.about-card.accent .card-icon{background:rgba(255,255,255,.2);color:#fff}.card-icon.green{background:#dcfce7;color:#2e9d60}.card-icon.honey{background:#fff3d7;color:#ce7e00}.about-card h2{margin:0 0 10px;color:var(--ink);font-size:21px}.about-card.accent h2{color:#fff}.about-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.9;overflow-wrap:anywhere}.about-card.accent p{color:#fff2eb}.about-card a{color:var(--orange-deep);font-weight:800}.about-card.accent a{color:#fff}.source-note{max-width:760px;margin:32px 0 0;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+  @media(max-width:640px){.about-page{width:min(calc(100% - 32px),1000px)}.about-hero{padding:44px 0 34px}.about-hero h1{font-size:40px}.about-hero>p:last-child{font-size:14px}.about-grid{grid-template-columns:1fr}.about-card.wide{grid-column:auto}}
+  @media(max-width:360px){.about-page{width:calc(100% - 32px)}.top{gap:8px}.about-hero h1{font-size:34px}}
 </style>

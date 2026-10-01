@@ -1,3 +1,22 @@
 {
-  "id": "first-canteen", "name": "一食堂", "category": "on-campus", "kind": "校园食堂", "aliases": ["一餐", "第一餐厅"], "location": "本科生宿舍区附近，窗口分布在一楼和二楼。", "coordinates": [121.8934382, 30.8826037], "price": "铁板饭、铁板鸡排约 8 元/份；锅贴约 1 至 1.5 元/个；二楼酸菜鱼约 19 元/份。均为同学分享的未核实价格。", "foods": [{ "name": "铁板饭、铁板鸡排", "location": "一楼", "price": "约 8 元/份" }, { "name": "锅贴", "location": "一楼", "price": "约 1 至 1.5 元/个；更早曾为 1 元" }, { "name": "酸菜鱼", "location": "二楼", "description": "现煮；有评价提到花椒味较呛。", "price": "约 19 元/份" }, { "name": "滑蛋饭", "location": "二楼" }, { "name": "炸物鸡排、鸡腿", "description": "同学推荐，具体楼层待确认。" }, { "name": "生滚粥", "description": "来源整理时尚无同学评价。" }], "reviews": [{ "text": "一餐一楼的面、二楼的酸菜鱼和滑蛋饭可以，还有炸物那边的鸡排鸡腿。", "author": "A" }, { "text": "一餐一楼大伙那一排的窗口，基本无踩雷，都很好吃。新上的生滚粥不知道怎么样哈。", "author": "C" }, { "text": "一餐二楼的酸菜鱼是现煮的，油一泼上去特别香，就是有花椒会有点呛，略微小贵，19 块，但是肯定是值得的。", "author": "C" }, { "text": "我将永远追随一餐一楼的铁板鸡排。", "author": "B" }, { "text": "铁板烧真的好好吃，而且量大管饱。", "author": "E", "source": "未确认具体食堂，不能据此认定为一食堂窗口。" }], "body": "早餐；正餐有大伙打菜、面食、馄饨、酱香饼和铁板窗口。二楼有酸菜鱼、滑蛋饭。档口与价格可能变化，以现场为准。", "sources": [{ "repository": "what-to-eat-in-shou-today", "path": "website/docs/on-campus/first-canteen.md", "revision": "working-tree", "license": "CC BY-NC-SA 4.0" }, { "repository": "what-to-eat-in-shou-contributions", "path": "data/reviewed/canteen-windows-2026-09.json", "revision": "working-tree", "license": null, "note": "同一食堂的价格与体验补充；来源于公开社交帖整理，价格未核实。" }, { "repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0", "note": "仅纳入新手册独有的窗口与餐品信息。" }]
+  "schemaVersion": 2,
+  "id": "first-canteen",
+  "name": "一食堂",
+  "kind": "cafeteria",
+  "parentId": null,
+  "category": "on-campus",
+  "aliases": ["一餐", "第一餐厅"],
+  "tags": ["on-campus", "canteen"],
+  "location": {"address": "本科生宿舍区附近，窗口分布在一楼和二楼。", "campusArea": "本科生宿舍区", "floor": "一楼、二楼", "landmark": null, "coordinates": [30.8826037, 121.8934382], "distanceMeters": null, "distanceBasis": null},
+  "averagePrice": null,
+  "description": "早餐；正餐有大伙打菜、面食、馄饨、酱香饼和铁板窗口。二楼有酸菜鱼、滑蛋饭。档口与价格可能变化，以现场为准。",
+  "openingHours": null,
+  "foods": ["first-noodles", "first-set-meal", "first-wontons", "first-scallion-pancake", "first-iron-plate-rice", "first-iron-plate-chicken-cutlet", "first-guotie", "first-sliding-egg-rice", "first-fried-chicken-cutlet", "first-fried-chicken-leg", "first-congee"],
+  "images": [],
+  "sources": [
+    {"repository": "what-to-eat-in-shou-today", "path": "website/docs/on-campus/first-canteen.md", "revision": "working-tree", "license": "CC BY-NC-SA 4.0"},
+    {"repository": "what-to-eat-in-shou-contributions", "path": "data/reviewed/canteen-windows-2026-09.json", "revision": "working-tree", "license": null, "note": "同一食堂的价格与体验补充；来源于公开社交帖整理，价格未核实。"},
+    {"repository": "SHOU-Online-Manual", "path": "docs/canteen/campus-dining.md", "revision": "working-tree", "license": "CC BY-SA 4.0", "note": "仅纳入新手册独有的窗口与餐品信息。"}
+  ],
+  "dates": {"visitedAt": null, "verifiedAt": null, "updatedAt": null}
 }

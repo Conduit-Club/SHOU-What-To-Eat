@@ -9,4 +9,6 @@ dist/
 .env.*
 !.env.example
 wrangler.generated*.jsonc
+.generated/
+public/catalog-snapshot.json
 coverage/
