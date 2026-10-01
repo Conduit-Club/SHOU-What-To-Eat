@@ -11,7 +11,7 @@ import { missingDeploymentConfig, publicationEnabled } from './config.js';
 import type { AppEnv } from './types.js';
 
 const app = new Hono<AppEnv>();
- app.use('/api/*', cors({ origin: (origin, context) => (context.env.ALLOWED_ORIGINS ?? '').split(',').map((item: string) => item.trim()).includes(origin) ? origin : null, allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization', 'Cf-Access-Jwt-Assertion', 'Idempotency-Key', 'X-Submission-Version', 'X-Image-Slot', 'X-Image-Index', 'X-Image-Alt', 'X-Image-Source', 'X-Image-Source-Note', 'X-Image-Copyright-Holder', 'X-Image-License', 'X-Image-Permission', 'X-Image-Rights-Confirmed', 'X-Image-Is-Illustrative', 'X-Image-Metadata-Encoding'] }));
+ app.use('/api/*', cors({ origin: (origin, context) => (context.env.ALLOWED_ORIGINS ?? '').split(',').map((item: string) => item.trim()).includes(origin) ? origin : null, allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization', 'Cf-Access-Jwt-Assertion', 'Idempotency-Key', 'X-Submission-Version', 'X-Image-Slot', 'X-Image-Index', 'X-Image-Alt', 'X-Image-Source', 'X-Image-Source-Note', 'X-Image-Copyright-Holder', 'X-Image-License', 'X-Image-Permission', 'X-Image-Rights-Confirmed', 'X-Image-Is-Illustrative', 'X-Image-Metadata-Encoding', 'X-Image-Cover-Allowed'] }));
 const health = (context: Context<AppEnv>) => {
   const enabled = publicationEnabled(context.env);
   const ready = !enabled || missingDeploymentConfig(context.env).length === 0;

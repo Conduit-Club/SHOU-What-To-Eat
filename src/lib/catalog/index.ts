@@ -28,6 +28,8 @@ export const imageSchema = z.object({
   license: optionalText(160),
   permission: z.enum(['approved', 'pending']),
   isIllustrative: z.boolean().default(false),
+  coverEligible: z.boolean().optional(),
+  hidden: z.boolean().optional(),
   width: z.number().int().positive().max(4096).nullable().default(null),
   height: z.number().int().positive().max(4096).nullable().default(null),
 }).strict().superRefine((value, context) => {
@@ -99,6 +101,13 @@ export const datesSchema = z.object({
   updatedAt: optionalDate,
 }).strict();
 
+export const coverSchema = z.object({
+  url: httpsUrl,
+  reviewId: slug.nullable().default(null),
+  x: z.number().finite().min(0).max(100).default(50),
+  y: z.number().finite().min(0).max(100).default(50),
+}).strict();
+
 export const venueSchema = z.object({
   schemaVersion: z.literal(CATALOG_SCHEMA_VERSION),
   id: slug,
@@ -114,6 +123,8 @@ export const venueSchema = z.object({
   openingHours: optionalText(300),
   foods: z.array(slug).max(200).default([]),
   images: z.array(imageSchema).max(30).default([]),
+  status: z.enum(['published','archived']).optional(),
+  cover: coverSchema.nullable().optional(),
   sources: z.array(sourceSchema).min(1).max(30),
   dates: datesSchema,
 }).strict();
@@ -128,6 +139,8 @@ export const foodSchema = z.object({
   tags: boundedTags,
   description: optionalText(1000),
   images: z.array(imageSchema).max(30).default([]),
+  status: z.enum(['published','archived']).optional(),
+  cover: coverSchema.nullable().optional(),
   sources: z.array(sourceSchema).min(1).max(30),
   dates: datesSchema,
 }).strict();
@@ -142,6 +155,7 @@ export const reviewSchema = z.object({
   rating: z.number().int().min(1).max(5).nullable().default(null),
   text: reviewText,
   images: z.array(imageSchema).max(10).default([]),
+  status: z.enum(['published','archived']).optional(),
   authorAlias: optionalText(80),
   visitedAt: optionalDate,
   verifiedAt: optionalDate,

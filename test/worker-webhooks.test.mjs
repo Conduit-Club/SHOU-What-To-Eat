@@ -98,6 +98,19 @@ async function sendWebhook(database, delivery, payload) {
   }), runtime(database), {});
 }
 
+test('cancelled changes ignore delayed reopen and merge webhooks', async () => {
+  const database = new SqliteD1();
+  insertJob(database, 'closed');
+  database.sqlite.exec("UPDATE submissions SET status = 'rejected'");
+  for (const [index, payload] of [pullRequest({ action: 'reopened' }), pullRequest({ action: 'closed', merged: true })].entries()) {
+    assert.equal((await sendWebhook(database, `cancelled-${index}`, payload)).status, 200);
+    assert.equal(database.sqlite.prepare('SELECT status FROM publication_jobs').get().status, 'closed');
+    assert.equal(database.sqlite.prepare('SELECT status FROM submissions').get().status, 'rejected');
+  }
+  assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS count FROM audit_events').get().count, 0);
+  database.sqlite.close();
+});
+
 function jobStatus(database) { return database.sqlite.prepare('SELECT status FROM publication_jobs WHERE id = \'job-webhook\'').get().status; }
 function submissionStatus(database) { return database.sqlite.prepare('SELECT status FROM submissions WHERE id = \'submission-webhook\'').get().status; }
 function publishAuditCount(database) { return database.sqlite.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE submission_id = 'submission-webhook' AND action = 'publish'").get().count; }

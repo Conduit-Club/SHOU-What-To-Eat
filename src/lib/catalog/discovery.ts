@@ -1,8 +1,10 @@
+import { publicCatalog } from './visibility.js';
 import type { Catalog } from './index.js';
 import { deriveDistanceTags } from './index.js';
 import { safePublicImage } from '../../utils/catalog-display.js';
 import type { DiscoveryCatalog } from '../../utils/catalog-discovery.js';
 export function discoveryCatalog(catalog: Catalog): DiscoveryCatalog {
+  catalog = publicCatalog(catalog);
   const ratings = (type: string,id: string) => {
     const reviews = catalog.reviews.filter(review => review.targetType === type && review.targetId === id);
     const rated = reviews.map(review => review.rating).filter((rating): rating is number => rating !== null);

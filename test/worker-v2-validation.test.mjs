@@ -20,7 +20,7 @@ const baseFood = {
   schemaVersion: 2,
   entityType: 'food',
   snapshotId: 'catalog-v2-test',
-  expectedImages: 0,
+  expectedImages: 1,
   expectedReviewImages: 0,
   turnstileToken: 'test-token',
   payload: {

@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import { publicCatalog } from '../../lib/catalog/visibility';
 import Layout from '../../templates/Layout.astro';
 import QuickReview from '../../components/QuickReview.astro';
 import RatingDisplay from '../../components/RatingDisplay.astro';
@@ -8,11 +9,15 @@ import { formatLocation, formatPrice, licenseLink, mealLabel, safePublicImage, s
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const [foodEntries, venueEntries, reviewEntries] = await Promise.all([
+  const [rawFoods, rawVenues, rawReviews] = await Promise.all([
     getCollection('foods'),
     getCollection('restaurants'),
     getCollection('reviews'),
   ]);
+  const catalog=publicCatalog({schemaVersion:2,restaurants:rawVenues.map(entry=>entry.data),foods:rawFoods.map(entry=>entry.data),reviews:rawReviews.map(entry=>entry.data)});
+  const foodEntries=catalog.foods.map(data=>({id:data.id,data}));
+  const venueEntries=catalog.restaurants.map(data=>({id:data.id,data}));
+  const reviewEntries=catalog.reviews.map(data=>({id:data.id,data}));
   return foodEntries.map(({ id, data: food }) => ({
     params: { id },
     props: {
@@ -42,12 +47,12 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
 <Layout title={food.name}>
   <main class="food-page">
     <header class="top">
-      <a href="/" class="back"><span aria-hidden="true">←</span> 返回餐品食单</a>
+      <a href="/foods/" class="back"><span aria-hidden="true">←</span> 返回餐品食单</a>
       <a class="submit" href="#review-form">评价这道餐品 <span aria-hidden="true">↗</span></a>
     </header>
     <section class="food-hero" aria-labelledby="food-title">
       <div class="hero-image">
-        {image ? <img src={image.url} alt={image.alt} /> : <div class="photo-placeholder" role="img" aria-label="暂无图片"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M21 63c10-26 68-26 78 0" /><path d="M13 65h94M34 65v10h52V65M43 35h34" /><circle cx="60" cy="31" r="12" /></svg><span>暂无图片</span></div>}
+        {image ? <img style={image.position ? `object-position:${image.position.x}% ${image.position.y}%` : undefined} src={image.url} alt={image.alt} /> : <div class="photo-placeholder" role="img" aria-label="暂无图片"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M21 63c10-26 68-26 78 0" /><path d="M13 65h94M34 65v10h52V65M43 35h34" /><circle cx="60" cy="31" r="12" /></svg><span>暂无图片</span></div>}
       </div>
       {image && <p class="image-credit">{image.isIllustrative ? '示意图' : '图片'}{image.author && <> · {image.author}</>}{imageSourceUrl && <> · <a href={imageSourceUrl} target="_blank" rel="noreferrer">来源页</a></>}{image.license && <> · {licenseLink(image.license) ? <a href={licenseLink(image.license)!} target="_blank" rel="noreferrer">{image.license}</a> : image.license}</>}</p>}
       <div class="hero-copy">

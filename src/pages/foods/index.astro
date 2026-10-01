@@ -2,5 +2,5 @@
 import Layout from '../../templates/Layout.astro';
 import CatalogSearch from '../../components/CatalogSearch';
 ---
-<Layout title="找一家值得去的店"><main class="directory"><header><h1>找一家值得去的店</h1><p>食堂、档口与校外小店，位置和人均一起看。</p></header><CatalogSearch mode="venue" client:load /></main></Layout>
+<Layout title="找一道想吃的"><main class="directory"><header><h1>找一道想吃的</h1><p>按口味、餐段和预算，找到这一顿。</p></header><CatalogSearch mode="food" client:load /></main></Layout>
 <style>.directory{width:calc(100% - clamp(32px,4vw,96px));margin:auto}.directory>header{padding:32px 0}.directory h1{font-size:clamp(30px,3vw,46px);margin:0 0 12px}.directory header p{color:var(--muted);font-size:14px}</style>

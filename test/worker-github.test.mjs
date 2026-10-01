@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { loadCatalog, generateCatalogSnapshot } from '../src/lib/catalog/index.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, createHash } from 'node:crypto';
 import { createAppJwt, decodeGithubContent, exportApprovedSubmission } from '../src/worker/publication/github.ts';
 import { safeErrorCode } from '../src/worker/publication/queue.ts';
 
@@ -125,4 +127,39 @@ test('approved attached review exports with its venue, separate photos and trust
     assert.equal(review.rating,5);assert.equal(review.text,'测试评价');assert.equal(review.targetId,venue.id);assert.match(review.images[0].url,/review-photo/);assert.equal(review.images[0].height,1600);
     assert.doesNotMatch(JSON.stringify(blobs),/installation-token|PRIVATE KEY|receiptToken|reviewer/);
   } finally {globalThis.fetch=originalFetch;}
+});
+
+
+test('existing catalog edit exports a version-checked PR, keeps provenance and updates both venue links',async()=>{
+ const privateKey=generateKeyPairSync('rsa',{modulusLength:2048,privateKeyEncoding:{type:'pkcs8',format:'pem'},publicKeyEncoding:{type:'spki',format:'pem'}}).privateKey;
+ const catalog=loadCatalog(JSON.parse(readFileSync('.generated/catalog.json','utf8'))),snapshot=generateCatalogSnapshot(catalog);
+ const food=snapshot.foods[0],parent=catalog.restaurants.find(v=>v.id===food.venueId),destination=catalog.restaurants.find(v=>v.id!==food.venueId);
+ const files=new Map([...catalog.restaurants.map(v=>['src/content/restaurants/'+v.id+'.json',v]),...catalog.foods.map(f=>['src/content/foods/'+f.id+'.json',f]),...catalog.reviews.map(r=>['src/content/reviews/'+r.id+'.json',r])]);
+ const oldFetch=globalThis.fetch;let blobs=[],tree;
+ globalThis.fetch=async(input,init={})=>{
+  const url=new URL(String(input)),path=decodeURIComponent(url.pathname),body=init.body?JSON.parse(init.body):null;
+  if(path.endsWith('/access_tokens'))return jsonResponse({token:'test-token',expires_at:new Date(Date.now()+3600000).toISOString()});
+  if(path.endsWith('/git/ref/heads/submission/manage'))return jsonResponse({},404);
+  if(path.endsWith('/git/ref/heads/dev'))return jsonResponse({object:{sha:'base-commit'}});
+  if(path.endsWith('/git/commits/base-commit'))return jsonResponse({tree:{sha:'base-tree'}});
+  if(path.endsWith('/git/trees/base-tree'))return jsonResponse({truncated:false,tree:[...files.keys()].map(path=>({path}))});
+  if(path.includes('/contents/')){assert.equal(url.searchParams.get('ref'),'base-commit');const value=files.get(path.split('/contents/')[1]);assert.ok(value,path);return jsonResponse({content:Buffer.from(JSON.stringify(value)).toString('base64'),encoding:'base64'});}
+  if(path.endsWith('/git/blobs')){blobs.push(JSON.parse(body.content));return jsonResponse({sha:'blob-'+blobs.length});}
+  if(path.endsWith('/git/trees')){tree=body;return jsonResponse({sha:'new-tree'});}
+  if(path.endsWith('/git/commits')){assert.deepEqual(body.parents,['base-commit']);return jsonResponse({sha:'new-commit'});}
+  if(path.endsWith('/git/refs'))return jsonResponse({ref:body.ref});
+  if(path.endsWith('/pulls')){assert.equal(body.base,'dev');return jsonResponse({number:10,html_url:'https://github.com/owner/repo/pull/10'});}
+  throw new Error('unexpected request');
+ };
+ const hash=createHash('sha256').update(JSON.stringify(food)).digest('hex');
+ const publication={jobId:'manage-job',branch:'submission/manage',type:'correction',entityType:'management',entityId:'food:'+food.id,schemaVersion:2,submissionId:'manage-submission',targetId:null,original:food,contentHash:'a'.repeat(64),revision:{operation:'catalog-edit',entityType:'food',expectedHash:hash,record:{...food,name:'修改测试',venueId:destination.id}}};
+ const env={GITHUB_REPOSITORY:'owner/repo',GITHUB_APP_ID:'123',GITHUB_INSTALLATION_ID:'123',GITHUB_PRIVATE_KEY:privateKey};
+ try{
+  await exportApprovedSubmission(env,publication);
+  assert.equal(tree.base_tree,'base-tree');assert.equal(tree.tree.length,4);
+  const updated=blobs.find(b=>b.id===food.id);assert.equal(updated.name,'修改测试');assert.deepEqual(updated.sources,food.sources);assert.equal(updated.dates.addedAt,food.dates.addedAt);
+  assert.ok(!blobs.find(b=>b.id===parent.id).foods.includes(food.id));assert.ok(blobs.find(b=>b.id===destination.id).foods.includes(food.id));
+  files.set('src/content/foods/'+food.id+'.json',{...food,name:'另一个管理员的版本'});
+  blobs=[];await assert.rejects(()=>exportApprovedSubmission(env,publication),/catalog_revision_conflict/);assert.equal(blobs.length,0);
+ }finally{globalThis.fetch=oldFetch;}
 });

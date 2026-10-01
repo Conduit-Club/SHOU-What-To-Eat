@@ -68,6 +68,7 @@ function runtime(database, overrides = {}) {
     DB: database,
     ASSETS: { fetch: async () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html' } }) },
     MEDIA_MODE: 'external',
+    IMAGES: fakeR2Bucket(),
     ALLOWED_ORIGINS: 'https://eat.shoumc.com',
     PUBLICATION_ENABLED: 'true',
     LEGACY_SUBMISSIONS_ENABLED: 'false',
@@ -179,7 +180,7 @@ async function submitV2(runtimeValue, database, entityType, payload, extra = {})
   const response = await worker.fetch(request('/api/v2/submissions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': extra.ip ?? '198.51.100.10', ...(extra.headers ?? {}) },
-    body: JSON.stringify({ schemaVersion: 2, entityType, snapshotId: snapshotId(database), payload, expectedImages: 0, expectedReviewImages: 0, turnstileToken: 'turnstile-token', ...extra.body }),
+    body: JSON.stringify({ schemaVersion: 2, entityType, snapshotId: snapshotId(database), payload, expectedImages: entityType==='food'?1:0, expectedReviewImages: 0, turnstileToken: 'turnstile-token', ...extra.body }),
   }), runtimeValue, {});
   const body = await response.json();
   return { response, body };
@@ -528,10 +529,15 @@ test('a published parent survives a static catalog snapshot change while new and
     assert.equal(database.sqlite.prepare('SELECT snapshot_id FROM submissions WHERE id = ?').get(newReview.body.submissionId).snapshot_id, snapshotB);
 
     const token = await accessToken(keys);
+    runtimeValue.MEDIA_MODE = 'r2';
+    const uploadedFood = await worker.fetch(request(`/api/v2/submissions/${oldFood.body.submissionId}/images`,{method:'POST',headers:imageUploadHeaders(oldFood.body.receiptToken,0,1),body:uploadWebp()}),runtimeValue,{});
+    assert.equal(uploadedFood.status,201,await uploadedFood.clone().text());
+    const finalizedFood = await worker.fetch(request(`/api/v2/submissions/${oldFood.body.submissionId}/finalize`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${oldFood.body.receiptToken}`},body:JSON.stringify({expectedVersion:2})}),runtimeValue,{});
+    assert.equal(finalizedFood.status,200);
     const approvedOldFood = await worker.fetch(request(`/api/v2/admin/submissions/${oldFood.body.submissionId}/review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Cf-Access-Jwt-Assertion': token },
-      body: JSON.stringify({ action: 'approve', expectedVersion: 1 }),
+      body: JSON.stringify({ action: 'approve', expectedVersion: 3 }),
     }), runtimeValue, {});
     assert.equal(approvedOldFood.status, 200, await approvedOldFood.clone().text());
     assert.deepEqual(plain(database.sqlite.prepare('SELECT status, snapshot_id FROM submissions WHERE id = ?').get(oldFood.body.submissionId)), { status: 'exporting', snapshot_id: snapshotA });
@@ -572,4 +578,48 @@ test('deployment callback rejects wrong identity, publishes the matching job, an
   assert.deepEqual(plain(database.sqlite.prepare('SELECT status FROM publication_jobs WHERE id = ?').get(jobId)), { status: 'deployed' });
   assert.deepEqual(plain(database.sqlite.prepare('SELECT publication_state FROM venues WHERE id = ?').get(values.entityId)), { publication_state: 'published' });
   assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS count FROM deployment_callbacks').get().count, 1);
+});
+
+
+test('content management requires Access, checks CAS and dependencies, and publishes through audited jobs', async()=>{
+ const database=new SqliteD1();const env=runtime(database);
+ const unauth=await worker.fetch(request('/api/v2/admin/content'),env,{});assert.equal(unauth.status,401);
+ await withExternalStubs(async keys=>{
+  const token=await accessToken(keys),headers={'Content-Type':'application/json','Cf-Access-Jwt-Assertion':token};
+  const listing=await worker.fetch(request('/api/v2/admin/content',{headers}),env,{});assert.equal(listing.status,200);
+  const data=await listing.json();const entry=data.entries.find(e=>e.type==='food');const parent=data.entries.find(e=>e.type==='venue'&&e.record.id===entry.record.venueId);
+  const edit=(target,record,extra={})=>worker.fetch(request('/api/v2/admin/content/'+target.type+'/'+target.record.id,{method:'POST',headers,body:JSON.stringify({expectedHash:target.hash,record,reason:'集成测试维护',...extra})}),env,{});
+  assert.equal((await edit(entry,{...entry.record,name:'新名称'},{expectedHash:'stale'})).status,409);
+  assert.equal((await edit(parent,{...parent.record,status:'archived'})).status,422);
+  assert.equal((await edit(entry,{...entry.record,id:'other'})).status,422);
+  const forbidden=await worker.fetch(request('/api/v2/admin/content/'+entry.type+'/'+entry.record.id,{method:'POST',headers:{...headers,Origin:'https://evil.example'},body:'{}'}),env,{});assert.equal(forbidden.status,403);
+  const saved=await edit(entry,{...entry.record,name:'集成测试新名称'});assert.equal(saved.status,202,await saved.clone().text());const receipt=await saved.json();
+  assert.equal((await edit(entry,{...entry.record,name:'重复'})).status,409);
+  const submission=database.sqlite.prepare('SELECT * FROM submissions WHERE id=?').get(receipt.submissionId);
+  assert.equal(submission.entity_type,'management');assert.equal(submission.status,'exporting');assert.equal(JSON.parse(submission.revision_json).record.name,'集成测试新名称');
+  assert.equal(database.sqlite.prepare('SELECT COUNT(*) AS n FROM audit_events WHERE submission_id=?').get(receipt.submissionId).n,1);
+  assert.equal(database.sqlite.prepare('SELECT name FROM foods WHERE id=?').get(entry.record.id).name,entry.record.name);
+  // Failed changes can be cancelled; a live PR cannot. Cancellation unlocks the entity.
+  const cancel=()=>worker.fetch(request('/api/v2/admin/content-changes/'+receipt.publicationJobId+'/cancel',{method:'POST',headers}),env,{});
+  assert.equal((await cancel()).status,409);
+  database.sqlite.prepare("UPDATE publication_jobs SET status='failed',error_code='catalog_revision_conflict' WHERE id=?").run(receipt.publicationJobId);
+  database.sqlite.prepare("UPDATE submissions SET status='export_failed' WHERE id=?").run(receipt.submissionId);
+  assert.equal((await cancel()).status,200);
+  assert.equal((await worker.fetch(request('/api/v2/admin/publications/'+receipt.publicationJobId+'/retry',{method:'POST',headers}),env,{})).status,409);
+  const next=await edit(entry,{...entry.record,status:'archived'});assert.equal(next.status,202);
+  const nextReceipt=await next.json();const commit='f'.repeat(40);const staged={contentHash:database.sqlite.prepare('SELECT content_hash FROM publication_jobs WHERE id=?').get(nextReceipt.publicationJobId).content_hash};database.sqlite.prepare("UPDATE publication_jobs SET status='merged_main',main_commit_sha=? WHERE id=?").run(commit,nextReceipt.publicationJobId);database.sqlite.prepare("UPDATE submissions SET status='merged_main' WHERE id=?").run(nextReceipt.submissionId);
+  const callback=await deploymentCallback(env,{repository:REPOSITORY,commit,contentHash:staged.contentHash,jobId:nextReceipt.publicationJobId});assert.equal(callback.status,200,await callback.clone().text());
+ },{access:true});
+});
+
+test('new food cannot bypass actual upload completion or submit an illustrative image',async()=>{
+ const database=new SqliteD1(),env=runtime(database,{MEDIA_MODE:'r2'});
+ await withExternalStubs(async()=>{
+  const parent=database.sqlite.prepare("SELECT id FROM venues WHERE publication_state='published' LIMIT 1").get().id;
+  const absent=await submitV2(env,database,'food',{...foodPayload(),venueId:parent},{body:{expectedImages:0}});assert.equal(absent.response.status,422);assert.equal(absent.body.error.code,'food_photo_required');
+  const submitted=await submitV2(env,database,'food',{...foodPayload(),venueId:parent});assert.equal(submitted.response.status,202);
+  const id=submitted.body.submissionId;
+  const finalize=await worker.fetch(request('/api/v2/submissions/'+id+'/finalize',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+submitted.body.receiptToken},body:JSON.stringify({expectedVersion:1})}),env,{});assert.equal(finalize.status,409);
+  const photo=await worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(submitted.body.receiptToken,0,1),'X-Image-Is-Illustrative':'true'},body:uploadWebp()}),env,{});assert.equal(photo.status,422);assert.equal((await photo.json()).error.code,'food_photo_must_be_real');
+ });
 });
