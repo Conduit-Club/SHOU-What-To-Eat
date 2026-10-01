@@ -440,9 +440,9 @@ const catalogSnapshotId = snapshot.snapshotId;
   const initialVenue = query.get('venue');
   const initialVenueEntityId = query.get('venueEntityId');
   const initialFood = query.get('food');
-  if (initialVenue) { (fields('foodVenueId') as HTMLInputElement).value = initialVenue; (fields('reviewTargetId') as HTMLInputElement).value = initialVenue; }
+  if (initialVenue) { (fields('reviewTargetType') as HTMLSelectElement).value = 'venue'; (fields('reviewTargetId') as HTMLInputElement).value = initialVenue; (form.querySelector('input[name="entityType"][value="review"]') as HTMLInputElement).checked = true; }
   if (initialVenueEntityId) { (fields('foodVenueId') as HTMLInputElement).value = initialVenueEntityId; (form.querySelector('input[name="entityType"][value="food"]') as HTMLInputElement).checked = true; }
-  if (initialFood) { (fields('reviewTargetId') as HTMLInputElement).value = initialFood; (form.querySelector('input[value="review"]') as HTMLInputElement).checked = true; }
+  if (initialFood) { (fields('reviewTargetType') as HTMLSelectElement).value = 'food'; (fields('reviewTargetId') as HTMLInputElement).value = initialFood; (form.querySelector('input[name="entityType"][value="review"]') as HTMLInputElement).checked = true; }
   switchType();
   restorePendingReceipt();
   form.addEventListener('submit', async (event) => {
@@ -455,6 +455,7 @@ const catalogSnapshotId = snapshot.snapshotId;
     showMessage('正在提交投稿……', 'info');
     try {
       const token = String(form.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')?.value ?? '');
+      if (!token.trim()) { showMessage('请先完成人机验证。', 'error'); return; }
       const entityImagesCount = Math.min(entityImages.length, type === 'review' ? 3 : 6);
       const attachedEnabled = type !== 'review' && document.querySelector<HTMLInputElement>('#attached-enabled')!.checked;
       const reviewImagesCount = attachedEnabled ? Math.min(reviewImages.length, 3) : 0;

@@ -30,7 +30,7 @@ const imageSourceUrl = image ? safePublicLink(image.sourceUrl) : null;
   <main class="food-page">
     <header class="top">
       <a href={venue ? '/restaurants/' + venue.id + '/' : '/'} class="back"><span aria-hidden="true">←</span> <span>{venue ? '返回店铺' : '返回目录'}</span></a>
-      <a class="submit" href={'/submit/?food=' + food.id}>补充或纠错 <span aria-hidden="true">↗</span></a>
+      <a class="submit" href={'/submit/?food=' + food.id}>评价这道餐品 <span aria-hidden="true">↗</span></a>
     </header>
     <section class="food-hero" aria-labelledby="food-title">
       <div class="hero-image">
@@ -50,13 +50,13 @@ const imageSourceUrl = image ? safePublicLink(image.sourceUrl) : null;
         <section class="content-card"><p class="section-kicker">ABOUT THIS DISH</p><h2>餐品信息</h2><p class="description">{food.description ?? '暂未补充餐品描述。'}</p></section>
         <section class="section-block">
           <div class="section-heading"><div><p class="section-kicker">STUDENT NOTES</p><h2>同学评价</h2></div><span class="section-count">{reviews.length}</span></div>
-          {reviews.length ? <div class="reviews">{reviews.map((review) => <blockquote><div class="review-top">{review.rating ? <span class="stars" aria-label={String(review.rating) + ' 星'}>{'★'.repeat(review.rating)}<em>{'★'.repeat(5 - review.rating)}</em></span> : <span class="unrated">未评分</span>}<time>{review.visitedAt ?? '日期待补充'}</time></div><p>{review.text}</p><footer>{review.authorAlias ?? '匿名同学'}</footer></blockquote>)}</div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href={'/submit/?food=' + food.id}>分享你的实际体验 <span aria-hidden="true">→</span></a></div>}
+          {reviews.length ? <div class="reviews">{reviews.map((review) => <blockquote><div class="review-top">{review.rating ? <span class="stars" aria-label={String(review.rating) + ' 星'}>{'★'.repeat(review.rating)}<em>{'★'.repeat(5 - review.rating)}</em></span> : <span class="unrated">未评分</span>}<time>{review.visitedAt ?? '日期待补充'}</time></div><p>{review.text}</p><footer>{review.authorAlias ?? '匿名同学'}</footer></blockquote>)}</div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href={'/submit/?food=' + food.id}>评价这道餐品 <span aria-hidden="true">→</span></a></div>}
         </section>
       </article>
       <aside class="info-card">
         <div class="info-card-heading"><span class="round-icon" aria-hidden="true">✦</span><h2>餐品信息</h2></div>
         <dl><dt>所属店铺</dt><dd>{venue ? venue.name : '待关联'}</dd><dt>餐段</dt><dd>{food.mealTypes?.map(mealLabel).join(' · ') || '餐段待补充'}</dd><dt>最近更新</dt><dd>{food.dates.updatedAt ?? '日期待补充'}</dd></dl>
-        {venue && <a class="aside-submit" href={'/submit/?food=' + food.id}>补充信息 <span aria-hidden="true">＋</span></a>}
+        {venue && <a class="aside-submit" href={'/submit/?food=' + food.id}>评价这道餐品 <span aria-hidden="true">＋</span></a>}
       </aside>
     </div>
     {food.sources.length > 0 && <details class="sources"><summary>信息来源 <span aria-hidden="true">＋</span></summary><ul>{food.sources.map((source: { repository: string; path: string; license: string | null; sourceUrl?: string | null }) => { const sourceUrl = safePublicLink(source.sourceUrl); const sourceLicenseUrl = licenseLink(source.license); return <li>{source.repository} · {source.path} · {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">来源页</a> : '来源页待补充'} · {source.license ? (sourceLicenseUrl ? <a href={sourceLicenseUrl} target="_blank" rel="noreferrer">{source.license}</a> : source.license) : '授权状态待确认'}</li>; })}</ul></details>}
