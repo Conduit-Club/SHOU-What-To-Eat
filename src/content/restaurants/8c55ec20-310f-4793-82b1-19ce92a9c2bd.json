@@ -21,7 +21,9 @@
   "averagePrice": null,
   "description": "位于第一食堂二楼，提供酸菜鱼；具体窗口号与营业时间待补充。",
   "openingHours": null,
-  "foods": [],
+  "foods": [
+    "812a5c7e-4ca2-40e1-86e6-2c1ed0ef2534"
+  ],
   "images": [],
   "sources": [
     {
