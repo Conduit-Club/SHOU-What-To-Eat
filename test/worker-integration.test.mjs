@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { webcrypto } from 'node:crypto';
 import worker from '../src/worker/index.ts';
+import { publishLive, editLive, readLive, resumeApproved } from '../src/worker/live-catalog.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotSeed = loadSeedSql();
@@ -32,6 +33,7 @@ class D1Statement {
   constructor(database, sql, values = []) { this.database = database; this.sql = sql; this.values = values; }
   bind(...values) { return new D1Statement(this.database, this.sql, values); }
   runSync() {
+    if(/^SELECT\b/i.test(this.sql.trim()))return {results:this.database.prepare(this.sql).all(...this.values),meta:{changes:0}};
     const result = this.database.prepare(this.sql).run(...this.values);
     return { meta: { changes: Number(result.changes) } };
   }
@@ -122,6 +124,7 @@ function fakeR2Bucket() {
   const objects = new Map();
   return {
     objects,
+    async head(key) { return objects.has(key)?{key}:null; },
     async put(key, body, options = {}) {
       const bytes = new Uint8Array(await new Response(body).arrayBuffer());
       objects.set(key, { bytes, customMetadata: { ...(options.customMetadata ?? {}) }, httpMetadata: { ...(options.httpMetadata ?? {}) } });
@@ -208,6 +211,143 @@ async function accessToken(keys, claims = {}) {
 function deploySignature(body) { return `sha256=${createHmac('sha256', DEPLOY_SECRET).update(body).digest('hex')}`; }
 
 function sha256Hex(value) { return createHash('sha256').update(value).digest('hex'); }
+
+test('live approval publishes catalog and attached rating atomically without GitHub',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',GITHUB_APP_ID:'',GITHUB_PRIVATE_KEY:''});
+  await withExternalStubs(async keys=>{
+    const submitted=await submitV2(env,db,'venue',{...venuePayload('即时公开店铺'),attachedReview:{rating:5,text:'真实评价'}},{body:{snapshotId:'current'}});
+    assert.equal(submitted.response.status,202,JSON.stringify(submitted.body));
+    const catalog=()=>worker.fetch(request('/api/v2/public/catalog'),env,{}).then(r=>r.json());
+    assert.ok(!(await catalog()).venues.some(v=>v.id===submitted.body.entityId));
+    const token=await accessToken(keys);
+    const approve=headers=>worker.fetch(request('/api/v2/admin/submissions/'+submitted.body.submissionId+'/review',{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify({action:'approve',expectedVersion:1})}),env,{});
+    assert.equal((await approve({})).status,401);
+    const response=await approve({'Cf-Access-Jwt-Assertion':token});
+    assert.equal(response.status,200,await response.clone().text());
+    assert.equal((await response.json()).status,'published');
+    const item=(await catalog()).venues.find(v=>v.id===submitted.body.entityId);
+    assert.equal(item.name,'即时公开店铺');assert.equal(item.rating,5);
+    assert.equal((await approve({'Cf-Access-Jwt-Assertion':token})).status,409);
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM publication_jobs').get().n,0);
+    assert.equal(db.sqlite.prepare('SELECT revision FROM live_catalog_state').get().revision,2);
+    const detail=await worker.fetch(request('/api/v2/public/venue/'+item.id),env,{}).then(r=>r.json());
+    assert.equal(detail.reviews[0].text,'真实评价');
+    assert.ok(!JSON.stringify(detail).includes(submitted.body.receiptToken));
+  },{access:true});
+});
+
+test('live media is private before commit and hidden or archived photos stop serving',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'});
+  await withExternalStubs(async()=>{
+    const submitted=await submitV2(env,db,'venue',venuePayload(),{body:{expectedImages:1}});
+    const receipt=submitted.body;
+    const uploaded=await worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/images`,{method:'POST',headers:imageUploadHeaders(receipt.receiptToken,0,1),body:uploadWebp()}),env,{});
+    assert.equal(uploaded.status,201,await uploaded.clone().text());
+    const media=db.sqlite.prepare('SELECT id FROM media_assets WHERE submission_id=?').get(receipt.submissionId);
+    const read=()=>worker.fetch(request(`/media/${media.id}.webp`),env,{});
+    assert.equal((await read()).status,404);
+    const finalized=await worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/finalize`,{method:'POST',headers:{Authorization:`Bearer ${receipt.receiptToken}`,'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:2,expectedImages:1,expectedReviewImages:0})}),env,{});
+    assert.equal(finalized.status,200,await finalized.clone().text());
+    await publishLive(env,receipt.submissionId,3,'reviewer');
+    assert.equal((await read()).status,200);
+    let entry=(await readLive(db)).entries.find(e=>e.record.id===receipt.entityId);
+    await editLive(env,'venue',entry.record.id,{expectedHash:entry.hash,record:{...entry.record,images:entry.record.images.map(i=>({...i,hidden:true}))},reason:'隐藏照片'},'reviewer');
+    assert.equal((await read()).status,404);
+    entry=(await readLive(db)).entries.find(e=>e.record.id===receipt.entityId);
+    await editLive(env,'venue',entry.record.id,{expectedHash:entry.hash,record:{...entry.record,status:'archived'},reason:'下架'},'reviewer');
+    assert.equal((await worker.fetch(request('/api/v2/public/venue/'+receipt.entityId),env,{})).status,404);
+  });
+});
+
+test('live optimistic edits reject stale versions and roll back all records on failure',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
+  const original=(await readLive(db)).entries.find(e=>e.type==='food');
+  const edited={...original.record,name:'数据库新名称'};
+  await editLive(env,'food',edited.id,{expectedHash:original.hash,record:edited,reason:'更新名称'},'reviewer');
+  await assert.rejects(()=>editLive(env,'food',edited.id,{expectedHash:original.hash,record:edited,reason:'过期修改'},'reviewer'),/revision_conflict/);
+  const current=(await readLive(db)).entries.find(e=>e.record.id===edited.id),version=(await readLive(db)).state.revision;
+  // Force a late batch failure: the prior mirror, history and global revision
+  // must all remain unchanged instead of exposing a partially edited record.
+  db.sqlite.exec("CREATE TRIGGER fail_live_test BEFORE UPDATE ON foods BEGIN SELECT RAISE(ABORT,'forced failure'); END");
+  await assert.rejects(()=>editLive(env,'food',edited.id,{expectedHash:current.hash,record:{...current.record,name:'不可见名称'},reason:'失败'},'reviewer'));
+  const after=await readLive(db);
+  assert.equal(after.state.revision,version);
+  assert.equal(after.entries.find(e=>e.record.id===edited.id).record.name,'数据库新名称');
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM live_write_assertion').get().n,0);
+});
+
+test('backup requires scoped expiring signature and only exports released canonical content',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
+  insertBareV2Venue(db,{submissionId:'private-id',entityId:'private-venue',name:'私有未审核名称',snapshotId:snapshotId(db)});
+  const call=async(path,method='GET',value,stamp=String(Date.now()))=>{
+    const body=value?JSON.stringify(value):'';
+    const signature=createHmac('sha256',DEPLOY_SECRET).update(`backup-v1\n${stamp}\n${method}\n${path}\n${body}`).digest('hex');
+    return worker.fetch(request(path,{method,headers:{'X-Backup-Timestamp':stamp,'X-Backup-Signature':signature,'Content-Type':'application/json'},...(body?{body}:{})}),env,{});
+  };
+  assert.equal((await worker.fetch(request('/api/v2/backup/export'),env,{})).status,401);
+  assert.equal((await call('/api/v2/backup/export','GET',null,'1000000000000')).status,401);
+  const exported=await call('/api/v2/backup/export');assert.equal(exported.status,200);
+  const data=await exported.json();
+  assert.ok(!JSON.stringify(data).includes('私有未审核名称'));
+  assert.ok(!JSON.stringify(data).includes('receipt-private-id'));
+  assert.equal(sha256Hex(JSON.stringify(data.snapshot)),data.contentHash);
+  const ack={revision:data.snapshot.revision,contentHash:data.contentHash,commit:'a'.repeat(40)};
+  assert.equal((await (await call('/api/v2/backup/ack','POST',{...ack,contentHash:'bad'})).json()).acknowledged,false);
+  assert.equal((await (await call('/api/v2/backup/ack','POST',ack)).json()).acknowledged,true);
+  assert.equal(db.sqlite.prepare('SELECT backed_revision FROM live_catalog_state').get().backed_revision,1);
+});
+
+test('live cutover resumes approved legacy submissions and ignores old deployment callbacks',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
+  insertBareV2Venue(db,{submissionId:'legacy-approved',entityId:'legacy-approved-venue',snapshotId:snapshotId(db),status:'exporting'});
+  await resumeApproved(env);
+  assert.ok((await readLive(db)).entries.some(e=>e.record.id==='legacy-approved-venue'));
+  await resumeApproved(env);
+  assert.equal((await readLive(db)).state.revision,2);
+  const response=await worker.fetch(request('/api/v1/webhooks/deploy',{method:'POST',body:'old callback'}),env,{});
+  assert.equal(response.status,202);assert.equal((await readLive(db)).state.revision,2);
+});
+
+test('ordinary deployments never execute the repository seed against remote D1',()=>{
+  const pkg=JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
+  for(const key of ['worker:deploy:production','worker:deploy:preview']){
+    assert.ok(!pkg.scripts[key].includes('seed.sql'));
+    assert.ok(pkg.scripts[key].includes('migrations apply'));
+  }
+});
+
+test('live food upload, reparent, archive and restore update public links immediately',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'});
+  await withExternalStubs(async()=>{
+    const initial=await readLive(db),parents=initial.entries.filter(e=>e.type==='venue').slice(0,2);
+    const submitted=await submitV2(env,db,'food',foodPayload(),{body:{parent:{venueEntityId:parents[0].record.id}}});
+    assert.equal(submitted.response.status,202,JSON.stringify(submitted.body));
+    const r=submitted.body;
+    let response=await worker.fetch(request(`/api/v2/submissions/${r.submissionId}/images`,{method:'POST',headers:imageUploadHeaders(r.receiptToken,0,1),body:uploadWebp()}),env,{});
+    assert.equal(response.status,201,await response.clone().text());
+    response=await worker.fetch(request(`/api/v2/submissions/${r.submissionId}/finalize`,{method:'POST',headers:{Authorization:`Bearer ${r.receiptToken}`,'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:2,expectedImages:1,expectedReviewImages:0})}),env,{});
+    assert.equal(response.status,200);
+    await publishLive(env,r.submissionId,3,'reviewer');
+    let current=await readLive(db),food=current.entries.find(e=>e.record.id===r.entityId);
+    assert.ok(current.entries.find(e=>e.record.id===parents[0].record.id).record.foods.includes(r.entityId));
+    assert.equal(food.record.sources[0].repository,'integration');
+    await editLive(env,'food',r.entityId,{expectedHash:food.hash,record:{...food.record,venueId:parents[1].record.id},reason:'修正所属店铺'},'reviewer');
+    current=await readLive(db);food=current.entries.find(e=>e.record.id===r.entityId);
+    assert.ok(!current.entries.find(e=>e.record.id===parents[0].record.id).record.foods.includes(r.entityId));
+    assert.ok(current.entries.find(e=>e.record.id===parents[1].record.id).record.foods.includes(r.entityId));
+    await editLive(env,'food',r.entityId,{expectedHash:food.hash,record:{...food.record,status:'archived'},reason:'暂时下架'},'reviewer');
+    assert.equal((await worker.fetch(request('/api/v2/public/food/'+r.entityId),env,{})).status,404);
+    food=(await readLive(db)).entries.find(e=>e.record.id===r.entityId);
+    await editLive(env,'food',r.entityId,{expectedHash:food.hash,record:{...food.record,status:'published'},reason:'恢复'},'reviewer');
+    assert.equal((await worker.fetch(request('/api/v2/public/food/'+r.entityId),env,{})).status,200);
+  });
+});
+
+test('retired static detail variants cannot expose archived content',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),food=(await readLive(db)).entries.find(e=>e.type==='food');
+  await editLive(env,'food',food.record.id,{expectedHash:food.hash,record:{...food.record,status:'archived'},reason:'下架'},'reviewer');
+  for(const suffix of ['/', '/index.html','/extra'])assert.equal((await worker.fetch(request('/foods/'+food.record.id+suffix),env,{})).status,404);
+});
 
 async function deploymentCallback(runtimeValue, payload) {
   const body = JSON.stringify(payload);

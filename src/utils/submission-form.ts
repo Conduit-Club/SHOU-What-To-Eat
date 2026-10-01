@@ -12,6 +12,14 @@ export function initSubmissionForm() {
   const form = document.querySelector<HTMLFormElement>('#submission-form');
   if (!form) return;
   const activeForm = form;
+  form.dataset.snapshotId='current';
+  void fetch('/catalog-index.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('catalog');return r.json();}).then(data=>{
+    const select=activeForm.elements.namedItem('foodVenueId') as HTMLSelectElement;
+    const selected=select.value;
+    select.replaceChildren(new Option('请选择店铺',''),...data.venues.map((v:{id:string;name:string})=>new Option(v.name,v.id)));
+    if(selected&&!Array.from(select.options).some(o=>o.value===selected))select.add(new Option('刚投稿的店铺（审核中）',selected));
+    select.value=selected;
+  }).catch(()=>{ /* Server still validates the selected live entity. */ });
   const field = (name: string) => activeForm.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
   const value = (name: string) => field(name).value.trim();
   const checked = (name: string) => (field(name) as HTMLInputElement).checked;

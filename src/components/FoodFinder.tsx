@@ -17,7 +17,7 @@ function DishPhoto({ food, eager = false }: { food: DiscoveryFood; eager?: boole
 }
 function Rating({ food }: { food: DiscoveryFood }) { return <span className="food-rating"><Star filled={food.rating !== null}/>{food.rating !== null ? <><b>{food.rating.toFixed(1)}</b> <span>({food.reviewCount} 条评价)</span></> : <span>暂未评分</span>}</span>; }
 
-export default function FoodFinder({ initialCatalog, foodCount }: { initialCatalog: DiscoveryCatalog; foodCount: number }) {
+export default function FoodFinder({ initialCatalog }: { initialCatalog: DiscoveryCatalog }) {
   const {catalog,loading,error,retry} = useCatalog(initialCatalog);
   const foods = catalog.foods; const venueCount = catalog.venues.length;
   const [scope, setScope] = useState('all');
@@ -42,7 +42,7 @@ export default function FoodFinder({ initialCatalog, foodCount }: { initialCatal
       <a className="open-search" href="/foods/">⌕ 去餐品目录仔细找 <span aria-hidden="true">↗</span></a>
     </div>
     <section className="decision-section" aria-labelledby="decision-title">
-      <header className="decision-heading"><div><span className="hero-eyebrow">一份食单，结束选择困难</span><h1 id="decision-title">今天这一顿，<span>想吃点什么？</span></h1><p>先挑餐品，再去找到它。早餐、正餐、甜点饮品，轻轻抽一次。</p></div><span className="catalog-count"><i/> <b>{foodCount}</b> 个餐品 <span>来自 {venueCount} 个餐饮点</span></span></header>
+      <header className="decision-heading"><div><span className="hero-eyebrow">一份食单，结束选择困难</span><h1 id="decision-title">今天这一顿，<span>想吃点什么？</span></h1><p>先挑餐品，再去找到它。早餐、正餐、甜点饮品，轻轻抽一次。</p></div><span className="catalog-count"><i/> <b>{loading?'…':foods.length}</b> 个餐品 <span>来自 {venueCount} 个餐饮点</span></span></header>
       <div className="decision-layout">
         <aside className={'preference-card' + (filtersOpen ? ' filters-open' : '')} aria-label="抽签偏好">
           <div className="preference-title"><h2><span aria-hidden="true">☷</span> 抽签偏好设置</h2><small>按当前筛选抽签</small></div>

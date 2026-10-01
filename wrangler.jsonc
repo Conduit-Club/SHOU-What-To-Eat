@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api", "/api/*", "/media/*"],
+    "run_worker_first": ["/api", "/api/*", "/media/*", "/foods/*", "/restaurants/*", "/catalog-index.json", "/catalog-snapshot.json"],
     "not_found_handling": "404-page"
   },
   "d1_databases": [{

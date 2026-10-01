@@ -5,6 +5,7 @@ export type AppEnv = {
     MEDIA_MODE: 'external' | 'r2';
     ALLOWED_ORIGINS: string;
     PUBLICATION_ENABLED?: string;
+    CONTENT_MODE?: string;
     LEGACY_SUBMISSIONS_ENABLED?: string;
     PUBLIC_TURNSTILE_SITE_KEY?: string;
     TURNSTILE_SECRET_KEY: string;
