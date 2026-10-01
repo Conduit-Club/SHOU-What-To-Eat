@@ -22,6 +22,12 @@ adminV2Routes.get('/submissions', async (context) => {
   return context.json({ submissions: rows, nextCursor: result.results.length > limit ? rows.at(-1)?.id ?? null : null }, 200, { 'Cache-Control': 'no-store' });
 });
 
+adminV2Routes.get('/publications', async (context) => {
+  if (!publicationEnabled(context.env)) return unavailable(context);
+  const result = await context.env.DB.prepare("SELECT jobs.id, jobs.submission_id, jobs.submission_version, jobs.status, jobs.branch, jobs.pr_number, jobs.pr_url, jobs.attempts, jobs.error_code, jobs.created_at, jobs.updated_at FROM publication_jobs AS jobs INNER JOIN submissions AS submissions ON submissions.id = jobs.submission_id AND submissions.schema_version = 2 ORDER BY jobs.updated_at DESC LIMIT 100").all();
+  return context.json({ publications: result.results }, 200, { 'Cache-Control': 'no-store' });
+});
+
 adminV2Routes.get('/submissions/:id', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
   const id = context.req.param('id');
