@@ -1,0 +1,15 @@
+---
+const pathname = Astro.url.pathname;
+---
+<header class="site-header">
+  <a class="site-brand" href="/" aria-label="今日海大吃什么首页"><span class="site-logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 14h20c0 9-5 13-10 13S6 23 6 14Z"/><path d="m9 5 18-2M9 9l18-2"/></svg></span><span>今日吃什么<small>上海海洋大学 · 临港</small></span></a>
+  <nav class="site-links" aria-label="目录导航"><a href="/" aria-current={pathname === '/' || pathname.startsWith('/foods/') ? 'page' : undefined}>餐品食单</a><a href="/restaurants/" aria-current={pathname.startsWith('/restaurants/') ? 'page' : undefined}>餐厅 / 档口</a><a href="/status/" aria-current={pathname.startsWith('/status') ? 'page' : undefined}>投稿进度</a></nav>
+  <a class="site-contribute" href="/submit/"><span aria-hidden="true">＋</span> 我要投稿</a>
+</header>
+<style>
+  .site-header{width:calc(100% - clamp(32px,4vw,96px));margin:auto;min-height:94px;display:flex;align-items:center;justify-content:space-between;gap:28px;border-bottom:1px solid var(--line)}
+  .site-brand{display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none;font-size:24px;font-weight:850;color:var(--orange-deep);letter-spacing:-.04em}.site-brand small{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em}.site-logo{width:48px;height:48px;display:grid;place-items:center;background:var(--orange-bright);border-radius:17px;color:#fff}.site-logo svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+  .site-links{display:flex;gap:30px;align-items:center}.site-links a{min-height:48px;display:flex;align-items:center;font-size:14px;font-weight:750;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent}.site-links a[aria-current]{color:var(--orange-deep);border-color:var(--orange)}
+  .site-contribute{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 23px;border-radius:999px;background:var(--orange);color:white;text-decoration:none;font-size:14px;font-weight:750;box-shadow:0 7px 18px -9px #ce4a13}.site-contribute span{font-size:22px}
+  @media(max-width:760px){.site-header{min-height:76px;gap:12px}.site-brand{font-size:20px;gap:9px}.site-logo{width:40px;height:40px;border-radius:14px}.site-links{display:none}.site-contribute{padding:0 15px;font-size:12px;min-height:44px}}
+</style>

@@ -1,0 +1,10 @@
+---
+interface Props { rating: number | null }
+const { rating } = Astro.props;
+---
+{rating === null ? <span class="unrated">未评分</span> : <span class="rating-display" aria-label={rating + ' / 5 星'}>
+  <span class="rating-stars" aria-hidden="true">{[1,2,3,4,5].map(value => <svg class:list={{ filled: value <= rating }} viewBox="0 0 24 24"><path d="m12 2.8 2.85 5.78 6.38.93-4.62 4.5 1.1 6.36L12 17.36l-5.7 3 1.09-6.36-4.62-4.49 6.38-.93Z"/></svg>)}</span><b>{rating}<small> / 5</small></b>
+</span>}
+<style>
+  .rating-display{display:inline-flex;gap:10px;align-items:center;color:#8b610b;font-size:13px}.rating-stars{display:flex;gap:3px}.rating-stars svg{width:17px;height:17px;fill:none;stroke:#c7baa8;stroke-width:1.5;stroke-linejoin:round}.rating-stars svg.filled{fill:#e9ad27;stroke:#ad7407}.rating-display small{font-size:10px;font-weight:400;color:var(--muted)}.unrated{font-size:11px;color:var(--muted)}
+</style>

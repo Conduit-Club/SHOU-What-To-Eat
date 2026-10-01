@@ -1,0 +1,140 @@
+---
+import StarRating from './StarRating.astro';
+import snapshot from '../../public/catalog-snapshot.json';
+interface Props { targetType: 'venue' | 'food'; targetId: string; targetName: string }
+const { targetType, targetId, targetName } = Astro.props;
+---
+<section id="review-form" class="quick-review" aria-labelledby="quick-review-heading">
+  <header class="quick-heading"><div><p>YOUR TABLE TALK</p><h2 id="quick-review-heading">{targetType === 'food' ? '这顿吃得怎么样？' : '这家店，你想推荐吗？'}</h2><span>给「{targetName}」留一点真实的感受。</span></div><span class="moderation-badge">审核后公开</span></header>
+  <form data-quick-review data-target-type={targetType} data-target-id={targetId} data-target-name={targetName} data-snapshot-id={snapshot.snapshotId}>
+    <StarRating />
+    <div class="review-text-field"><label for="quick-review-text">说说味道、分量或服务 <span>选填</span></label><textarea id="quick-review-text" name="text" rows="3" placeholder="好吃在哪里？有哪些小提醒？最多 256 字。" aria-describedby="quick-review-count"></textarea><small id="quick-review-count" data-review-count>0 / 256</small></div>
+    <div class="photo-tools"><label class="add-photos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><circle cx="12" cy="13" r="4"/></svg><span>添几张照片 <small>选填 · 最多 3 张</small></span><input name="photos" type="file" accept="image/*" multiple aria-label="添加评价照片，最多 3 张" /></label><span>每张不超过 12 MB，上传前会压缩并移除照片位置数据。</span></div>
+    <div class="quick-previews" data-review-previews aria-live="polite"></div>
+    <div class="photo-rights" data-photo-rights hidden>
+      <label>照片来源<select name="photoOrigin"><option value="own">我自己拍的</option><option value="licensed">已获得授权的其他图片</option></select></label>
+      <div data-external-rights hidden><label>来源页或来源说明<input name="source" maxlength="500" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="rights-row"><label>作者 / 版权方<input name="holder" maxlength="160" /></label><label>许可 / 授权说明<input name="license" maxlength="160" /></label></div><label class="rights-check"><input type="checkbox" name="illustrative" />这是示意图，并非本店实拍</label></div>
+      <label class="rights-check"><input type="checkbox" name="rights" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示。</span></label>
+    </div>
+    <div class="quick-bottom"><div class="quick-turnstile" data-review-turnstile></div><div class="quick-actions"><p>可以只打星。评价通过审核后会展示在这里。</p><button type="submit" class="send-review">提交评价 <span aria-hidden="true">↗</span></button><button type="button" data-review-retry hidden>继续完成图片上传 ↻</button></div></div>
+    <p class="quick-feedback" data-review-feedback role="status" aria-live="polite"></p>
+    <div class="quick-receipt" data-review-receipt hidden><strong>评价已收到，等待审核。</strong><span>本次回执已保存在当前浏览器会话。</span><a data-review-status href="/status/">查看审核进度 →</a><details><summary>保存回执，便于之后查询</summary><label>回执编号<input data-receipt-id readonly /></label><label>查询令牌<input data-receipt-token type="password" readonly /></label><button type="button" data-receipt-toggle>显示令牌</button><small>请自行妥善保存，关闭浏览器后会话中的回执可能丢失。</small></details></div>
+  </form>
+</section>
+<script>
+  import { turnstileWidget, resetTurnstile } from '../utils/turnstile-client';
+  import { completeReview, compressReviewImage, createReview, ReviewRequestError, type ReviewReceipt, type ReviewImage } from '../utils/review-submission';
+  document.querySelectorAll<HTMLFormElement>('[data-quick-review]').forEach(form => {
+    const text = form.querySelector<HTMLTextAreaElement>('textarea')!;
+    const count = form.querySelector<HTMLElement>('[data-review-count]')!;
+    const fileInput = form.querySelector<HTMLInputElement>('input[type=file]')!;
+    const previews = form.querySelector<HTMLElement>('[data-review-previews]')!;
+    const rights = form.querySelector<HTMLElement>('[data-photo-rights]')!;
+    const origin = form.querySelector<HTMLSelectElement>('select[name=photoOrigin]')!;
+    const feedback = form.querySelector<HTMLElement>('[data-review-feedback]')!;
+    const submit = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    const retry = form.querySelector<HTMLButtonElement>('[data-review-retry]')!;
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
+    const pendingKey = `shou-pending-review:${form.dataset.targetType}:${form.dataset.targetId}`;
+    const historyKey = 'shou-submission-receipts-v2';
+    const read = (key: string) => { try { return JSON.parse(sessionStorage.getItem(key) ?? 'null'); } catch { return null; } };
+    const save = (key: string, value: unknown) => { try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* Session storage can be unavailable. Keep the live receipt. */ } };
+    const message = (value: string, tone = 'info') => { feedback.textContent = value; feedback.dataset.tone = tone; };
+    let images: { blob: Blob; url: string; alt: string }[] = [];
+    let pending: ReviewReceipt | null = null;
+    let busy = false;
+    let attempt: { key: string; fingerprint: string } | null = null;
+    const stored = read(pendingKey);
+    if (stored?.type === 'review' && typeof stored.submissionId === 'string' && typeof stored.receiptToken === 'string' && stored.receiptToken && Number.isSafeInteger(stored.version) && Number.isInteger(stored.expectedImages) && stored.expectedImages >= 0 && stored.expectedImages <= 3 && stored.expectedReviewImages === 0) { pending = stored; retry.hidden = false; message('有一条评价尚未完成。请继续上传原来的图片；评分和文字已保存。'); }
+    const savePending = (receipt: ReviewReceipt) => { pending = receipt; save(pendingKey, receipt); retry.hidden = false; showReceipt(receipt, false); };
+    const saveVersion = (version: number) => { if (pending) savePending({ ...pending, version }); };
+    const updateCount = () => { const length = Array.from(text.value).length; count.textContent = `${length} / 256`; count.classList.toggle('over-limit', length > 256); text.setCustomValidity(length > 256 ? '评价最多 256 个字符。' : ''); };
+    text.addEventListener('input', updateCount);
+    function renderPreviews() {
+      previews.replaceChildren(); rights.hidden = !images.length;
+      images.forEach((image,index) => {
+        const item = document.createElement('div'); item.className = 'quick-preview';
+        const photo = document.createElement('img'); photo.src = image.url; photo.alt = image.alt;
+        const label = document.createElement('label'); label.textContent = '照片说明';
+        const alt = document.createElement('input'); alt.value = image.alt; alt.maxLength = 200; alt.required = true; alt.addEventListener('input', () => { image.alt = alt.value; photo.alt = alt.value; }); label.append(alt);
+        const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '移除'; remove.addEventListener('click', () => { if(busy) return; URL.revokeObjectURL(image.url); images.splice(index,1); renderPreviews(); });
+        item.append(photo,label,remove); previews.append(item);
+      });
+    }
+    fileInput.addEventListener('change', async () => {
+      if(busy) return;
+      const files = [...(fileInput.files ?? [])]; fileInput.value = '';
+      if(images.length + files.length > 3) { message('最多上传 3 张照片，请先移除不需要的照片。','error'); return; }
+      busy = true; fileInput.disabled = true; submit.disabled = true; retry.disabled = true;
+      try { for(const file of files) { const blob = await compressReviewImage(file); images.push({ blob, url: URL.createObjectURL(blob), alt: `${form.dataset.targetName}的用餐照片` }); } message('照片已压缩，请确认照片来源和使用权。'); }
+      catch(error) { message(error instanceof Error ? error.message : '这张照片暂时无法读取。','error'); }
+      finally { busy = false; fileInput.disabled = false; submit.disabled = !widget; retry.disabled = false; renderPreviews(); }
+    });
+    origin.addEventListener('change', () => {
+      form.querySelector<HTMLElement>('[data-external-rights]')!.hidden = origin.value === 'own';
+      form.querySelector<HTMLElement>('[data-rights-label]')!.textContent = origin.value === 'own' ? '这些照片由本人拍摄，我授权本站展示。' : '我确认已获得相应使用权，并授权本站按所填许可展示。';
+      field('rights').checked = false;
+    });
+    function reviewImages(): ReviewImage[] {
+      if(images.length && !field('rights').checked) throw new Error('请确认照片使用权。');
+      const own = origin.value === 'own';
+      const metadata = { source: own ? '本人拍摄' : field('source').value.trim(), holder: own ? '匿名投稿者' : field('holder').value.trim(), license: own ? '本人授权本站展示' : field('license').value.trim(), rightsConfirmed: field('rights').checked, isIllustrative: !own && field('illustrative').checked };
+      if(images.length && (!metadata.source || !metadata.holder || !metadata.license || images.some(image => !image.alt.trim()))) throw new Error('请补全照片说明、来源与授权信息。');
+      return images.map(image => ({ blob: image.blob, alt: image.alt, ...metadata }));
+    }
+    function showReceipt(receipt: ReviewReceipt, complete = true) {
+      const history = read(historyKey); const records = history && typeof history === 'object' && !Array.isArray(history) ? history : {};
+      records[receipt.submissionId] = receipt; save(historyKey,records);
+      form.querySelector<HTMLElement>('[data-review-receipt]')!.hidden = false;
+      form.querySelector<HTMLElement>('[data-review-receipt] strong')!.textContent = complete ? '评价已收到，等待审核。' : '评分和文字已保存，请继续完成图片上传。';
+      form.querySelector<HTMLAnchorElement>('[data-review-status]')!.href = '/status/?id=' + encodeURIComponent(receipt.submissionId);
+      form.querySelector<HTMLInputElement>('[data-receipt-id]')!.value = receipt.submissionId;
+      form.querySelector<HTMLInputElement>('[data-receipt-token]')!.value = receipt.receiptToken;
+      form.querySelector<HTMLInputElement>('[data-receipt-token]')!.type = 'password';
+      form.querySelector<HTMLButtonElement>('[data-receipt-toggle]')!.textContent = '显示令牌';
+    }
+    if(pending) showReceipt(pending, false);
+    form.querySelector<HTMLButtonElement>('[data-receipt-toggle]')!.addEventListener('click', event => {
+      const input = form.querySelector<HTMLInputElement>('[data-receipt-token]')!; input.type = input.type === 'password' ? 'text' : 'password'; (event.currentTarget as HTMLButtonElement).textContent = input.type === 'password' ? '显示令牌' : '隐藏令牌';
+    });
+    const widget = turnstileWidget();
+    if(widget) form.querySelector('[data-review-turnstile]')!.append(widget);
+    else { submit.disabled = true; if(!pending) message('当前评价服务暂不可用，请稍后再试。'); }
+    async function sendReview(resume: boolean) {
+      if(busy) return;
+      if(!resume && pending) { message('请先继续完成上一条评价的图片上传。','error'); return; }
+      if(!resume && !form.reportValidity()) return;
+      busy = true; submit.disabled = true; retry.disabled = true; fileInput.disabled = true;
+      try {
+        const prepared = reviewImages();
+        if(!resume) {
+          const token = form.querySelector<HTMLInputElement>('input[name=cf-turnstile-response]')?.value;
+          if(!token) throw new Error('请先完成下方的真人验证。');
+          const rating = Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value);
+          const fingerprint = JSON.stringify([rating,text.value.trim(),images.length]);
+          if(attempt && attempt.fingerprint !== fingerprint) throw new Error('上次提交结果尚未确认。请保持原评分、文字和照片数量重试，避免重复评价。');
+          attempt ??= { key: crypto.randomUUID(), fingerprint };
+          savePending(await createReview({ snapshotId: form.dataset.snapshotId!, targetType: form.dataset.targetType as 'venue' | 'food', targetId: form.dataset.targetId!, rating, text: text.value, imageCount: images.length, turnstileToken: token, idempotencyKey: attempt.key }));
+        }
+        if(!pending) throw new Error('没有找到可继续的评价回执。');
+        const version = await completeReview(pending, prepared, saveVersion);
+        const finished: ReviewReceipt = { ...pending, version };
+        showReceipt(finished); pending = null; attempt = null; retry.hidden = true;
+        try { sessionStorage.removeItem(pendingKey); } catch { /* Keep the completed receipt visible. */ }
+        images.forEach(image => URL.revokeObjectURL(image.url)); images = []; form.reset(); renderPreviews(); updateCount();
+        resetTurnstile();
+        form.querySelector<HTMLElement>('[data-external-rights]')!.hidden = true;
+        message('感谢分享，评价审核后会公开。','success');
+      } catch(error) {
+        if(error instanceof ReviewRequestError && !pending && error.status >= 400 && error.status < 500 && !['idempotency_replayed','idempotency_conflict'].includes(error.code)) attempt = null;
+        if(error instanceof ReviewRequestError && !pending) resetTurnstile();
+        message((error instanceof Error ? error.message : '提交失败，请稍后重试。') + (pending ? ' 已保留回执，可继续上传。' : ''),'error');
+      } finally { busy = false; submit.disabled = !widget; retry.disabled = false; fileInput.disabled = false; }
+    }
+    form.addEventListener('submit', event => { event.preventDefault(); void sendReview(false); });
+    retry.addEventListener('click', () => void sendReview(true));
+  });
+</script>
+<style>
+  .quick-review{margin-top:32px;padding:clamp(20px,2.4vw,34px);scroll-margin-top:24px;border:1px solid #eedbd0;border-radius:27px;background:linear-gradient(150deg,#fffdf9,white 60%);box-shadow:0 8px 26px -16px #d1b6a1}.quick-heading{display:flex;align-items:start;justify-content:space-between;gap:14px;margin-bottom:27px}.quick-heading p{margin:0 0 9px;color:var(--orange-deep);font-size:10px;font-weight:750;letter-spacing:.12em}.quick-heading h2{margin:0 0 10px;font-size:25px;letter-spacing:-.04em}.quick-heading>div>span{color:var(--muted);font-size:12px;line-height:1.8}.moderation-badge{flex:none;padding:6px 10px;border-radius:999px;background:#f2efe6;color:#6f624d;font-size:10px}.review-text-field{margin-top:23px}.review-text-field>label{display:block;margin-bottom:10px;font-size:13px;font-weight:700}.review-text-field label>span{margin-left:6px;color:var(--muted);font-size:10px;font-weight:400}.review-text-field textarea{width:100%;padding:13px 15px;border:1px solid #e6d8cb;border-radius:16px;background:#fffefa;font-size:14px;line-height:1.8;color:var(--ink);resize:vertical}.review-text-field>small{display:block;margin-top:5px;text-align:right;color:var(--muted);font-size:10px}.review-text-field .over-limit{color:#ad3020}.photo-tools{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:13px}.add-photos{position:relative;display:flex;align-items:center;gap:9px;min-height:44px;padding:8px 14px;border:1px dashed #d4bca6;border-radius:12px;color:var(--orange-deep);font-size:12px;font-weight:700;cursor:pointer}.add-photos svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}.add-photos small{display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:400}.add-photos input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.add-photos:focus-within{outline:3px solid var(--focus);outline-offset:3px}.photo-tools>span{max-width:320px;color:var(--muted);font-size:10px;line-height:1.8}.quick-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin-top:15px}.quick-previews:empty{display:none}.quick-previews :global(.quick-preview){min-width:0;padding:10px;border:1px solid var(--line);border-radius:15px;background:white}.quick-previews :global(img){display:block;width:100%;height:120px;border-radius:10px;object-fit:cover}.quick-previews :global(label){display:grid;gap:6px;margin-top:10px;color:var(--muted);font-size:10px}.quick-previews :global(input){min-width:0;width:100%;padding:0 8px;border:1px solid var(--line);border-radius:8px;font-size:12px}.quick-previews :global(button){padding:0 8px;border:0;background:transparent;color:var(--orange-deep);font-size:11px}.photo-rights{margin-top:15px;padding:15px;border-radius:15px;background:#faf6ef}.photo-rights label{display:grid;gap:7px;font-size:11px;font-weight:650}.photo-rights select,.photo-rights input:not([type=checkbox]){width:100%;min-width:0;padding:0 11px;border:1px solid #e3d4c3;border-radius:10px;background:white;font-size:13px}.photo-rights [data-external-rights]{margin-top:15px}.rights-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.photo-rights .rights-check{display:flex;align-items:center;min-height:44px;gap:9px;margin-top:8px;font-size:11px;font-weight:400;line-height:1.7}.rights-check input{flex:none;width:18px;height:18px;accent-color:var(--orange)}.quick-bottom{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:22px}.quick-turnstile{min-width:0;max-width:100%}.quick-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}.quick-actions p{max-width:230px;margin:0;color:var(--muted);font-size:10px;line-height:1.8}.send-review{display:flex;align-items:center;justify-content:center;gap:12px;min-height:47px;padding:0 20px;border:0;border-radius:999px;background:var(--orange);color:white;font-size:13px;font-weight:750}.quick-actions [data-review-retry]{min-height:44px;padding:0 14px;border:1px solid #dfb49b;border-radius:999px;background:white;color:var(--orange-deep);font-size:12px}.quick-actions button:disabled{opacity:.55;cursor:wait}.quick-feedback{margin:12px 0 0;font-size:12px;color:var(--muted);line-height:1.8}.quick-feedback:empty{display:none}.quick-feedback[data-tone=error]{color:#ad3020}.quick-feedback[data-tone=success]{color:var(--green)}.quick-receipt{display:grid;gap:8px;margin-top:17px;padding:17px;border-radius:16px;background:#eef8ef;color:#225b36;font-size:12px}.quick-receipt[hidden]{display:none}.quick-receipt>span{font-size:11px}.quick-receipt a{display:flex;align-items:center;min-height:44px;font-weight:700}.quick-receipt summary{min-height:44px;display:flex;align-items:center;cursor:pointer}.quick-receipt label{display:grid;gap:5px;margin:12px 0}.quick-receipt input{min-width:0;width:100%;padding:0 10px;border:1px solid #c8dcc8;border-radius:8px;background:white;font-size:12px}.quick-receipt button{border:1px solid #bdd6bf;border-radius:10px;background:white;color:#225b36}.quick-receipt small{display:block;margin-top:12px;color:var(--muted);line-height:1.7}@media(max-width:600px){.quick-heading{flex-wrap:wrap;gap:10px}.quick-heading h2{font-size:23px}.review-text-field textarea{font-size:16px}.quick-actions{width:100%;margin:0;justify-content:space-between}.quick-actions p{max-width:170px}.rights-row{grid-template-columns:1fr}.quick-previews :global(input),.photo-rights input:not([type=checkbox]),.photo-rights select{font-size:16px}}
+</style>

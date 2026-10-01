@@ -1,0 +1,40 @@
+---
+interface Props { name?: string }
+const { name = 'rating' } = Astro.props;
+const labels = ['不太满意', '一般', '还不错', '推荐', '非常推荐'];
+---
+<fieldset class="star-rating" data-star-rating>
+  <legend>给这次体验打个分 <span>必选</span></legend>
+  <div class="rating-line">
+    <div class="star-options">
+      {[1,2,3,4,5].map((rating) => <label title={rating + ' 星 · ' + labels[rating - 1]}>
+        <input type="radio" name={name} value={rating} required aria-label={rating + ' 星 · ' + labels[rating - 1]} />
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.85 5.78 6.38.93-4.62 4.5 1.1 6.36L12 17.36l-5.7 3 1.09-6.36-4.62-4.49 6.38-.93Z"/></svg></span>
+      </label>)}
+    </div>
+    <output aria-live="polite">轻点星星，留下你的感受</output>
+  </div>
+</fieldset>
+<script>
+  const labels = ['不太满意', '一般', '还不错', '推荐', '非常推荐'];
+  document.querySelectorAll<HTMLElement>('[data-star-rating]').forEach(group => {
+    const options = [...group.querySelectorAll<HTMLLabelElement>('.star-options label')];
+    const output = group.querySelector<HTMLOutputElement>('output')!;
+    const value = () => Number(group.querySelector<HTMLInputElement>('input:checked')?.value ?? 0);
+    const paint = (rating: number) => {
+      options.forEach((option,index) => option.classList.toggle('filled', index < rating));
+      output.textContent = rating ? `${rating} / 5 · ${labels[rating - 1]}` : '轻点星星，留下你的感受';
+      group.dataset.value = String(rating);
+    };
+    options.forEach((option,index) => {
+      option.addEventListener('pointerenter', event => { if(event.pointerType !== 'touch') paint(index + 1); });
+      option.querySelector('input')!.addEventListener('change', () => paint(value()));
+    });
+    group.addEventListener('pointerleave', () => paint(value()));
+    group.closest('form')?.addEventListener('reset', () => queueMicrotask(() => paint(value())));
+    paint(value());
+  });
+</script>
+<style>
+  .star-rating{min-width:0;margin:0;padding:0;border:0}.star-rating legend{margin-bottom:13px;color:var(--ink);font-size:13px;font-weight:750}.star-rating legend>span{margin-left:7px;color:var(--muted);font-size:10px;font-weight:400}.rating-line{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.star-options{display:flex;gap:7px}.star-options label{position:relative;display:block;cursor:pointer}.star-options input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}.star-options span{display:grid;place-items:center;width:48px;height:48px;border:1px solid #ece1d1;border-radius:13px;background:#fcfaf6;color:#b3a590;pointer-events:none;transition:background .15s,transform .15s}.star-options svg{width:29px;height:29px;fill:transparent;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}.star-options label.filled span{background:#fff5db;border-color:#e8bf66;color:#b47b0b}.star-options label.filled svg{fill:#e9ad27;stroke:#ad7407}.star-options label:hover span{transform:translateY(-2px)}.star-options input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}.rating-line output{color:#8a6321;font-size:12px;line-height:1.6}@media(max-width:520px){.rating-line{gap:10px}.rating-line output{flex-basis:100%}.star-options{gap:6px}.star-options span{width:44px;height:44px}}@media(prefers-reduced-motion:reduce){.star-options span{transition:none}.star-options label:hover span{transform:none}}
+</style>

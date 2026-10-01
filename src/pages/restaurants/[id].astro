@@ -1,6 +1,8 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../templates/Layout.astro';
+import QuickReview from '../../components/QuickReview.astro';
+import RatingDisplay from '../../components/RatingDisplay.astro';
 import { deriveDistanceTags } from '../../lib/catalog';
 import { formatLocation, formatPrice, kindLabel, licenseLink, mealLabel, safePublicImage, safePublicLink, tagLabel } from '../../utils/catalog-display';
 
@@ -38,8 +40,8 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
 <Layout title={restaurant.name}>
   <main class="detail-page">
     <header class="top">
-      <a href="/" class="back"><span aria-hidden="true">←</span> <span>返回目录</span></a>
-      <a class="submit" href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">↗</span></a>
+      <a href="/restaurants/" class="back"><span aria-hidden="true">←</span> <span>返回目录</span></a>
+      <a class="submit" href="#review-form">评价这家店 <span aria-hidden="true">↗</span></a>
     </header>
 
     <section class="hero" aria-labelledby="venue-title">
@@ -95,7 +97,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
                   return image ? [image] : [];
                 });
               return <blockquote>
-              <div class="review-top">{review.rating ? <span class="stars" aria-label={String(review.rating) + ' 星'}>{'★'.repeat(review.rating)}<em>{'★'.repeat(5 - review.rating)}</em></span> : <span class="unrated">未评分</span>}<time>{review.visitedAt ?? '日期待补充'}</time></div>
+              <div class="review-top"><RatingDisplay rating={review.rating} /><time>{review.visitedAt ?? '日期待补充'}</time></div>
               <p>{review.text}</p>
               {reviewImages.length > 0 && <div class="review-images" aria-label="评价图片">
                 {reviewImages.map((reviewImage, index) => {
@@ -110,7 +112,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
               <footer>{review.authorAlias ?? '匿名同学'}</footer>
             </blockquote>;
             })}
-          </div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">→</span></a></div>}
+          </div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href="#review-form">评价这家店 <span aria-hidden="true">→</span></a></div>}
         </section>
 
         {restaurant.images.slice(1).map((image) => {
@@ -118,6 +120,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
           const imageLicenseUrl = publicImage ? licenseLink(publicImage.license) : null;
           return publicImage && <figure><img src={publicImage.url} alt={publicImage.alt} loading="lazy" referrerpolicy="no-referrer" /><figcaption>{publicImage.alt}{publicImage.isIllustrative && <span> · 示意图</span>}{publicImage.author && <span> · {publicImage.author}</span>}{publicImage.license && <span> · {imageLicenseUrl ? <a href={imageLicenseUrl} target="_blank" rel="noreferrer">{publicImage.license}</a> : publicImage.license}</span>}</figcaption></figure>;
         })}
+        <QuickReview targetType="venue" targetId={restaurant.id} targetName={restaurant.name} />
       </article>
 
       <aside class="info-card">
@@ -129,7 +132,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
         </dl>
         {coordinates && <a class="map" href={'https://www.openstreetmap.org/?mlat=' + coordinates[0] + '&mlon=' + coordinates[1] + '#map=17/' + coordinates[0] + '/' + coordinates[1]} target="_blank" rel="noreferrer">在地图中查看 <span aria-hidden="true">↗</span></a>}
         <p class="source-note">评价是个人体验。位置、价格与营业信息可能变化，建议到店前核对。</p>
-        <a class="aside-submit" href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">＋</span></a>
+        <a class="aside-submit" href="#review-form">评价这家店 <span aria-hidden="true">＋</span></a>
       </aside>
     </div>
 
@@ -143,7 +146,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
 </Layout>
 
 <style>
-  .detail-page{width:min(calc(100% - 32px),1200px);margin:auto;padding:0 0 60px}
+  .detail-page{width:calc(100% - clamp(32px,4vw,96px));margin:auto;padding:0 0 60px}
   .top{min-height:84px;display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid var(--line)}
   .back,.submit{display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}
   .back{gap:8px}.back span:first-child,.submit span{color:var(--orange)}
@@ -162,7 +165,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
   .hero-image>img{display:block;width:100%;height:100%;object-fit:cover}.image-credit{grid-area:credit;margin:9px 0 0;color:var(--muted);font-size:10px;line-height:1.7;overflow-wrap:anywhere}.image-credit a,figcaption a,.sources a{color:var(--orange-deep);text-decoration:underline;text-underline-offset:2px}
   .photo-placeholder{display:grid;width:100%;height:100%;place-items:center;align-content:center;gap:8px;background:radial-gradient(circle at 55% 25%,#fffdf9 0 6%,transparent 7%),linear-gradient(135deg,#fff7f0,#f4e6db);color:#b89a8d;font-size:12px;font-weight:800}
   .photo-placeholder svg{width:120px;height:90px;fill:none;stroke:#d3ad9b;stroke-linecap:round;stroke-linejoin:round;stroke-width:2}
-  .columns{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+  .columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,26%);gap:40px;align-items:start}
   .columns article{min-width:0}
   .summary-card{padding:25px;border-radius:28px;background:var(--ink);color:#fff;box-shadow:var(--shadow-hover)}
   .summary-card .section-kicker{color:#ffb69f}
@@ -186,7 +189,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
   .food-card-body p{display:-webkit-box;overflow:hidden;margin:6px 0 11px;color:var(--muted);font-size:11px;line-height:1.6;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .food-meta{display:flex;flex-wrap:wrap;gap:5px;color:var(--orange-deep);font-size:10px;font-weight:800}.food-meta span+span{color:var(--muted)}
   .review-images{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin:13px 0 14px}.review-image{min-width:0;margin:0}.review-image-link{display:block;overflow:hidden;border-radius:16px;background:#f5eee7}.review-image-link img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;transition:transform .2s ease}.review-image-link:hover img,.review-image-link:focus-visible img{transform:scale(1.02)}.review-image figcaption{margin-top:7px;color:var(--muted);font-size:10px;line-height:1.6;overflow-wrap:anywhere}.review-image figcaption a{color:var(--orange-deep);text-decoration:underline;text-underline-offset:2px}.reviews{display:grid;gap:12px}.reviews blockquote{margin:0;padding:18px 20px;border:1px solid var(--line);border-radius:20px;background:var(--surface-card);box-shadow:var(--shadow-card)}
-  .review-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.stars{color:var(--honey);font-size:14px;letter-spacing:.08em}.stars em{color:#eadfd8;font-style:normal}.review-top time{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+  .review-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.review-top time{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
   .unrated{color:var(--muted);font-size:11px;font-weight:700}.reviews blockquote p{margin:13px 0;color:var(--ink);font-size:13px;line-height:1.85;overflow-wrap:anywhere}.reviews footer{padding-top:11px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
   .empty-state{display:grid;justify-items:start;gap:8px;padding:24px;border:1px dashed #e1d5cc;border-radius:22px;color:var(--muted)}.empty-state>span{color:var(--honey);font-size:23px}.empty-state p{margin:0;font-size:13px}.empty-state a{display:flex;align-items:center;min-height:44px;color:var(--orange-deep);font-size:12px;font-weight:800}
   .prose-section{border-top:1px solid var(--line)}.prose{color:var(--ink);font-size:13px;line-height:1.9;overflow-wrap:anywhere}.prose :global(p){margin:0}.prose :global(a){color:var(--orange);overflow-wrap:anywhere}.prose :global(code){font-family:ui-monospace,monospace;word-break:break-word}
@@ -198,7 +201,7 @@ const publicReviewImages = reviews.flatMap((review) => (review.images ?? [])
   .source-note{padding-top:16px;margin:17px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:10px;line-height:1.8;overflow-wrap:anywhere}
   .sources{padding:18px 0;margin-top:34px;border-top:1px solid var(--line);font-size:12px}.sources summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;color:var(--muted);font-weight:700;cursor:pointer}.sources ul{padding-left:18px;color:var(--muted);line-height:1.8;overflow-wrap:anywhere}.sources li{margin:8px 0}
   @media(max-width:980px){.hero{grid-template-columns:minmax(0,1fr) minmax(260px,36vw);column-gap:32px;row-gap:0}.columns{grid-template-columns:minmax(0,1fr) 260px;gap:25px}.foods{grid-template-columns:1fr}}
-  @media(max-width:700px){.detail-page{width:min(calc(100% - 32px),1200px);padding-bottom:40px}.top{min-height:72px}.hero{grid-template-columns:1fr;grid-template-areas:'image' 'credit' 'copy';align-items:start;column-gap:0;row-gap:0;padding:40px 0 35px}.hero-image{aspect-ratio:16/9;border-radius:25px}.hero-copy{align-self:start;margin-top:27px}.columns{grid-template-columns:1fr;gap:0}.info-card{position:static;grid-row:1;margin-bottom:24px}.summary-card{padding:21px;border-radius:24px}.section-block{padding-top:31px}}
+  @media(max-width:700px){.detail-page{width:calc(100% - clamp(32px,4vw,96px));padding-bottom:40px}.top{min-height:72px}.hero{grid-template-columns:1fr;grid-template-areas:'image' 'credit' 'copy';align-items:start;column-gap:0;row-gap:0;padding:40px 0 35px}.hero-image{aspect-ratio:16/9;border-radius:25px}.hero-copy{align-self:start;margin-top:27px}.columns{grid-template-columns:1fr;gap:0}.info-card{position:static;grid-row:1;margin-bottom:24px}.summary-card{padding:21px;border-radius:24px}.section-block{padding-top:31px}}
   @media(max-width:520px){h1{font-size:38px}.lead{font-size:14px}.quick-facts{grid-template-columns:1fr}.foods{grid-template-columns:1fr}.food-image{flex-basis:105px}.reviews blockquote{padding:16px}.review-top{align-items:flex-start;flex-direction:column;gap:5px}.hero-meta span{font-size:10px}.submit,.back{font-size:11px}}
   @media(max-width:360px){.detail-page{width:calc(100% - 32px)}.top{gap:8px}.back,.submit{font-size:10px}.hero{padding-top:32px}.summary-card{padding:18px}}
 </style>
