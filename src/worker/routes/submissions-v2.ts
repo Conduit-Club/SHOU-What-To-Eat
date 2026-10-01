@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { missingSubmissionConfig, publicationEnabled } from '../config.js';
+import { missingSubmissionConfig, publicationEnabled, liveContent } from '../config.js';
 import { verifyTurnstile } from '../security.js';
 import { markMediaReservation, mediaObjectKey, privateMediaResponse, putPrivateMedia, readLimitedBody, reserveMediaAttempt, reserveMediaPut, sha256Bytes, validateImageMetadata, validateWebp } from '../media.js';
 import { sha256 } from './submissions.js';
@@ -174,9 +174,9 @@ async function validateReferences(env: AppEnv['Bindings'], submission: V2Submiss
     if (!parent) return { ok: false, code: 'parent_venue_not_found', message: '所属店铺不存在，请重新选择。', status: 422 };
     if (parent.publication_state === 'published') {
       const publishedSnapshot = await mirrorSnapshot(env.DB, 'venue', parent.id);
-      return publishedSnapshot === submission.snapshotId ? { ok: true, parentReceiptHash: null } : { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
+      return (liveContent(env) || publishedSnapshot === submission.snapshotId) ? { ok: true, parentReceiptHash: null } : { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
     }
-    if (parent.snapshot_id && parent.snapshot_id !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
+    if (!liveContent(env) && parent.snapshot_id && parent.snapshot_id !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '所属店铺的目录已更新，请刷新页面。', status: 409 };
     if (parent.publication_state !== 'pending' || !parent.submission_id || !submission.parentReceiptToken) return { ok: false, code: 'parent_venue_unavailable', message: '所属店铺尚未发布，请通过自己的店铺投稿回执添加餐品。', status: 409 };
     const hash = await sha256(submission.parentReceiptToken);
     const owner = await env.DB.prepare("SELECT id FROM submissions WHERE id = ? AND receipt_hash = ? AND status = 'pending' AND schema_version = 2").bind(parent.submission_id, hash).first<{ id: string }>();
@@ -189,7 +189,7 @@ async function validateReferences(env: AppEnv['Bindings'], submission: V2Submiss
     const target = await env.DB.prepare(`SELECT id, snapshot_id FROM ${table} WHERE id = ? AND publication_state = 'published'`).bind(submission.payload.targetId).first<{ id: string; snapshot_id: string | null }>();
     if (!target) return { ok: false, code: 'review_target_unavailable', message: '评价目标不存在或尚未发布。', status: 409 };
     const publishedSnapshot = await mirrorSnapshot(env.DB, targetType as 'venue' | 'food', String(submission.payload.targetId));
-    if (publishedSnapshot !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '评价目标的目录快照已变化。', status: 409 };
+    if (!liveContent(env) && publishedSnapshot !== submission.snapshotId) return { ok: false, code: 'snapshot_conflict', message: '评价目标的目录快照已变化。', status: 409 };
   }
   return { ok: true, parentReceiptHash: null };
 }
@@ -200,7 +200,7 @@ async function mirrorSnapshot(db: D1Database, entityType: 'venue' | 'food', enti
 }
 
 async function resolveSnapshot(db: D1Database, requested: string): Promise<string | null> {
-  if (requested === 'catalog-v2') {
+  if (requested === 'catalog-v2' || requested === 'current') {
     const current = await db.prepare("SELECT id FROM catalog_snapshots WHERE status = 'published' ORDER BY generated_at DESC LIMIT 1").first<{ id: string }>().catch(() => null);
     return current?.id ?? null;
   }

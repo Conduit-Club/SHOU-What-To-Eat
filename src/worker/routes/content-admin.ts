@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { publicationEnabled } from '../config.js';
+import { publicationEnabled, liveContent } from '../config.js';
+import { editLive } from '../live-catalog.js';
 import { readLimitedBody } from '../media.js';
 import { sha256 } from './submissions.js';
 import { parseManaged, validateManagedEdit, validateManagedRelations, type ManagedType } from '../../lib/catalog/management.js';
@@ -24,6 +25,10 @@ contentAdminRoutes.post('/:type/:id', async context => {
   let input:{expectedHash?:unknown;record?:unknown;reason?:unknown};
   try { input=JSON.parse(new TextDecoder().decode(body.bytes!)); } catch { return context.json({error:{message:'编辑内容无效或过大。'}},422); }
   if(!input || typeof input.expectedHash!=='string' || typeof input.reason!=='string' || !input.reason.trim() || input.reason.length>500)return context.json({error:{message:'请填写修改原因并保留版本号。'}},422);
+  if(liveContent(context.env)){
+    try{return context.json(await editLive(context.env,type,entityId,{expectedHash:input.expectedHash,record:input.record,reason:input.reason.trim()},context.get('reviewer')),200,{'Cache-Control':'no-store'});}
+    catch{return context.json({error:{message:'修改未公开：请刷新版本，检查字段、店铺关联和封面授权。'}},409);}
+  }
   const rows=await context.env.DB.prepare('SELECT entity_type, entity_id, payload_json, content_hash, snapshot_id FROM catalog_mirror').all<{entity_type:ManagedType;entity_id:string;payload_json:string;content_hash:string;snapshot_id:string}>();
   const current=rows.results.find(row=>row.entity_type===type&&row.entity_id===entityId);
   if(!current || current.content_hash!==input.expectedHash)return context.json({error:{message:'线上版本已变化，请刷新后重新编辑。'}},409);

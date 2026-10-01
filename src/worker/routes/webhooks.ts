@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
-import { publicationEnabled } from '../config.js';
+import { publicationEnabled, liveContent } from '../config.js';
 import { publishMediaAssets, restorePrivateMedia } from '../media.js';
 import type { AppEnv } from '../types.js';
 
 export const webhookRoutes = new Hono<AppEnv>();
 webhookRoutes.use('/*', async (context, next) => {
+  // Retired publication callbacks cannot regress or overwrite the live catalog.
+  if(liveContent(context.env))return context.json({received:true,ignored:true,mode:'live'},202,{'Cache-Control':'no-store'});
   if (!publicationEnabled(context.env)) return context.json({ error: { code: 'service_unavailable', message: '发布链尚未启用。' } }, 503, { 'Cache-Control': 'no-store' });
   await next();
 });

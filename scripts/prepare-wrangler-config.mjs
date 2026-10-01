@@ -59,6 +59,7 @@ const config = {
   vars: {
     ...configuredVars,
     MEDIA_MODE: mediaMode,
+    CONTENT_MODE: 'live',
     ...(process.env.TURNSTILE_HOSTNAME?.trim() ? { TURNSTILE_HOSTNAME: process.env.TURNSTILE_HOSTNAME.trim() } : {}),
     ...(process.env.PUBLIC_TURNSTILE_SITE_KEY?.trim() ? { PUBLIC_TURNSTILE_SITE_KEY: process.env.PUBLIC_TURNSTILE_SITE_KEY.trim() } : {}),
     PUBLICATION_ENABLED: publicationEnabled ? 'true' : 'false',

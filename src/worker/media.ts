@@ -226,6 +226,27 @@ type MediaObject = { assetId: string; bytes: Uint8Array; customMetadata: Record<
 export async function publicMediaResponse(request: Request, env: AppEnv['Bindings'], assetId: string): Promise<Response> {
   assetId = assetId.replace(/\.webp$/i, '');
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(assetId) || env.MEDIA_MODE !== 'r2' || !env.IMAGES) return new Response('Not found\n', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  if(env.CONTENT_MODE==='live'){
+    const asset=await env.DB.prepare("SELECT object_key,entity_type,entity_id FROM media_assets WHERE id=? AND object_state='published' AND permission='approved'").bind(assetId).first<{object_key:string;entity_type:string;entity_id:string}>();
+    if(!asset)return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+    const record=await env.DB.prepare("SELECT payload_json FROM catalog_mirror WHERE entity_type=? AND entity_id=?").bind(asset.entity_type,asset.entity_id).first<{payload_json:string}>();
+    const entity=record?JSON.parse(record.payload_json):null;
+    const allowed=entity&&entity.status!=='archived'&&entity.images.some((image:any)=>image.url===`https://eat.shoumc.com/media/${assetId}.webp`&&!image.hidden&&image.permission==='approved');
+    if(!allowed)return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+    const targetType=asset.entity_type==='review'?entity.targetType:asset.entity_type==='food'?'venue':null;
+    const targetId=asset.entity_type==='review'?entity.targetId:asset.entity_type==='food'?entity.venueId:null;
+    if(targetType){
+      const target=await env.DB.prepare("SELECT payload_json FROM catalog_mirror WHERE entity_type=? AND entity_id=? AND COALESCE(json_extract(payload_json,'$.status'),'published')!='archived'").bind(targetType,targetId).first<{payload_json:string}>();
+      if(!target)return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+      if(targetType==='food'){
+        const parent=await env.DB.prepare("SELECT entity_id FROM catalog_mirror WHERE entity_type='venue' AND entity_id=? AND COALESCE(json_extract(payload_json,'$.status'),'published')!='archived'").bind(JSON.parse(target.payload_json).venueId).first();
+        if(!parent)return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+      }
+    }
+    const object=await env.IMAGES.get(asset.object_key);
+    if(!object)return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+    return new Response(object.body,{headers:{'Content-Type':'image/webp','Cache-Control':'no-store'}});
+  }
   const object = await env.IMAGES.get(mediaObjectKey(assetId));
   if (!object || object.customMetadata?.visibility !== 'published' || object.customMetadata.assetId !== assetId) return new Response('Not found\n', { status: 404, headers: { 'Cache-Control': 'no-store' } });
   const etag = object.httpEtag;

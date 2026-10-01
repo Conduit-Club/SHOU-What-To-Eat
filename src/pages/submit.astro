@@ -1,10 +1,10 @@
 ---
 import Layout from '../templates/Layout.astro';
-import { getCollection } from 'astro:content';
+
 import PhotoUploader from '../components/PhotoUploader.astro';
 import StarRating from '../components/StarRating.astro';
 import snapshot from '../../public/catalog-snapshot.json';
-const venues = (await getCollection('restaurants')).map(({ data }) => data).filter(data=>data.status!=='archived').sort((a,b) => a.name.localeCompare(b.name,'zh-CN'));
+const venues: {id:string;name:string}[] = [];
 ---
 <Layout title="提交餐饮信息">
   <main class="submit-page">
