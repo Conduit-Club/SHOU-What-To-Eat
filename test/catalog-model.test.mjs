@@ -68,11 +68,16 @@ test('preserves an image source note and enforces its bound', () => {
 test('enforces review Unicode code point limit and strips pending images from public snapshot', () => {
   assert.throws(() => reviewSchema.parse({ ...review('review-a'), text: '界'.repeat(257) }), /256/);
   const pendingImage = { url: 'https://example.test/pending.jpg', alt: '待授权示意图', sourceUrl: 'https://example.test', author: '作者', license: null, permission: 'pending', isIllustrative: true };
+  const approvedImage = { url: 'https://cdn.example.test/review.webp', alt: '已批准评价图片', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Review.webp', author: '图片作者', license: 'CC BY 4.0', permission: 'approved', isIllustrative: false };
   const inputVenue = { ...venue('venue-a'), images: [pendingImage] };
   const pendingOnlyReview = { ...review('review-a'), text: '', images: [pendingImage] };
-  const snapshot = generateCatalogSnapshot({ restaurants: [inputVenue], foods: [], reviews: [pendingOnlyReview] });
+  const mixedReview = { ...review('review-mixed'), text: '保留这条评价', images: [approvedImage, pendingImage] };
+  const snapshot = generateCatalogSnapshot({ restaurants: [inputVenue], foods: [], reviews: [pendingOnlyReview, mixedReview] });
   assert.deepEqual(snapshot.restaurants[0].images, []);
-  assert.deepEqual(snapshot.reviews, []);
+  assert.deepEqual(snapshot.reviews.map((item) => item.id), ['review-mixed']);
+  assert.deepEqual(snapshot.reviews[0].images, [imageSchema.parse(approvedImage)]);
+  assert.equal(snapshot.reviews[0].images[0].author, '图片作者');
+  assert.equal(snapshot.reviews[0].images[0].license, 'CC BY 4.0');
 });
 
 test('distance tags are cumulative only for explicit off-campus distances', () => {
