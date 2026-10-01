@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "id": "812a5c7e-4ca2-40e1-86e6-2c1ed0ef2534",
+  "name": "酸菜鱼",
+  "venueId": "8c55ec20-310f-4793-82b1-19ce92a9c2bd",
+  "mealTypes": [
+    "meal"
+  ],
+  "price": {
+    "amountCents": 1900,
+    "minCents": null,
+    "maxCents": null,
+    "currency": "CNY",
+    "unit": "份",
+    "source": "用户提供：19元/份，尚待现场核验。",
+    "verifiedAt": null
+  },
+  "tags": [
+    "鱼类"
+  ],
+  "description": "用户提供：酸菜鱼19元/份。配图为网络示意图，非本档口实拍。",
+  "images": [
+    {
+      "url": "https://eat.shoumc.com/media/c53ca030-50c7-4040-bc53-d478683344bc.webp",
+      "alt": "酸菜鱼示意图，非本档口实拍；已转码为 WebP",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:%E9%85%B8%E8%8F%9C%E9%AD%9A.jpg",
+      "sourceNote": "https://commons.wikimedia.org/wiki/File:%E9%85%B8%E8%8F%9C%E9%AD%9A.jpg；已转码WebP",
+      "author": "Pauloleong2002",
+      "license": "CC BY-SA 4.0",
+      "permission": "approved",
+      "isIllustrative": true
+    }
+  ],
+  "sources": [
+    {
+      "repository": "what-to-eat-in-shou-today-contributions",
+      "path": "submissions/799081b9-c150-4ff5-ae9e-2b202c78bfa1",
+      "revision": "4e5156cc200bb0e0ea173d9b428bb083026ae7fbfc38d6929b885bf7f5087e21",
+      "license": null,
+      "note": "由审核员依据投稿与来源声明整理。",
+      "sourceUrl": null,
+      "collectedAt": null
+    }
+  ],
+  "dates": {
+    "visitedAt": null,
+    "verifiedAt": null,
+    "updatedAt": null
+  }
+}
