@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
+import { publicationEnabled } from '../config.js';
 import type { AppEnv } from '../types.js';
 
 export const webhookRoutes = new Hono<AppEnv>();
+webhookRoutes.use('/*', async (context, next) => {
+  if (!publicationEnabled(context.env)) return context.json({ error: { code: 'service_unavailable', message: '发布链尚未启用。' } }, 503, { 'Cache-Control': 'no-store' });
+  await next();
+});
 webhookRoutes.post('/github', async (context) => {
   const raw = await context.req.text(); const signature = context.req.header('X-Hub-Signature-256') ?? ''; const delivery = context.req.header('X-GitHub-Delivery');
   if (!delivery || !/^sha256=[a-f0-9]{64}$/.test(signature) || !await verifySignature(raw, signature.slice(7), context.env.GITHUB_WEBHOOK_SECRET)) return context.json({ error: { code: 'invalid_webhook_signature', message: 'Webhook 签名无效。' } }, 401);

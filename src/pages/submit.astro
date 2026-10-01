@@ -9,21 +9,28 @@ import Layout from '../templates/Layout.astro';
   <div class="row"><label>用餐日期 <input name="visitedAt" type="date" /></label><label>外链图片地址 <input name="imageUrl" type="url" placeholder="https://…（可留空）" /></label></div>
   <div class="notice"><span aria-hidden="true">ⓘ</span> 投稿由管理员审核，通过后会以公开仓库内容展示。请勿填写个人联系方式或他人账号。</div>
   <button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button>
-</form></main>
+</form></main></Layout>
 <script>
   import { turnstileWidget } from '../utils/turnstile-client';
 
   const form = document.querySelector<HTMLFormElement>('#submission-form')!;
   const feedback = document.querySelector<HTMLElement>('.feedback')!;
+  const submitButton = document.querySelector<HTMLButtonElement>('.submit-button')!;
   const fields = () => Object.fromEntries(new FormData(form).entries());
   const widget = turnstileWidget();
-  if (widget) form.insertBefore(widget, form.querySelector('.submit-button'));
+  if (widget) {
+    form.insertBefore(widget, submitButton);
+  } else {
+    submitButton.disabled = true;
+    feedback.textContent = '当前投稿服务暂不可用，请稍后再试；你仍可下载本地草稿。';
+  }
   document.querySelector<HTMLButtonElement>('#draft')!.addEventListener('click', () => {
     const blob = new Blob([JSON.stringify({ schemaVersion: 1, ...fields() }, null, 2)], { type: 'application/json' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'shou-food-submission.json'; link.click(); URL.revokeObjectURL(link.href);
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!widget) return;
     const formData = fields();
     const date = String(formData.visitedAt || '');
     if (date && (date > new Date().toISOString().slice(0, 10) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)))) { feedback.textContent = '请填写有效的用餐日期。'; return; }
@@ -36,5 +43,31 @@ import Layout from '../templates/Layout.astro';
     } catch (error) { feedback.textContent = error instanceof Error ? error.message : '暂时无法提交，请稍后再试。'; }
   });
 </script>
-<style>.submit-page{max-width:670px;margin:auto;padding:0 26px 60px}.submit-page header{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}.submit-page header a{text-decoration:none}.eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}.submit-page h1{margin:0;font-size:30px;letter-spacing:0}.lead{margin:9px 0 30px;color:var(--muted);font-size:13px;line-height:1.8}form{display:grid;gap:18px}fieldset{padding:0;margin:0;border:0}legend,form>label,.row label{display:grid;gap:7px;color:var(--ink);font-size:12px;font-weight:600}.segmented{display:flex;gap:7px;margin-top:8px}.segmented label{cursor:pointer}.segmented input{position:absolute;opacity:0}.segmented span{display:grid;min-height:35px;place-items:center;padding:0 15px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:11px;font-weight:500}.segmented input:checked+span{border-color:var(--orange);background:color-mix(in srgb,var(--orange) 8%,transparent);color:var(--orange)}input:not([type=radio]),select,textarea{width:100%;min-height:41px;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:12px;font-weight:400}textarea{resize:vertical;line-height:1.7}.row{display:grid;grid-template-columns:1fr 1fr;gap:13px}.notice{display:flex;gap:8px;padding:11px;border-radius:6px;background:color-mix(in srgb,#548665 9%,transparent);color:var(--muted);font-size:11px;line-height:1.7}.notice span{color:var(--green)}.submit-button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:43px;border:0;border-radius:6px;background:var(--orange);color:white;font-size:13px;font-weight:650;cursor:pointer}.feedback{margin:-8px 0 0;color:var(--green);font-size:12px;line-height:1.7}.draft{justify-self:center;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer}@media(max-width:520px){.submit-page{padding:0 18px 45px}.row{grid-template-columns:1fr}.eyebrow{margin-top:30px}.submit-page h1{font-size:26px}}
+<style>
+  .submit-page{width:min(100%,670px);margin:auto;padding:0 26px 60px}
+  .submit-page header{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+  .submit-page header a{display:flex;align-items:center;min-height:44px;text-decoration:none}
+  .eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}
+  .submit-page h1{margin:0;font-size:30px;letter-spacing:0;overflow-wrap:anywhere}
+  .lead{margin:9px 0 30px;color:var(--muted);font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+  form{display:grid;gap:18px}
+  fieldset{padding:0;margin:0;border:0}
+  legend,form>label,.row label{display:grid;gap:7px;color:var(--ink);font-size:12px;font-weight:600}
+  .segmented{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .segmented label{flex:1 1 125px;cursor:pointer}
+  .segmented input{position:absolute;width:1px;height:1px;opacity:0}
+  .segmented span{display:grid;min-height:44px;place-items:center;padding:0 15px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:11px;font-weight:500;text-align:center}
+  .segmented input:checked+span{border-color:var(--orange);background:color-mix(in srgb,var(--orange) 8%,transparent);color:var(--orange)}
+  .segmented input:focus-visible+span{outline:3px solid var(--focus);outline-offset:3px}
+  input:not([type=radio]),select,textarea{width:100%;min-height:44px;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:13px;font-weight:400}
+  textarea{resize:vertical;line-height:1.7}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  .notice{display:flex;align-items:flex-start;gap:8px;padding:11px;border-radius:6px;background:color-mix(in srgb,#548665 9%,transparent);color:var(--muted);font-size:11px;line-height:1.7;overflow-wrap:anywhere}
+  .notice span{flex:0 0 auto;color:var(--green)}
+  .submit-button{display:flex;justify-content:center;align-items:center;gap:10px;min-height:44px;border:0;border-radius:6px;background:var(--orange);color:white;font-size:13px;font-weight:650;cursor:pointer}
+  .submit-button:disabled{opacity:.55;cursor:not-allowed}
+  .feedback{margin:-8px 0 0;color:var(--green);font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+  .draft{justify-self:center;min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer}
+  @media(max-width:520px){.submit-page{padding:0 18px 45px}.row{grid-template-columns:1fr}.eyebrow{margin-top:30px}.submit-page h1{font-size:26px}.segmented label{flex-basis:calc(50% - 4px)}.submit-page input:not([type=radio]),.submit-page select,.submit-page textarea{font-size:16px}}
+  @media(max-width:360px){.submit-page{padding-right:16px;padding-left:16px}.segmented label{flex-basis:100%}}
 </style>

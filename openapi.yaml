@@ -25,7 +25,14 @@ paths:
         '413': { description: 请求体超限 }
         '422': { description: 稿件校验失败 }
         '429': { description: 超出投稿频率限制 }
+        '409': { description: 重复提交标识已使用或与原请求不一致 }
         '503': { description: 数据库暂不可用 }
+  /health:
+    get:
+      summary: 检查 Worker 功能配置状态
+      responses:
+        '200': { description: Worker 功能配置完整 }
+        '503': { description: 投稿、审核或发布凭据尚未配置 }
   /submissions/{id}/status:
     get:
       summary: 查询本人投稿状态

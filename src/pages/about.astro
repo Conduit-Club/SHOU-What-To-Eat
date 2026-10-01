@@ -2,5 +2,14 @@
 import Layout from '../templates/Layout.astro';
 ---
 <Layout title="关于本站"><main class="about"><a class="back" href="/">← 返回目录</a><p class="eyebrow">ABOUT</p><h1>关于「今日海大吃什么」</h1><p>这里记录上海海洋大学校内与周边餐饮。我们区分来源信息、同学体验与待核实内容，不将个人口味写成普遍结论。</p><h2>内容与许可</h2><p>餐厅内容按条目记录来源和适用许可。迁移内容中的原有作者署名、图片权限及上游授权应以各条目为准；未获图片使用许可的图片不会随内容复制发布。</p><h2>补充与纠错</h2><p>可以通过<a href="/submit/">提交餐饮信息</a>提供实际体验、价格、位置或纠错。投稿须经审核和内容仓库发布后，才会出现在目录中。</p><h2>信息边界</h2><p>档口、营业时间、价格和活动可能变化。除标明来源与核验日期的信息外，请把投稿经验视为个人参考。</p></main></Layout>
-<style>.about{max-width:670px;margin:auto;padding:32px 25px 60px}.back{color:var(--muted);font-size:12px;text-decoration:none}.eyebrow{margin:42px 0 12px;color:var(--orange);font-size:10px}.about h1{margin:0;font-size:28px;letter-spacing:0}.about h2{margin:30px 0 8px;font-size:14px}.about p{color:var(--muted);font-size:13px;line-height:2}.about p a{color:var(--orange)}@media(max-width:520px){.about{padding:25px 18px}.about h1{font-size:24px}}
+<style>
+  .about{width:min(100%,670px);margin:auto;padding:32px 25px 60px}
+  .back{display:inline-flex;align-items:center;min-height:44px;color:var(--muted);font-size:12px;text-decoration:none}
+  .eyebrow{margin:42px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}
+  .about h1{margin:0;font-size:28px;letter-spacing:0;overflow-wrap:anywhere}
+  .about h2{margin:30px 0 8px;font-size:14px}
+  .about p{color:var(--muted);font-size:13px;line-height:2;overflow-wrap:anywhere}
+  .about p a{color:var(--orange)}
+  @media(max-width:520px){.about{padding:25px 18px 45px}.about h1{font-size:24px}}
+  @media(max-width:360px){.about{padding-right:16px;padding-left:16px}}
 </style>

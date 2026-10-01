@@ -6,7 +6,7 @@ type GitHubResponse<T> = T & { html_url?: string; number?: number };
 export async function exportApprovedSubmission(env: AppEnv['Bindings'], publication: Publication): Promise<GitHubResponse<{ number: number; html_url: string }>> {
   const [owner, repo] = env.GITHUB_REPOSITORY.split('/');
   if (!owner || !repo || env.GITHUB_REPOSITORY.split('/').length !== 2) throw new Error('invalid_github_repository');
-  const installationToken = await createInstallationToken(env, owner, repo);
+  const installationToken = await createInstallationToken(env, repo);
   const branch = publication.branch;
   const existing = await github(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, installationToken, true);
   if (existing && 'object' in existing) {
@@ -15,7 +15,8 @@ export async function exportApprovedSubmission(env: AppEnv['Bindings'], publicat
     throw new Error('publication_branch_exists_without_open_pr');
   }
   const base = await github(`/repos/${owner}/${repo}/git/ref/heads/dev`, installationToken) as { object: { sha: string } };
-  const slug = `${publication.targetId ?? String(publication.revision.name).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 45) || 'restaurant'}-${publication.jobId.slice(0, 8)}`;
+  const nameSlug = String(publication.revision.name).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 45) || 'restaurant';
+  const slug = `${publication.targetId ?? nameSlug}-${publication.jobId.slice(0, 8)}`;
   const newId = publication.targetId ?? slug;
   const snapshot = publication.type === 'new' ? newRecord(newId, publication.revision, publication.contentHash) : { ...publication.revision, id: newId, contentHash: publication.contentHash };
   const detailFile = `src/content/restaurants/${newId}.json`;
@@ -44,10 +45,11 @@ export async function exportApprovedSubmission(env: AppEnv['Bindings'], publicat
 
 function newRecord(id: string, revision: Record<string, unknown>, contentHash: string) { return { id, name: revision.name, category: revision.category, kind: '餐厅', aliases: [], relatedRestaurantIds: [], location: revision.location, coordinates: null, price: '待核验。', openingHours: null, foods: [], reviews: [{ text: revision.body, author: '匿名同学' }], body: '由投稿审核员整理；补充实际价格与用餐日期后更新。', images: revision.imageUrl ? [{ url: revision.imageUrl, alt: String(revision.name), source: '投稿外链；授权状态需由审核员核对。', permission: 'external' }] : [], sources: [{ repository: 'anonymous-submission', path: contentHash, revision: contentHash, license: null }], visitedAt: revision.visitedAt ?? null, verifiedAt: null, updatedAt: new Date().toISOString().slice(0, 10) }; }
 
-async function createInstallationToken(env: AppEnv['Bindings'], owner: string, repo: string) {
+async function createInstallationToken(env: AppEnv['Bindings'], repo: string) {
   const jwt = await appJwt(env.GITHUB_APP_ID, env.GITHUB_PRIVATE_KEY);
-  const installations = await github(`/repos/${owner}/${repo}/installation`, jwt) as { id: number };
-  const token = await github(`/app/installations/${installations.id}/access_tokens`, jwt, false, { repositories: [repo], permissions: { contents: 'write', pull_requests: 'write', metadata: 'read' } }, 'POST') as { token: string; expires_at: string };
+  const installationId = Number(env.GITHUB_INSTALLATION_ID);
+  if (!Number.isSafeInteger(installationId) || installationId <= 0) throw new Error('invalid_github_installation_id');
+  const token = await github(`/app/installations/${installationId}/access_tokens`, jwt, false, { repositories: [repo], permissions: { contents: 'write', pull_requests: 'write', metadata: 'read' } }, 'POST') as { token: string; expires_at: string };
   if (Date.parse(token.expires_at) < Date.now()) throw new Error('github_token_expired');
   return token.token;
 }
@@ -66,7 +68,7 @@ async function appJwt(appId: string, privateKey: string) {
 async function github(path: string, token: string, allowMissing = false, body?: unknown, method = body ? 'POST' : 'GET'): Promise<any> {
   const response = await fetch(`https://api.github.com${path}`, { method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (allowMissing && response.status === 404) return null;
-  const result = await response.json().catch(() => ({}));
+  const result = await response.json().catch(() => ({})) as { message?: unknown };
   if (!response.ok) throw new Error(`github_${response.status}_${String(result.message ?? 'api_error').replace(/\s+/g, '_').slice(0, 50)}`);
   return result;
 }

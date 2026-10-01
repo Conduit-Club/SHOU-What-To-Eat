@@ -22,5 +22,21 @@ import Layout from '../templates/Layout.astro';
     } catch (error) { feedback.textContent = error instanceof Error ? error.message : '暂时无法查询。'; }
   });
 </script>
-<style>.status-page{max-width:560px;margin:auto;padding:0 24px 60px}.status-page header{height:68px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}.status-page header a{text-decoration:none}.eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px}.status-page h1{margin:0;font-size:28px;letter-spacing:0}.lead{margin:10px 0 26px;color:var(--muted);font-size:12px;line-height:1.8}form{display:grid;gap:14px}form label{display:grid;gap:7px;font-size:12px}form input{height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink)}form button{height:42px;border:0;border-radius:6px;background:var(--orange);color:#fff;font-size:12px;cursor:pointer}.feedback,.detail{color:var(--muted);font-size:11px;line-height:1.8}#result{padding:14px;margin-top:14px;border:1px solid var(--line);border-radius:7px}#result h2{font-size:13px}#result p{font-size:13px}
+<style>
+  .status-page{width:min(100%,560px);margin:auto;padding:0 24px 60px}
+  .status-page header{min-height:68px;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+  .status-page header a{display:flex;align-items:center;min-height:44px;text-decoration:none}
+  .eyebrow{margin:40px 0 12px;color:var(--orange);font-size:10px;letter-spacing:1px}
+  .status-page h1{margin:0;font-size:28px;letter-spacing:0;overflow-wrap:anywhere}
+  .lead{margin:10px 0 26px;color:var(--muted);font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+  form{display:grid;gap:14px}
+  form label{display:grid;gap:7px;font-size:12px}
+  form input{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink)}
+  form button{min-height:44px;border:0;border-radius:6px;background:var(--orange);color:#fff;font-size:12px;cursor:pointer}
+  .feedback,.detail{color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+  #result{padding:14px;margin-top:14px;border:1px solid var(--line);border-radius:7px;overflow-wrap:anywhere}
+  #result h2{font-size:13px}
+  #result p{font-size:13px;overflow-wrap:anywhere}
+  @media(max-width:520px){.status-page{padding:0 18px 45px}.eyebrow{margin-top:30px}.status-page h1{font-size:25px}.status-page form input{font-size:16px}}
+  @media(max-width:360px){.status-page{padding-right:16px;padding-left:16px}.status-page header{gap:8px}}
 </style>

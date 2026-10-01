@@ -8,7 +8,7 @@ adminRoutes.get('/submissions', async (context) => {
   const status = context.req.query('status') ?? 'pending';
   const limit = Math.min(Math.max(Number(context.req.query('limit') ?? 30), 1), 100);
   const cursor = context.req.query('cursor') ?? '';
-  if (!['pending', 'approved', 'rejected', 'exporting', 'published', 'export_failed'].includes(status)) return context.json({ error: { code: 'invalid_status', message: '状态筛选无效。' } }, 400);
+  if (!['pending', 'approved', 'rejected', 'exporting', 'export_failed', 'merged_dev', 'merged_main', 'deployed'].includes(status)) return context.json({ error: { code: 'invalid_status', message: '状态筛选无效。' } }, 400);
   const result = await context.env.DB.prepare('SELECT id, type, target_restaurant_id, original_json, revision_json, status, version, created_at, updated_at FROM submissions WHERE status = ? AND id > ? ORDER BY id LIMIT ?').bind(status, cursor, limit + 1).all();
   const rows = result.results.slice(0, limit);
   return context.json({ submissions: rows, nextCursor: result.results.length > limit ? rows.at(-1)?.id : null }, 200, { 'Cache-Control': 'no-store' });
