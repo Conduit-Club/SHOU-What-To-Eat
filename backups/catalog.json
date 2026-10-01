@@ -1,0 +1,2261 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "catalog": {
+    "schemaVersion": 2,
+    "restaurants": [
+      {
+        "schemaVersion": 2,
+        "id": "8c55ec20-310f-4793-82b1-19ce92a9c2bd",
+        "name": "一餐二楼酸菜鱼档口",
+        "kind": "stall",
+        "parentId": "first-canteen",
+        "category": "on-campus",
+        "aliases": [],
+        "tags": [
+          "酸菜鱼"
+        ],
+        "location": {
+          "address": "上海海洋大学第一食堂二楼",
+          "campusArea": null,
+          "floor": "二楼",
+          "landmark": null,
+          "coordinates": null,
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "位于第一食堂二楼，提供酸菜鱼；具体窗口号与营业时间待补充。",
+        "openingHours": null,
+        "foods": [
+          "812a5c7e-4ca2-40e1-86e6-2c1ed0ef2534"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today-contributions",
+            "path": "submissions/eeb6d3ad-7526-42ac-9aba-b82fc1ad558d",
+            "revision": "48cf1e9e34f25b2c699629d4d87c6eec2de4f60901d1fa578a2d7ee1686bd42a",
+            "license": null,
+            "note": "由审核员依据投稿与来源声明整理。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": "2026-10-01",
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "area-a-711",
+        "name": "A 区 7-11 便利店",
+        "kind": "convenience",
+        "parentId": null,
+        "category": "on-campus",
+        "aliases": [
+          "A 区 7-11"
+        ],
+        "tags": [
+          "on-campus",
+          "convenience-store"
+        ],
+        "location": {
+          "address": "A 区 7-11，具体楼栋待补充。",
+          "campusArea": "A 区",
+          "floor": null,
+          "landmark": null,
+          "coordinates": null,
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "尚未收集到具体楼栋、熟食、营业时间和实际消费记录。",
+        "openingHours": null,
+        "foods": [],
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "点位来自同学提供的信息，具体楼栋待补充。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "area-b-711",
+        "name": "B 区 7-11 便利店",
+        "kind": "convenience",
+        "parentId": null,
+        "category": "on-campus",
+        "aliases": [
+          "B 区 7-11"
+        ],
+        "tags": [
+          "on-campus",
+          "convenience-store"
+        ],
+        "location": {
+          "address": "研究生区，和第三食堂同一栋楼。",
+          "campusArea": "研究生区",
+          "floor": null,
+          "landmark": "第三食堂同栋",
+          "coordinates": null,
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "尚未收集到具体熟食、营业时间和实际消费记录。",
+        "openingHours": null,
+        "foods": [],
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-canteen",
+        "name": "一食堂",
+        "kind": "cafeteria",
+        "parentId": null,
+        "category": "on-campus",
+        "aliases": [
+          "一餐",
+          "第一餐厅"
+        ],
+        "tags": [
+          "on-campus",
+          "canteen"
+        ],
+        "location": {
+          "address": "本科生宿舍区附近，窗口分布在一楼和二楼。",
+          "campusArea": "本科生宿舍区",
+          "floor": "一楼、二楼",
+          "landmark": null,
+          "coordinates": [
+            30.8826037,
+            121.8934382
+          ],
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "早餐；正餐有大伙打菜、面食、馄饨、酱香饼和铁板窗口。二楼有酸菜鱼、滑蛋饭。档口与价格可能变化，以现场为准。",
+        "openingHours": null,
+        "foods": [
+          "first-noodles",
+          "first-set-meal",
+          "first-wontons",
+          "first-scallion-pancake",
+          "first-iron-plate-rice",
+          "first-iron-plate-chicken-cutlet",
+          "first-guotie",
+          "first-sliding-egg-rice",
+          "first-fried-chicken-cutlet",
+          "first-fried-chicken-leg",
+          "first-congee"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "同一食堂的价格与体验补充；来源于公开社交帖整理，价格未核实。",
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "仅纳入新手册独有的窗口与餐品信息。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "flavor-restaurant",
+        "name": "风味餐厅",
+        "kind": "stall",
+        "parentId": "second-canteen",
+        "category": "on-campus",
+        "aliases": [],
+        "tags": [
+          "on-campus",
+          "xinjiang-flavor"
+        ],
+        "location": {
+          "address": "第二食堂二楼靠外侧，新疆风味。",
+          "campusArea": "本科生宿舍区",
+          "floor": "二楼",
+          "landmark": "第二食堂外侧",
+          "coordinates": null,
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "面向少数民族师生，有特殊饮食需求可向工作人员询问。位置可在校园地图查找。",
+        "openingHours": null,
+        "foods": [
+          "flavor-beef-noodles",
+          "flavor-lamb-soup",
+          "flavor-potato-knife-cut-noodles"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "mixue-second-canteen",
+        "name": "蜜雪冰城（二食堂）",
+        "kind": "cafe",
+        "parentId": "second-canteen",
+        "category": "on-campus",
+        "aliases": [
+          "蜜雪冰城"
+        ],
+        "tags": [
+          "on-campus",
+          "drink"
+        ],
+        "location": {
+          "address": "第二食堂一楼。",
+          "campusArea": "本科生宿舍区",
+          "floor": "一楼",
+          "landmark": "第二食堂",
+          "coordinates": null,
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "位置来自校园餐饮记录；分店菜单、营业状态和价格以现场为准。",
+        "openingHours": null,
+        "foods": [
+          "mixue-drinks"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-canteen",
+        "name": "二食堂",
+        "kind": "cafeteria",
+        "parentId": null,
+        "category": "on-campus",
+        "aliases": [
+          "二餐",
+          "第二餐厅"
+        ],
+        "tags": [
+          "on-campus",
+          "canteen"
+        ],
+        "location": {
+          "address": "本科生宿舍区附近，一楼和二楼均有窗口。",
+          "campusArea": "本科生宿舍区",
+          "floor": "一楼、二楼",
+          "landmark": null,
+          "coordinates": [
+            30.8826095,
+            121.8912025
+          ],
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "窗口、菜单与营业情况会变化，价格和当前经营状态待补充核验。",
+        "openingHours": null,
+        "foods": [
+          "second-dumplings",
+          "second-luosi-noodles",
+          "second-changfen",
+          "second-set-meal",
+          "second-claypot",
+          "second-fried-chicken",
+          "second-sour-spicy-noodles",
+          "second-cold-noodles",
+          "second-scallion-oil-noodles",
+          "second-roast-meat",
+          "second-henan-stewed-noodles",
+          "second-chao-daoxiao",
+          "second-curry-rice",
+          "second-rice-topping"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "窗口品类、蜜雪冰城及评价补充。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-canteen",
+        "name": "三食堂",
+        "kind": "cafeteria",
+        "parentId": null,
+        "category": "on-campus",
+        "aliases": [
+          "第三餐厅",
+          "三餐"
+        ],
+        "tags": [
+          "on-campus",
+          "canteen"
+        ],
+        "location": {
+          "address": "研究生区，与 B 区 7-11 同一栋楼。食堂共两层。",
+          "campusArea": "研究生区",
+          "floor": "一楼、二楼",
+          "landmark": "B 区 7-11 同栋",
+          "coordinates": [
+            30.8893715,
+            121.8918594
+          ],
+          "distanceMeters": null,
+          "distanceBasis": null
+        },
+        "averagePrice": null,
+        "description": "食堂分两层，一楼偏早餐与常规打菜，二楼窗口更多。具体开放窗口、价格与营业时间可能变化；到店前以现场为准。",
+        "openingHours": null,
+        "foods": [
+          "third-soy-milk",
+          "third-white-porridge",
+          "third-youtiao",
+          "third-tofu-pudding",
+          "third-meat-bun",
+          "third-noodles",
+          "third-pastry",
+          "third-set-meal",
+          "third-iron-plate-stir-fry",
+          "third-malatang",
+          "third-noodle",
+          "third-beef-offal-vermicelli",
+          "third-cold-noodles",
+          "third-sichuan-stir-fry",
+          "third-korean-food",
+          "third-small-plates"
+        ],
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      }
+    ],
+    "foods": [
+      {
+        "schemaVersion": 2,
+        "id": "812a5c7e-4ca2-40e1-86e6-2c1ed0ef2534",
+        "name": "酸菜鱼",
+        "venueId": "8c55ec20-310f-4793-82b1-19ce92a9c2bd",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": {
+          "amountCents": 1900,
+          "minCents": null,
+          "maxCents": null,
+          "currency": "CNY",
+          "unit": "份",
+          "source": "用户提供：19元/份，尚待现场核验。",
+          "verifiedAt": null
+        },
+        "tags": [
+          "鱼类"
+        ],
+        "description": "用户提供：酸菜鱼19元/份。配图为网络示意图，非本档口实拍。",
+        "images": [
+          {
+            "url": "https://eat.shoumc.com/media/c53ca030-50c7-4040-bc53-d478683344bc.webp",
+            "alt": "酸菜鱼示意图，非本档口实拍；已转码为 WebP",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:%E9%85%B8%E8%8F%9C%E9%AD%9A.jpg",
+            "sourceNote": "https://commons.wikimedia.org/wiki/File:%E9%85%B8%E8%8F%9C%E9%AD%9A.jpg；已转码WebP",
+            "author": "Pauloleong2002",
+            "license": "CC BY-SA 4.0",
+            "permission": "approved",
+            "isIllustrative": true,
+            "width": null,
+            "height": null
+          }
+        ],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today-contributions",
+            "path": "submissions/799081b9-c150-4ff5-ae9e-2b202c78bfa1",
+            "revision": "4e5156cc200bb0e0ea173d9b428bb083026ae7fbfc38d6929b885bf7f5087e21",
+            "license": null,
+            "note": "由审核员依据投稿与来源声明整理。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": "2026-10-01",
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-congee",
+        "name": "生滚粥",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "porridge"
+        ],
+        "description": "一食堂新增品类；原记录当时尚无同学评价。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-fried-chicken-cutlet",
+        "name": "炸物鸡排",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "snack"
+        ],
+        "price": null,
+        "tags": [
+          "fried-food"
+        ],
+        "description": "炸物窗口；同学推荐，具体楼层待确认。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-fried-chicken-leg",
+        "name": "炸物鸡腿",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "snack"
+        ],
+        "price": null,
+        "tags": [
+          "fried-food"
+        ],
+        "description": "炸物窗口；同学推荐，具体楼层待确认。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-guotie",
+        "name": "锅贴",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "snack"
+        ],
+        "price": {
+          "amountCents": null,
+          "minCents": 100,
+          "maxCents": 150,
+          "currency": "CNY",
+          "unit": "个",
+          "source": "一食堂旧公开记录；同学分享价格，未核实。",
+          "verifiedAt": null
+        },
+        "tags": [
+          "dumpling"
+        ],
+        "description": "一楼；旧记录另称更早曾为 1 元/个，现价待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-iron-plate-chicken-cutlet",
+        "name": "铁板鸡排",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": {
+          "amountCents": 800,
+          "minCents": null,
+          "maxCents": null,
+          "currency": "CNY",
+          "unit": "份",
+          "source": "一食堂旧公开记录；同学分享价格，未核实。",
+          "verifiedAt": null
+        },
+        "tags": [
+          "iron-plate"
+        ],
+        "description": "一楼铁板窗口；有同学明确推荐。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "价格未核实。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-iron-plate-rice",
+        "name": "铁板饭",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": {
+          "amountCents": 800,
+          "minCents": null,
+          "maxCents": null,
+          "currency": "CNY",
+          "unit": "份",
+          "source": "一食堂旧公开记录；同学分享价格，未核实。",
+          "verifiedAt": null
+        },
+        "tags": [
+          "iron-plate"
+        ],
+        "description": "一楼铁板窗口；原记录将铁板饭和铁板鸡排合并记载。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          },
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "价格未核实。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-noodles",
+        "name": "面食",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "一食堂正餐品类，具体窗口与面种待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-scallion-pancake",
+        "name": "酱香饼",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "pancake"
+        ],
+        "description": "一食堂正餐品类，具体窗口与价格待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-set-meal",
+        "name": "大伙打菜",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "set-meal"
+        ],
+        "description": "一楼大伙打菜窗口；原资料未记录具体菜品和价格。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-sliding-egg-rice",
+        "name": "滑蛋饭",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "rice"
+        ],
+        "description": "二楼；评价提及可选。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-wontons",
+        "name": "馄饨",
+        "venueId": "first-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "wonton"
+        ],
+        "description": "一食堂正餐品类，具体窗口与价格待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "flavor-beef-noodles",
+        "name": "牛肉面",
+        "venueId": "flavor-restaurant",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": {
+          "amountCents": 800,
+          "minCents": null,
+          "maxCents": null,
+          "currency": "CNY",
+          "unit": "碗",
+          "source": "风味餐厅旧公开记录；同学分享价格，未核现场价目表。",
+          "verifiedAt": null
+        },
+        "tags": [
+          "noodles"
+        ],
+        "description": "同学明确推荐；现价待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "flavor-lamb-soup",
+        "name": "羊肉泡馍",
+        "venueId": "flavor-restaurant",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "soup"
+        ],
+        "description": "同学反馈称汤鲜、料多；价格待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "flavor-potato-knife-cut-noodles",
+        "name": "土豆刀削面",
+        "venueId": "flavor-restaurant",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "风味餐厅品类；价格待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "mixue-drinks",
+        "name": "蜜雪冰城饮品",
+        "venueId": "mixue-second-canteen",
+        "mealTypes": [
+          "drink"
+        ],
+        "price": null,
+        "tags": [
+          "drink"
+        ],
+        "description": "具体菜单、甜度选项及本店实付价格待补充。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-changfen",
+        "name": "肠粉",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "rice-noodle"
+        ],
+        "description": "二食堂资料明确列出的品类；旧单独条目因目标档口不明未迁移。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-chao-daoxiao",
+        "name": "炒刀削",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "二楼窗口品类，价格与当前营业状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-claypot",
+        "name": "砂锅",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "claypot"
+        ],
+        "description": "一楼；配菜有过历史变更反馈。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-cold-noodles",
+        "name": "凉皮",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "cold-noodles"
+        ],
+        "description": "二楼；有同学推荐。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-curry-rice",
+        "name": "咖喱饭",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "rice"
+        ],
+        "description": "二楼；来源整理时称新开，营业状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-dumplings",
+        "name": "水饺",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "dumpling"
+        ],
+        "description": "后勤餐饮介绍列出的品类，具体窗口及楼层待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "品类信息来自手册整理。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-fried-chicken",
+        "name": "炸鸡",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "fried-food"
+        ],
+        "description": "二楼；有同学推荐。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-henan-stewed-noodles",
+        "name": "河南烩面",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "二楼窗口品类，价格与当前营业状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-luosi-noodles",
+        "name": "螺蛳粉",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "后勤餐饮介绍列出的品类，具体窗口及楼层待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "品类信息来自手册整理。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-rice-topping",
+        "name": "盖浇饭",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "rice"
+        ],
+        "description": "二楼；来源整理时称新开，营业状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-roast-meat",
+        "name": "烧腊",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "roast-meat"
+        ],
+        "description": "二楼窗口品类，价格与当前营业状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-scallion-oil-noodles",
+        "name": "葱油拌面",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "二楼；有同学推荐。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-set-meal",
+        "name": "打菜",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "set-meal"
+        ],
+        "description": "一楼；评价不一，具体窗口与现价待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-sour-spicy-noodles",
+        "name": "酸辣粉",
+        "venueId": "second-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles",
+          "spicy"
+        ],
+        "description": "二楼；有同学推荐。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-beef-offal-vermicelli",
+        "name": "牛肉牛杂粉丝汤",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "soup"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-cold-noodles",
+        "name": "凉皮",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "cold-noodles"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-iron-plate-stir-fry",
+        "name": "铁板炒",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "iron-plate"
+        ],
+        "description": "一楼；同学分享的吃饱选择，当前窗口状态待核。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-korean-food",
+        "name": "韩式料理",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "korean"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-malatang",
+        "name": "麻辣烫",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "spicy"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-meat-bun",
+        "name": "肉包",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "breakfast"
+        ],
+        "description": "一楼早餐区。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-noodle",
+        "name": "面食",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-noodles",
+        "name": "面条",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "noodles"
+        ],
+        "description": "一楼面食区，可添加雪菜、素鸡等配菜。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-pastry",
+        "name": "糕点",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "snack"
+        ],
+        "price": null,
+        "tags": [
+          "pastry"
+        ],
+        "description": "一楼糕点房。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-set-meal",
+        "name": "打菜",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "set-meal"
+        ],
+        "description": "一楼正餐时段。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-sichuan-stir-fry",
+        "name": "川香小炒",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "stir-fry"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-small-plates",
+        "name": "小碟菜",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "meal"
+        ],
+        "price": null,
+        "tags": [
+          "small-plates"
+        ],
+        "description": "二楼窗口品类。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-soy-milk",
+        "name": "豆浆",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "breakfast"
+        ],
+        "description": "一楼早餐区。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-tofu-pudding",
+        "name": "豆花",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "breakfast"
+        ],
+        "description": "一楼早餐区。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-white-porridge",
+        "name": "白粥",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "breakfast",
+          "porridge"
+        ],
+        "description": "一楼早餐区。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-youtiao",
+        "name": "油条",
+        "venueId": "third-canteen",
+        "mealTypes": [
+          "breakfast"
+        ],
+        "price": null,
+        "tags": [
+          "breakfast"
+        ],
+        "description": "一楼早餐区。",
+        "images": [],
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "食堂结构、早餐与窗口体验摘要，均注明为手册整理经验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ],
+        "dates": {
+          "addedAt": null,
+          "visitedAt": null,
+          "verifiedAt": null,
+          "updatedAt": null
+        }
+      }
+    ],
+    "reviews": [
+      {
+        "schemaVersion": 2,
+        "id": "first-canteen-review-a",
+        "targetType": "venue",
+        "targetId": "first-canteen",
+        "rating": null,
+        "text": "一餐一楼的面、二楼的酸菜鱼和滑蛋饭可以，还有炸物那边的鸡排鸡腿。",
+        "images": [],
+        "authorAlias": "A",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-canteen-review-b",
+        "targetType": "venue",
+        "targetId": "first-canteen",
+        "rating": null,
+        "text": "我将永远追随一餐一楼的铁板鸡排。",
+        "images": [],
+        "authorAlias": "B",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-canteen-review-c-1",
+        "targetType": "venue",
+        "targetId": "first-canteen",
+        "rating": null,
+        "text": "一餐一楼大伙那一排的窗口，基本无踩雷，都很好吃。新上的生滚粥不知道怎么样哈。",
+        "images": [],
+        "authorAlias": "C",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "first-canteen-review-c-2",
+        "targetType": "venue",
+        "targetId": "first-canteen",
+        "rating": null,
+        "text": "一餐二楼的酸菜鱼是现煮的，油一泼上去特别香，就是有花椒会有点呛，略微小贵，19 块，但是肯定是值得的。",
+        "images": [],
+        "authorAlias": "C",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-today",
+            "path": "website/docs/on-campus/first-canteen.md",
+            "revision": "working-tree",
+            "license": "CC BY-NC-SA 4.0",
+            "note": null,
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "flavor-restaurant-review",
+        "targetType": "venue",
+        "targetId": "flavor-restaurant",
+        "rating": null,
+        "text": "牛肉面好吃；羊肉泡馍汤鲜、料多，有人专门推荐过。",
+        "images": [],
+        "authorAlias": "同学反馈",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "经审核的匿名公开帖摘要。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-canteen-review-summary-1",
+        "targetType": "venue",
+        "targetId": "second-canteen",
+        "rating": null,
+        "text": "二餐二楼的炸鸡、酸辣粉、凉皮评价都不错，砂锅也有人喜欢。",
+        "images": [],
+        "authorAlias": "同学反馈",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核通过的投稿整理摘要；原账号身份未核验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-canteen-review-summary-2",
+        "targetType": "venue",
+        "targetId": "second-canteen",
+        "rating": null,
+        "text": "有人更喜欢二餐一楼的打菜，也有人觉得选择不多；关于砂锅的配菜有过变更反馈。",
+        "images": [],
+        "authorAlias": "同学反馈",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核记录来源；不得将整理日期当作用餐日期。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "second-canteen-review-summary-3",
+        "targetType": "venue",
+        "targetId": "second-canteen",
+        "rating": null,
+        "text": "炸鸡、酸辣粉、凉皮、葱油拌面和新开的咖喱饭、盖浇饭都有同学推荐。",
+        "images": [],
+        "authorAlias": "同学反馈",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "what-to-eat-in-shou-contributions",
+            "path": "data/reviewed/canteen-windows-2026-09.json",
+            "revision": "working-tree",
+            "license": null,
+            "note": "审核通过的投稿整理摘要；原账号身份未核验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-canteen-review-summary-1",
+        "targetType": "venue",
+        "targetId": "third-canteen",
+        "rating": null,
+        "text": "一楼有常见食堂早餐、糕点房和面食窗口；早餐以外可打菜。",
+        "images": [],
+        "authorAlias": "SHOU-Online-Manual 编辑整理",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "手册经验整理，不是逐项现场核验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
+      {
+        "schemaVersion": 2,
+        "id": "third-canteen-review-summary-2",
+        "targetType": "venue",
+        "targetId": "third-canteen",
+        "rating": null,
+        "text": "想吃铁板炒可以看看一楼窗口；二楼选择较多，价格可能高于一楼。",
+        "images": [],
+        "authorAlias": "SHOU-Online-Manual 编辑整理",
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "SHOU-Online-Manual",
+            "path": "docs/canteen/campus-dining.md",
+            "revision": "working-tree",
+            "license": "CC BY-SA 4.0",
+            "note": "手册经验整理；价格和营业状态待补充核验。",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      }
+    ]
+  }
+}
