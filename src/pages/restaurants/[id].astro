@@ -34,7 +34,7 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
   <main class="detail-page">
     <header class="top">
       <a href="/" class="back"><span aria-hidden="true">←</span> <span>返回目录</span></a>
-      <a class="submit" href={'/submit/?venue=' + restaurant.id}>补充或纠错 <span aria-hidden="true">↗</span></a>
+      <a class="submit" href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">↗</span></a>
     </header>
 
     <section class="hero" aria-labelledby="venue-title">
@@ -65,9 +65,9 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
           </div>
         </section>
 
-        {foods.length > 0 && <section class="section-block">
-          <div class="section-heading"><div><p class="section-kicker">MENU NOTES</p><h2>餐品与档口</h2></div><span class="section-count">{foods.length}</span></div>
-          <div class="foods">
+        <section class="section-block">
+          <div class="section-heading"><div><p class="section-kicker">MENU NOTES</p><h2>餐品与档口</h2></div><div class="section-heading-actions"><span class="section-count">{foods.length}</span><a class="section-action" href={'/submit/?venueEntityId=' + restaurant.id}>添加餐品 <span aria-hidden="true">＋</span></a></div></div>
+          {foods.length ? <div class="foods">
             {foods.map((food) => {
               const image = safePublicImage(food.images?.[0]);
               return <a class="food-card" href={'/foods/' + food.id + '/'}>
@@ -77,8 +77,8 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
                 <div class="food-card-body"><div class="food-title"><h3>{food.name}</h3><span aria-hidden="true">↗</span></div><p>{food.description ?? '餐品描述待补充。'}</p><div class="food-meta"><span>{formatPrice(food.price)}</span><span>{food.mealTypes?.map(mealLabel).join(' · ') || '餐段待补充'}</span></div></div>
               </a>;
             })}
-          </div>
-        </section>}
+          </div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有餐品。</p><a href={'/submit/?venueEntityId=' + restaurant.id}>添加餐品 <span aria-hidden="true">→</span></a></div>}
+        </section>
 
         <section class="section-block">
           <div class="section-heading"><div><p class="section-kicker">STUDENT NOTES</p><h2>同学评价</h2></div><span class="section-count">{reviews.length}</span></div>
@@ -88,7 +88,7 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
               <p>{review.text}</p>
               <footer>{review.authorAlias ?? '匿名同学'}</footer>
             </blockquote>)}
-          </div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href={'/submit/?venue=' + restaurant.id}>分享你的实际体验 <span aria-hidden="true">→</span></a></div>}
+          </div> : <div class="empty-state"><span aria-hidden="true">✦</span><p>目前还没有同学评价。</p><a href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">→</span></a></div>}
         </section>
 
         {restaurant.images.slice(1).map((image) => {
@@ -108,7 +108,7 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
         </dl>
         {coordinates && <a class="map" href={'https://www.openstreetmap.org/?mlat=' + coordinates[0] + '&mlon=' + coordinates[1] + '#map=17/' + coordinates[0] + '/' + coordinates[1]} target="_blank" rel="noreferrer">在地图中查看 <span aria-hidden="true">↗</span></a>}
         <p class="source-note">评价是个人体验。位置、价格与营业信息可能变化，建议到店前核对。</p>
-        <a class="aside-submit" href={'/submit/?venue=' + restaurant.id}>补充信息 <span aria-hidden="true">＋</span></a>
+        <a class="aside-submit" href={'/submit/?venue=' + restaurant.id}>评价这家店 <span aria-hidden="true">＋</span></a>
       </aside>
     </div>
 
@@ -149,7 +149,7 @@ const heroSourceUrl = heroImage ? safePublicLink(heroImage.sourceUrl) : null;
   .quick-facts span,.quick-facts strong{display:block;overflow-wrap:anywhere}.quick-facts span{color:#d7c6bf;font-size:10px}.quick-facts strong{margin-top:7px;color:#fff;font-size:13px;line-height:1.5}
   .section-block{padding:38px 0 0}
   .section-heading{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:17px}
-  .section-heading h2{margin:7px 0 0}.section-count{display:grid;min-width:30px;min-height:30px;place-items:center;border-radius:50%;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}
+  .section-heading h2{margin:7px 0 0}.section-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.section-count{display:grid;min-width:30px;min-height:30px;place-items:center;border-radius:50%;background:#fff2eb;color:var(--orange-deep);font-size:12px;font-weight:800}.section-action{display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 12px;border-radius:13px;background:#e4f6ea;color:var(--green);font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap}
   .foods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .food-card{display:flex;min-width:0;overflow:hidden;border:1px solid rgba(45,49,66,.07);border-radius:22px;background:var(--surface-card);box-shadow:var(--shadow-card);text-decoration:none;transition:transform .2s,box-shadow .2s}
   .food-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
