@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "id": "8c55ec20-310f-4793-82b1-19ce92a9c2bd",
+  "name": "一餐二楼酸菜鱼档口",
+  "kind": "stall",
+  "parentId": "first-canteen",
+  "category": "on-campus",
+  "aliases": [],
+  "tags": [
+    "酸菜鱼"
+  ],
+  "location": {
+    "address": "上海海洋大学第一食堂二楼",
+    "campusArea": null,
+    "floor": "二楼",
+    "landmark": null,
+    "coordinates": null,
+    "distanceMeters": null,
+    "distanceBasis": null
+  },
+  "averagePrice": null,
+  "description": "位于第一食堂二楼，提供酸菜鱼；具体窗口号与营业时间待补充。",
+  "openingHours": null,
+  "foods": [],
+  "images": [],
+  "sources": [
+    {
+      "repository": "what-to-eat-in-shou-today-contributions",
+      "path": "submissions/eeb6d3ad-7526-42ac-9aba-b82fc1ad558d",
+      "revision": "48cf1e9e34f25b2c699629d4d87c6eec2de4f60901d1fa578a2d7ee1686bd42a",
+      "license": null,
+      "note": "由审核员依据投稿与来源声明整理。",
+      "sourceUrl": null,
+      "collectedAt": null
+    }
+  ],
+  "dates": {
+    "visitedAt": null,
+    "verifiedAt": null,
+    "updatedAt": null
+  }
+}
