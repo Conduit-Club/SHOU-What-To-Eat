@@ -1,5 +1,7 @@
 import type { AppEnv } from './types.js';
 
+export function liveContent(env: AppEnv['Bindings']) { return env.CONTENT_MODE === 'live'; }
+
 export function publicationEnabled(env: AppEnv['Bindings']): boolean {
   return env.PUBLICATION_ENABLED === 'true';
 }
@@ -35,6 +37,7 @@ export function missingReviewConfig(env: AppEnv['Bindings']): string[] {
 
 export function missingDeploymentConfig(env: AppEnv['Bindings']): string[] {
   const missing = missingReviewConfig(env);
+  if (liveContent(env)) return missing;
   if (!env.GITHUB_REPOSITORY?.trim()) missing.push('GITHUB_REPOSITORY');
   if (!env.GITHUB_APP_ID?.trim()) missing.push('GITHUB_APP_ID');
   if (!env.GITHUB_PRIVATE_KEY?.trim()) missing.push('GITHUB_PRIVATE_KEY');

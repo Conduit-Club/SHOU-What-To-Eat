@@ -3,7 +3,8 @@ import { contentAdminRoutes } from './content-admin.js';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { requireAccess } from '../security.js';
-import { publicationEnabled } from '../config.js';
+import { publicationEnabled, liveContent } from '../config.js';
+import { publishLive } from '../live-catalog.js';
 import { sha256 } from './submissions.js';
 import { privateMediaResponse } from '../media.js';
 import { validateV2Revision, V2ValidationError, type V2EntityType } from '../v2-validation.js';
@@ -27,6 +28,11 @@ adminV2Routes.get('/submissions', async (context) => {
 
 adminV2Routes.get('/publications', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
+  if(liveContent(context.env)){
+    const results=await context.env.DB.prepare("SELECT id,entity_type,entity_id,status AS submission_status,live_error AS error_code,live_published_at,updated_at,COALESCE(json_extract(revision_json,'$.record.name'),json_extract(revision_json,'$.payload.name')) AS name FROM submissions WHERE schema_version=2 AND (live_published_at IS NOT NULL OR status IN ('deployed','exporting','export_failed','merged_dev','merged_main')) ORDER BY updated_at DESC LIMIT 100").all();
+    const backup=await context.env.DB.prepare('SELECT * FROM live_catalog_state WHERE id=1').first();
+    return context.json({mode:'live',backup,publications:results.results.map((r:any)=>({...r,status:r.live_published_at||r.submission_status==='deployed'?'deployed':'legacy_pending',id:r.id}))},200,{'Cache-Control':'no-store'});
+  }
   const result = await context.env.DB.prepare("SELECT submissions.status AS submission_status, submissions.entity_type, submissions.entity_id, COALESCE(json_extract(submissions.revision_json, '$.record.name'), json_extract(submissions.revision_json, '$.payload.name')) AS name, jobs.id, jobs.submission_id, jobs.submission_version, jobs.status, jobs.branch, jobs.pr_number, jobs.pr_url, jobs.attempts, jobs.error_code, jobs.created_at, jobs.updated_at FROM publication_jobs AS jobs INNER JOIN submissions AS submissions ON submissions.id = jobs.submission_id AND submissions.schema_version = 2 ORDER BY jobs.updated_at DESC LIMIT 100").all();
   return context.json({ publications: result.results }, 200, { 'Cache-Control': 'no-store' });
 });
@@ -97,6 +103,10 @@ adminV2Routes.post('/submissions/:id/review', async (context) => {
   const id = context.req.param('id');
   const current = await context.env.DB.prepare("SELECT id, entity_type, entity_id, status, version, upload_state, expected_images, expected_review_images, snapshot_id, revision_json, parent_entity_id FROM submissions WHERE id = ? AND schema_version = 2 AND status = 'pending' AND version = ?").bind(id, body.expectedVersion).first<{ id: string; entity_type: V2EntityType; entity_id: string; status: string; version: number; upload_state: string; expected_images: number; expected_review_images: number; snapshot_id: string; revision_json: string; parent_entity_id: string | null }>();
   if (!current) return fail(context, 'revision_conflict', '稿件已更新或不在待审状态。', 409);
+  if(action==='approve'&&liveContent(context.env)){
+    try{return context.json(await publishLive(context.env,id,Number(body.expectedVersion),context.get('reviewer')),200,{'Cache-Control':'no-store'});}
+    catch(cause){return fail(context,'live_publication_conflict',`尚未公开，请刷新并检查关联、图片和版本。${cause instanceof Error&&/^[a-z_]+$/.test(cause.message)?'（'+cause.message+'）':''}`,409);}
+  }
   let privateMediaCount = 0;
   if (action === 'approve') {
     const counts = await context.env.DB.prepare("SELECT slot, COUNT(*) AS count FROM media_assets WHERE submission_id = ? AND object_state = 'private' GROUP BY slot").bind(id).all<{ slot: string; count: number }>();

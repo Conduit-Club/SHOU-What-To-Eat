@@ -23,10 +23,9 @@ test('production publication mode rejects a missing or placeholder Turnstile key
   assert.match(placeholder.stderr, /非空且非占位/);
 });
 
-test('production publication mode rejects a non-HTTPS callback URL', () => {
+test('live publication does not depend on the retired deployment callback', () => {
   const result = runProduction({ DEPLOY_WEBHOOK_URL: 'http://eat.shoumc.com/api/v1/webhooks/deploy' });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /DEPLOY_WEBHOOK_URL 必须使用 HTTPS/);
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test('catalog-only production mode does not require publication credentials', () => {

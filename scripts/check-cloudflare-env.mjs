@@ -19,7 +19,7 @@ const required = {
 
 if (requireApiToken && environment !== 'local') required[environment].unshift('CLOUDFLARE_API_TOKEN');
 
-if (environment === 'production' && (includeCallback || publicationEnabled)) {
+if (environment === 'production' && includeCallback) {
   required.production.push('DEPLOY_WEBHOOK_URL', 'DEPLOY_WEBHOOK_SECRET');
 }
 if (environment === 'production' && publicationEnabled) {
@@ -39,7 +39,7 @@ if (environment !== 'local') {
   const databaseId = environment === 'production' ? process.env.CLOUDFLARE_D1_DATABASE_ID : process.env.CLOUDFLARE_PREVIEW_D1_DATABASE_ID;
   if (!/^[a-f0-9]{32}$/i.test(accountId)) fail('CLOUDFLARE_ACCOUNT_ID 必须是 32 位十六进制 Cloudflare Account ID。');
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(databaseId)) fail(`Cloudflare ${environment} D1 database ID 格式无效。`);
-  if (includeCallback || (environment === 'production' && publicationEnabled)) {
+  if (includeCallback) {
     if (!isHttpsUrl(process.env.DEPLOY_WEBHOOK_URL)) fail('DEPLOY_WEBHOOK_URL 必须使用 HTTPS。');
   }
   if (environment === 'production' && publicationEnabled && isPlaceholder(process.env.PUBLIC_TURNSTILE_SITE_KEY)) {
