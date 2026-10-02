@@ -52,3 +52,14 @@ test('photo metadata matches the public catalog and never accepts approval from 
   for(const [field,value] of [['X-Image-Copyright-Holder','人'.repeat(161)],['X-Image-License','许'.repeat(121)],['X-Image-Source','https://user:pass@example.com/photo']])assert.equal(validateImageMetadata(new Headers({...base,[field]:encodeURIComponent(value)})),null);
   assert.equal(validateImageMetadata(new Headers({...base,'X-Image-Permission':'approved'})),null);
 });
+
+ test('Chinese space-separated tags and optional photos accept ranges and reject incomplete ranges',()=>{
+  assert.deepEqual(splitTags('微辣 下饭\n鱼类'),['微辣','下饭','鱼类']);
+  assert.equal(validate('food',{...food,tags:['微辣','校外500米']},{expectedImages:0}).expectedImages,0);
+  for(const tag of ['iron-plate','KFC','微辣 spicy','微辣!'])assert.throws(()=>validate('food',{...food,tags:[tag]}),e=>e.code==='chinese_tags_required');
+  for(const type of ['food','venue']){
+   const key=type==='food'?'price':'averagePrice',base=type==='food'?food:venue;
+   assert.doesNotThrow(()=>validate(type,{...base,[key]:{minCents:1500,maxCents:2500,source:'店内菜单'}}));
+   for(const bounds of [{minCents:1500},{maxCents:2500},{minCents:2500,maxCents:1500}])assert.throws(()=>validate(type,{...base,[key]:{...bounds,source:'店内菜单'}}));
+  }
+ });

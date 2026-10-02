@@ -56,6 +56,7 @@ export function formatPrice(price: CatalogPrice | null | undefined): string {
   if (typeof price.amountCents === 'number' && Number.isFinite(price.amountCents)) return `¥${yuan(price.amountCents / 100)}${price.unit ? ` / ${price.unit}` : ''}`;
   const min = typeof price.minCents === 'number' ? price.minCents / 100 : null;
   const max = typeof price.maxCents === 'number' ? price.maxCents / 100 : null;
+  if (min !== null && max === min) return `¥${yuan(min)}${price.unit ? ` / ${price.unit}` : ''}`;
   if (min !== null && max !== null) return `¥${yuan(min)}–${yuan(max)}${price.unit ? ` / ${price.unit}` : ''}`;
   return '价格待补充';
 }
@@ -129,10 +130,11 @@ export function mealLabel(meal: string | null | undefined): string {
 
 export function tagLabel(tag: string): string {
   const labels: Record<string, string> = {
+    KFC: '肯德基',
     breakfast: '早餐',
     canteen: '食堂',
     claypot: '砂锅',
-    'cold-noodles': '凉面 / 凉皮',
+    'cold-noodles': '凉面凉皮',
     'convenience-store': '便利店',
     drink: '饮品',
     dumpling: '饺子',
@@ -145,16 +147,16 @@ export function tagLabel(tag: string): string {
     pastry: '糕点',
     porridge: '粥类',
     rice: '米饭类',
-    'rice-noodle': '米粉 / 肠粉',
+    'rice-noodle': '米粉肠粉',
     'roast-meat': '烧腊',
-    'set-meal': '套餐 / 打菜',
+    'set-meal': '套餐打菜',
     'small-plates': '小碟菜',
     soup: '汤类',
     spicy: '辣味',
     'stir-fry': '小炒',
-    'within-500m': '500 米内',
-    'within-1km': '1 公里内',
-    'within-2km': '2 公里内',
+    'within-500m': '校外500米内',
+    'within-1km': '校外1公里内',
+    'within-2km': '校外2公里内',
     wonton: '馄饨',
     'xinjiang-flavor': '新疆风味',
     'off-campus': '校外',

@@ -1,3 +1,4 @@
+import { FOOD_TAG_OPTIONS } from '../lib/tag-options';
 import { useEffect,useMemo,useState } from 'react';
 import CatalogCards from './CatalogCards';
 import { useCatalog } from './useCatalog';
@@ -14,7 +15,7 @@ export default function CatalogSearch({ mode }: { mode: 'food' | 'venue' }) {
   const [scope,setScope]=useState('all');const [meal,setMeal]=useState('all');const [budget,setBudget]=useState('all');const [tag,setTag]=useState('all');const [sort,setSort]=useState('rating');
   useEffect(()=>{const params=new URLSearchParams(location.search);const q=(params.get('q')??'').slice(0,120);setDraft(q);setQuery(q);setType(mode);const k=params.get('kind')??'all';setKind(['all','cafeteria','stall','restaurant','cafe','convenience'].includes(k)?k:'all');setPhotosOnly(params.get('photos')==='1');const r=params.get('rating')??'all';setMinRating(['all','3','4'].includes(r)?r:'all');const selectedScope=params.get('scope')??'all';if(scopes.includes(selectedScope))setScope(selectedScope);const selectedSort=params.get('sort')??'rating';if(['name','rating','newest'].includes(selectedSort))setSort(selectedSort);const selectedMeal=params.get('meal')??'all';if(mode==='food'&&['all','breakfast','meal','snack','dessert','drink'].includes(selectedMeal))setMeal(selectedMeal);const selectedBudget=params.get('budget')??'all';if(['all','under15','15to25','over25'].includes(selectedBudget))setBudget(selectedBudget);setTag(params.get('tag')??'all');setReady(true);},[mode]);
   useEffect(()=>{if(!ready)return;const params=new URLSearchParams();if(query)params.set('q',query);for(const [key,value] of Object.entries({scope,meal,budget,tag,sort,kind,rating:minRating}))if(value!=='all'&&!(key==='sort'&&value==='rating'))params.set(key,value);if(photosOnly)params.set('photos','1');history.replaceState(null,'',(mode==='food'?'/foods/':'/restaurants/')+(params.size?'?'+params.toString():''));},[ready,query,type,scope,meal,budget,tag,sort,kind,minRating,photosOnly,mode]);
-  const tags=useMemo(()=>[...new Set([...catalog.foods,...catalog.venues].flatMap(item=>item.tags))].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'zh-CN')),[catalog]);
+  const tags=useMemo(()=>[...new Set([...FOOD_TAG_OPTIONS,...[...catalog.foods,...catalog.venues].flatMap(item=>item.tags.map(tagLabel))])].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'zh-CN')),[catalog]);
   const filters:FoodFilters={query,scope,meal,budget,tags:tag==='all'?[]:[tag]};
   let items:CatalogCard[]=[];
   if(type==='all'||type==='food')items.push(...catalog.foods.filter(food=>matchesDiscoveryFood(food,filters)).map(foodCard));

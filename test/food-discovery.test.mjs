@@ -35,3 +35,11 @@ test('random picks stay in the filtered list and do not repeat when alternatives
   assert.equal(pickFoodId([{id:'only'}],'only'),'only');
   assert.equal(pickFoodId([],'a'),null);
 });
+
+test('price ranges intersect budgets and Chinese filter vocabulary matches legacy aliases',()=>{
+ const ranged={...food,price:{minCents:1400,maxCents:2700}};
+ for(const budget of ['under15','15to25','over25'])assert.equal(matches(ranged,{budget}),true);
+ assert.equal(matches({...food,price:{minCents:2500,maxCents:2500}},{budget:'over25'}),false);
+ assert.equal(matches(food,{tags:['面食']}),true);
+ assert.equal(matches({...food,tags:['面食']},{tags:['noodles']}),true);
+});

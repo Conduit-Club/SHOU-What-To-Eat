@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { webcrypto } from 'node:crypto';
 import worker from '../src/worker/index.ts';
-import { publishLive, editLive, readLive, resumeApproved } from '../src/worker/live-catalog.ts';
+import { publishLive, editLive, readLive, resumeApproved, maintainLegacyCatalog } from '../src/worker/live-catalog.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotSeed = loadSeedSql();
@@ -756,10 +756,23 @@ test('new food cannot bypass actual upload completion or submit an illustrative 
  const database=new SqliteD1(),env=runtime(database,{MEDIA_MODE:'r2'});
  await withExternalStubs(async()=>{
   const parent=database.sqlite.prepare("SELECT id FROM venues WHERE publication_state='published' LIMIT 1").get().id;
-  const absent=await submitV2(env,database,'food',{...foodPayload(),venueId:parent},{body:{expectedImages:0}});assert.equal(absent.response.status,422);assert.equal(absent.body.error.code,'food_photo_required');
+  const absent=await submitV2(env,database,'food',{...foodPayload(),venueId:parent},{body:{expectedImages:0}});assert.equal(absent.response.status,202);assert.equal(absent.body.expectedImages,0);
   const submitted=await submitV2(env,database,'food',{...foodPayload(),venueId:parent});assert.equal(submitted.response.status,202);
   const id=submitted.body.submissionId;
   const finalize=await worker.fetch(request('/api/v2/submissions/'+id+'/finalize',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+submitted.body.receiptToken},body:JSON.stringify({expectedVersion:1})}),env,{});assert.equal(finalize.status,409);
   const photo=await worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(submitted.body.receiptToken,0,1),'X-Image-Is-Illustrative':'true'},body:uploadWebp()}),env,{});assert.equal(photo.status,422);assert.equal((await photo.json()).error.code,'food_photo_must_be_real');
  });
 });
+
+ test('legacy maintenance archives only explicit imported foods, keeps venues and submissions, and is resumable',async()=>{
+ const database=new SqliteD1(),env=runtime(database,{CONTENT_MODE:'live'});
+ const before=await readLive(database);const venueCount=before.catalog.restaurants.length;
+ let result;do{result=await maintainLegacyCatalog(env,'reviewer@example.com');}while(result.remaining);
+ const after=await readLive(database);
+ assert.equal(after.catalog.restaurants.filter(v=>v.status!=='archived').length,venueCount);
+ assert.equal(after.catalog.foods.filter(f=>f.status==='archived').length,45);
+ const real=after.catalog.foods.filter(f=>f.status!=='archived');assert.ok(real.every(f=>f.sources.some(s=>s.path.startsWith('submissions/'))));
+ assert.ok(after.catalog.foods.every(f=>f.tags.every(t=>/\p{Script=Han}/u.test(t))));
+ const revision=after.state.revision;assert.equal((await maintainLegacyCatalog(env,'reviewer@example.com')).changed,0);assert.equal((await readLive(database)).state.revision,revision);
+ const response=await worker.fetch(request('/api/v2/admin/maintenance/legacy-catalog',{method:'POST'}),env,{});assert.equal(response.status,401);
+ });

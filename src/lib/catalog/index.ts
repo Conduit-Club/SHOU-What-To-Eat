@@ -190,7 +190,7 @@ export const DISTANCE_TAGS = [
 
 export function deriveDistanceTags(venue: Pick<Venue, 'category' | 'tags' | 'location'>): string[] {
   const tags = new Set(venue.tags);
-  for (const threshold of DISTANCE_TAGS) tags.delete(threshold.tag);
+  for (const threshold of DISTANCE_TAGS) { tags.delete(threshold.tag); tags.delete(threshold.meters===500?'校外500米内':`校外${threshold.meters/1000}公里内`); }
   const { distanceMeters, distanceBasis } = venue.location;
   if (venue.category === 'off-campus' && distanceMeters !== null && distanceBasis !== null) {
     for (const threshold of DISTANCE_TAGS) if (distanceMeters <= threshold.meters) tags.add(threshold.tag);

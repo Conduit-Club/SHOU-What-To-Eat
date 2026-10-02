@@ -12,9 +12,9 @@ const food=catalog.foods[0];
 const image={url:'https://example.com/real.webp',alt:'实拍',sourceUrl:'https://example.com/source',sourceNote:null,author:'同学',license:'本人授权本站展示及选作对应内容封面',permission:'approved',isIllustrative:false,width:900,height:600,coverEligible:true};
 const review={...catalog.reviews[0],id:'cover-review',targetType:'food',targetId:food.id,rating:4,text:'测试',images:[image]};
 
-test('new food needs a photo declaration, existing photo-less revisions remain reviewable',()=>{
+test('new food photos are optional and existing photo-less revisions remain reviewable',()=>{
  const data={schemaVersion:2,entityType:'food',snapshotId:'catalog-v2-test',payload:{name:'餐品',venueId:'venue',mealTypes:['meal']},expectedImages:0,expectedReviewImages:0,turnstileToken:'token'};
- assert.throws(()=>validateV2Submission(data),e=>e.code==='food_photo_required');
+ assert.equal(validateV2Submission(data).expectedImages,0);
  assert.equal(validateV2Submission({...data,expectedImages:1}).expectedImages,1);
  const {turnstileToken,...revision}=data;
  assert.doesNotThrow(()=>validateV2Revision(revision,{entityType:'food',snapshotId:data.snapshotId,expectedImages:0,expectedReviewImages:0}));

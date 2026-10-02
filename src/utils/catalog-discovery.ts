@@ -24,7 +24,7 @@ export function matchesDiscoveryVenue(venue: DiscoveryPlace,foods: DiscoveryFood
   const proxy: DiscoveryFood={id:venue.id,name:venue.name,venueId:venue.id,venue,mealTypes:[],tags:venue.tags,description:venue.description,price:venue.averagePrice,images:venue.images,reviewCount:venue.reviewCount,rating:venue.rating};
   if(!matchesDiscoveryFood(proxy,onlyVenueFilters))return false;
   const foodFilters={...filters,scope:'all',query:''};
-  const venueTags=filters.tags.every(tag => venue.tags.includes(tag));
+  const venueTags=filters.tags.every(tag => venue.tags.map(tagLabel).includes(tagLabel(tag)));
   if(filters.meal === 'all' && venueTags && matchesDiscoveryFood(proxy,{...foodFilters,tags:[]}))return !query || text.includes(query) || related.some(food => matchesDiscoveryFood(food,{...onlyVenueFilters,scope:'all',query}));
   // All selected food conditions must match the same dish at this venue.
   return related.some(food => matchesDiscoveryFood(food,{...foodFilters,tags:venueTags?[]:filters.tags}) && (!query || text.includes(query) || matchesDiscoveryFood(food,{...onlyVenueFilters,scope:'all',query})));

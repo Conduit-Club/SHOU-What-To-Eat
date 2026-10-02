@@ -1,6 +1,7 @@
+import { parseYuan, splitTags } from '../lib/submission-limits';
 import { useEffect, useState } from 'react';
 import { notifyForm } from '../utils/form-feedback';
-import { safePublicImage } from '../utils/catalog-display';
+import { safePublicImage, tagLabel } from '../utils/catalog-display';
 import '../styles/admin-workspace.css';
 type Data = Record<string, any>;
 type Entry = { type: 'food'|'venue'|'review'; record: Data; hash: string };
@@ -9,6 +10,18 @@ const types:Record<string,string>={food:'餐品',venue:'店铺',review:'评价',
 async function api(path:string,init:RequestInit={}){const response=await fetch('/api/v2/admin'+path,{...init,cache:'no-store',headers:{'Content-Type':'application/json',...init.headers}});const data=await response.json().catch(()=>null);if(!response.ok||!data)throw new Error(data?.error?.message||'审核会话可能已到期，请重新登录或刷新。');return data;}
 function PrivatePhoto({id,asset,compact=false}:{id:string;asset:Data;compact?:boolean}){const [url,setUrl]=useState('');useEffect(()=>{let object='';const controller=new AbortController();fetch(`/api/v2/admin/submissions/${id}/images/${asset.id}`,{cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)return;const blob=await response.blob();if(!controller.signal.aborted){object=URL.createObjectURL(blob);setUrl(object);}}).catch(()=>{});return()=>{controller.abort();if(object)URL.revokeObjectURL(object);};},[id,asset.id]);if(compact)return url?<img src={url} alt={asset.alt||'投稿照片'}/>:<span className="admin-type-icon">图</span>;return <figure>{url?<a href={url} target="_blank" rel="noreferrer"><img src={url} alt={asset.alt}/></a>:<div className="photo-placeholder">照片暂未加载</div>}<figcaption>{asset.alt}<small>{asset.slot==='attachedReview'?'随稿评价':'投稿照片'} · {asset.copyright_holder} · {asset.license}{asset.is_illustrative?' · 示意图':''}</small></figcaption></figure>;}
 function Field({label,value,onChange,multiline=false,required=false,type='text',max=2000}:{label:string;value:any;onChange:(v:string)=>void;multiline?:boolean;required?:boolean;type?:string;max?:number}){return <label className="admin-field"><span>{label}{required&&<b className="required-mark"> *</b>}</span>{multiline?<textarea value={value??''} maxLength={max} rows={4} onChange={e=>onChange(e.target.value)}/>:<input type={type} required={required} value={value??''} maxLength={max} min={type==='number'?0:undefined} step={type==='number'?'0.01':undefined} onChange={e=>onChange(e.target.value)}/>}</label>;}
+function PriceEditor({price,venue,canonical,change}:{price:Data|null;venue:boolean;canonical:boolean;change:(v:Data|null)=>void}) {
+ const [range,setRange]=useState(Boolean(price&&price.amountCents==null&&price.minCents!==price.maxCents));
+ const base=()=>({currency:'CNY',unit:venue?'人':'份',source:price?.source??'',verifiedAt:price?.verifiedAt??null});
+ const update=(field:string,value:string)=>{
+  const cents=value===''?null:parseYuan(value)??NaN;
+  if(range){change({...base(),minCents:price?.minCents??null,maxCents:price?.maxCents??null,[field]:cents});}
+  else change(value===''?null:{...base(),...(venue&&canonical?{minCents:cents,maxCents:cents}:{amountCents:cents})});
+ };
+ return <fieldset className="admin-meals"><legend>{venue?'人均消费':'餐品价格'}（元）</legend><label><input type="checkbox" checked={range} onChange={e=>{setRange(e.target.checked);const amount=price?.amountCents??price?.minCents??null;change(price?{...base(),...(e.target.checked||venue&&canonical?{minCents:amount,maxCents:price?.maxCents??amount}:{amountCents:amount})}:null);}}/>不确定 / 价格有浮动</label>
+ {range?<><Field label="最低价" type="number" value={price?.minCents==null?'':price.minCents/100} onChange={v=>update('minCents',v)}/><Field label="最高价" type="number" value={price?.maxCents==null?'':price.maxCents/100} onChange={v=>update('maxCents',v)}/><button type="button" onClick={()=>change(null)}>价格未知，清空区间</button></>:<Field label="金额" type="number" value={price?(price.amountCents??price.minCents??0)/100:''} onChange={v=>update('amountCents',v)}/>}
+ <small>未知可留空；区间两端都要填写，最高价不能低于最低价。</small></fieldset>;
+}
 function EntityFields({type,value,change,venues,canonical}:{type:string;value:Data;change:(v:Data)=>void;venues:Entry[];canonical:boolean}){
  const put=(key:string,v:any)=>change({...value,[key]:v});
  const select=(label:string,key:string,options:string[][])=><label className="admin-field">{label}<select disabled={key==='venueId'&&!canonical} value={value[key]??''} onChange={e=>put(key,e.target.value||null)}>{options.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>;
@@ -20,8 +33,8 @@ function EntityFields({type,value,change,venues,canonical}:{type:string;value:Da
  {canonical&&select('所属食堂 / 上级店铺','parentId',[['','无上级店铺'],...venues.filter(e=>e.record.id!==value.id&&e.record.status!=='archived').map(e=>[e.record.id,e.record.name])])}
  {['address','campusArea','floor','landmark'].map((key,i)=><Field key={key} label={['位置 / 地址','校区 / 区域','楼层','附近地标'][i]} required={i===0} value={value.location?.[key]} max={i===0?300:100} onChange={v=>put('location',{...value.location,[key]:v||null})}/>)}
  <Field label="校外距离（米）" type="number" value={value.location?.distanceMeters} onChange={v=>put('location',{...value.location,distanceMeters:v===''?null:Number(v)})}/><label className="admin-field">距离依据<select value={value.location?.distanceBasis??''} onChange={e=>put('location',{...value.location,distanceBasis:e.target.value||null})}><option value="">未知</option><option value="walking">步行</option><option value="straight-line">直线距离</option><option value="reported">投稿者提供</option></select></label><Field label="营业时间" value={value.openingHours} max={300} onChange={v=>put('openingHours',v||null)}/></>}
- <label className="admin-field">标签（逗号分隔）<input key={value.id??value.name} defaultValue={(value.tags??[]).join('，')} maxLength={1800} onBlur={e=>put('tags',e.target.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean))}/></label>
- <Field label={type==='venue'?'人均金额（元）':'餐品金额（元）'} type="number" value={price?(price.amountCents??price.minCents)/100:''} onChange={v=>{if(v===''){put(pk,null);return;}const cents=Math.round(Number(v)*100),next={...(price??{currency:'CNY',unit:type==='venue'?'人':'份',source:'',verifiedAt:null})};if(type==='venue'&&canonical){next.minCents=cents;next.maxCents=cents;delete next.amountCents;}else{next.amountCents=cents;delete next.minCents;delete next.maxCents;}put(pk,next);}}/>
+ <label className="admin-field">中文标签（空格分隔）<input key={value.id??value.name} defaultValue={(value.tags??[]).map(tagLabel).join(' ')} maxLength={1800} onBlur={e=>put('tags',splitTags(e.target.value))}/></label>
+ <PriceEditor key={(value.id??value.name)+type} price={price??null} venue={type==='venue'} canonical={canonical} change={v=>put(pk,v)}/>
  {price&&<><Field label="价格来源" required max={300} value={price.source} onChange={v=>put(pk,{...price,source:v})}/>{type==='food'&&<Field label="计价单位" required max={20} value={price.unit} onChange={v=>put(pk,{...price,unit:v})}/>}</>}
  <div className="admin-full"><Field label="介绍" value={value.description} multiline max={type==='food'?1000:2000} onChange={v=>put('description',v||null)}/></div></div>;
 }
@@ -32,6 +45,11 @@ export default function AdminWorkspace(){
  const [tab,setTab]=useState('queue'),[entries,setEntries]=useState<Entry[]>([]),[queue,setQueue]=useState<Data[]>([]),[jobs,setJobs]=useState<Data[]>([]),[active,setActive]=useState<Data[]>([]);
  const [query,setQuery]=useState(''),[type,setType]=useState('all'),[status,setStatus]=useState('all'),[cards,setCards]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [selected,setSelected]=useState<Entry|null>(null),[detail,setDetail]=useState<Data|null>(null),[draft,setDraft]=useState<Data|null>(null),[reason,setReason]=useState(''),[cursor,setCursor]=useState<string|null>(null);
+ async function cleanupLegacy(){
+  if(!window.confirm('下架旧资料迁入的餐品及关联评价，保留真实投稿和店铺；转换中文标签。所有下架均可恢复。继续？'))return;
+  setBusy(true);setError('');
+  try{let result;do{result=await api('/maintenance/legacy-catalog',{method:'POST',headers:{'Content-Type':'application/json','X-Catalog-Maintenance':'archive-legacy-and-localize-tags'}});}while(result.remaining>0);notifyForm('旧资料已下架，中文标签已保留。','success');await refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}
+ }
  async function refresh(){setLoading(true);setError('');try{const [c,q,p]=await Promise.all([api('/content'),api('/submissions?status=pending'),api('/publications')]);setEntries(c.entries);setActive(c.active);setQueue(q.submissions);setCursor(q.nextCursor);setJobs(p.publications);setMode(p.mode??'legacy');setBackup(p.backup??null);}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  useEffect(()=>{void refresh();},[]);
  function close(){setSelected(null);setDetail(null);setDraft(null);setReason('');}
@@ -67,5 +85,6 @@ export default function AdminWorkspace(){
  <Field label={selected?'修改原因（保存在私有审核历史）':'拒绝原因（拒绝时必填）'} required={Boolean(selected)} max={500} value={reason} onChange={setReason}/><div className="admin-actions"><button type="submit" className="primary">{selected?(mode==='live'?'保存并立即公开':'保存修改并申请发布'):'保存审核稿'}</button>{!selected&&<><button type="button" className="primary" disabled={detail?.submission.upload_state!=='pending'} onClick={()=>void review('approve')}>{mode==='live'?'批准并立即公开':'批准并申请发布'}</button><button type="button" className="danger" onClick={()=>void review('reject')}>拒绝投稿</button></>}</div>
  </fieldset></form>{detail&&<details className="admin-audit"><summary>审核历史（{detail.audits.length}）</summary>{detail.audits.map((audit:Data,i:number)=><p key={i}>{audit.created_at} · {audit.reviewer} · {audit.action} {audit.reason}</p>)}</details>}</section>}
  </div></>}
+ {mode==='live'&&<details className="admin-audit"><summary>历史资料整理</summary><p>下架旧资料迁入的餐品和关联评价，保留店铺、真实投稿、原文与来源；将已有标签转换为中文。</p><button type="button" disabled={busy} onClick={()=>void cleanupLegacy()}>{busy?'正在整理…':'整理旧资料（下架可恢复）'}</button></details>}
  </main>;
 }
