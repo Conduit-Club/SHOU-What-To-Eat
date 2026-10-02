@@ -1,74 +1,41 @@
-# 今日海大吃什么
+<div align="center">
 
-上海海洋大学校内和周边餐饮目录，记录店铺位置、餐品、价格、来源及不同同学的实际体验。
+# 🍜 今日海大吃什么
 
-## 线上数据与发布
+**从「随便吃点」到「就吃这家」。**<br />
+上海海洋大学同学一起维护的校园与周边餐饮指南。
 
-Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核通过后，在同一笔 D1 事务内更新公开目录、规范化记录、版本和审计；提交成功即可通过公开接口和详情页读取，不依赖 GitHub PR、构建或部署。已有资料编辑、封面调整、下架和恢复采用同一流程。
+[![在线访问](https://img.shields.io/badge/立即开饭-eat.shoumc.com-E85D2A?style=for-the-badge&logo=cloudflare&logoColor=white)](https://eat.shoumc.com)
+[![GitHub Stars](https://img.shields.io/github/stars/Conduit-Club/what-to-eat-in-shou-today-done-right?style=for-the-badge&logo=github&label=Stars&color=E6A530)](https://github.com/Conduit-Club/what-to-eat-in-shou-today-done-right/stargazers)
 
-前端静态资源与 API 同处一个 Worker。首页与目录读取 `/catalog-index.json`（由 Worker 转发到动态目录 API）；餐品和店铺详情由 Worker 动态生成，新增链接立即可用。公开查询只读取审核后的 `catalog_mirror`，不查询私有稿件。该表沿用历史名称，现已是权威内容表。`venues`、`foods`、`reviews` 保留投稿关联与结构化索引。D1 使用主库默认查询，公开数据及详情返回 `Cache-Control: no-store`。目录在打开、切回标签页时重新取数；详情检测到版本变化时显示刷新提示，避免丢失正在填写的评价。
+![Astro](https://img.shields.io/badge/Astro-18181B?style=flat-square&logo=astro&logoColor=FF5D01)
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare_Workers_·_D1_·_R2-F38020?style=flat-square&logo=cloudflare&logoColor=white)
 
-代码变更仍走 feature → dev → main 的 PR、测试和部署流程。普通部署只应用数据库结构迁移并更新 Worker/静态资源，**绝不再执行仓库 seed.sql 覆盖线上数据**。仓库 `src/content/` JSON 是旧版初始化样本与开发夹具，不是生产写入源。
+[找餐品](https://eat.shoumc.com/foods/) · [逛店铺](https://eat.shoumc.com/restaurants/) · [分享推荐](https://eat.shoumc.com/submit/)
 
-## GitHub 异步备份
+</div>
 
-`Back up live catalog` 工作流每小时第 17、47 分钟尝试拉取，也支持手动运行。GitHub 调度可能延迟，不承诺固定时间完成。工作流用现有 `DEPLOY_WEBHOOK_SECRET` 对带时间戳、方法、路径和正文的请求签名；独立备份域前缀防止与旧部署签名混用，签名五分钟内有效。
+[![今日海大吃什么首页：按偏好挑选餐品，查看推荐与店铺](docs/images/homepage.jpg)](https://eat.shoumc.com)
 
-- `GET /api/v2/backup/export`：导出已公开及可恢复下架的规范化内容，包含来源、许可、图片引用；不导出待审稿件、回执、私有备注、IP 哈希或 Secrets。
-- 快照写入独立 `data-backup` 分支的 `backups/catalog.json`、`manifest.json`。每次有变更就创建提交，保留 Git 历史；不会合并到生产代码，也不会触发内容重部署。
-- 推送成功后签名调用 `/api/v2/backup/ack`，校验导出版本与哈希。后台分别显示线上版本与已备份版本。备份失败不撤回已公开内容，下次可重试。
-- 备份包含图片元数据和 R2 URL，**不包含图片二进制文件**。R2 对象继续保存；GitHub 快照不是整个私有 D1/R2 的灾备副本。
+<sub>截图中的酸菜鱼为网络示意图：[Pauloleong2002 / Wikimedia Commons](https://commons.wikimedia.org/wiki/File:%E9%85%B8%E8%8F%9C%E9%AD%9A.jpg)，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，经转码与页面裁切显示。</sub>
 
-恢复备份必须作为独立维护操作，先验证 schema、关联、授权与当前版本，再导入；禁止把旧快照绑定到日常代码部署。
+## 今天这一顿，这里帮你选
 
-## 页面与投稿
+- **纠结时，抽一个。** 按口味、预算与距离缩小范围，把选择交给随机推荐。
+- **想好再出发。** 搜索餐品和店铺，看看位置、价格、照片与同学留下的评价。
+- **好吃的，一起记下来。** 分享餐品、店铺或真实体验；照片选填，审核通过后公开。
+- **白天夜里，都好逛。** 明暗主题随心切换，拖动悬浮投稿按钮，把它放在顺手的位置。
 
-- `/`：随机餐品、好评餐品、最近收录餐品、好评店铺、最近收录店铺。
-- `/foods/`、`/restaurants/`：各自搜索筛选，默认评分与评价人数排序，未评分排最后。目录按每批 12 张卡片展示、滚动追加，图片原生懒加载；当前小规模目录一次读取动态 JSON，再在前端筛选，不是数据库游标分页。
-- 首页好评推荐采用五条中性评分先验，公开均分不变；没有真实星级时显示空状态。
-- `/submit/`：新增店铺和餐品，可展开随稿评价。新餐品必须上传至少一张实拍照片；店铺照片、评价照片选填。历史无图记录保留。
-- 详情页：快捷五星评价、最多 256 个 Unicode 字符、最多 3 张图片，审核后立即公开。
-- `/status/`：用私有回执查询投稿进度，也提供管理员入口。
+这里记录的是同学的真实分享。口味因人而异，价格与营业信息请以现场为准；没有核实的信息会保留未知，不用猜测填满空白。
 
-前端使用 createImageBitmap → Canvas → WebP 重编码，最长边 2000px，逐级降低质量到 2MiB 内；Worker 再验证 WebP、尺寸、槽位、版本、来源与使用权。上传者明确授权后，评价实拍图可被选作同一餐品或店铺的封面。原评价、作者、许可与来源保持不变；隐藏、下架、授权撤回会使封面回退。应用保留媒体容量和操作限制，不代表 Cloudflare 账户费用硬上限。
+## 一起把海大的饭搭子地图补全
 
-## 管理与安全
+发现宝藏店铺？[来投稿](https://eat.shoumc.com/submit/)。发现功能问题或有新点子？[告诉我们](https://github.com/Conduit-Club/what-to-eat-in-shou-today-done-right/issues)。
 
-`/admin/` 没有默认密码，通过既有 Cloudflare Access 审核员邮箱登录。Worker 校验 JWT 的签名、受众、签发者、有效期与邮箱。后台支持列表/卡片、审核表单、内容编辑、餐品迁移、可恢复下架、图片隐藏和封面焦点。评价原文、评分和作者不可被管理员改写。
-
-所有发布写入检查版本，D1 batch 内的断言失败会回滚全部写入；规范化记录、公开 JSON、审计和版本不会出现半完成状态。R2 桶保持私有，媒体路由以 D1 已发布状态和图片可见性决定是否返回，不需要先改 R2 元数据。曾被用户或第三方缓存的图片无法通过本站下架追溯删除。
-
-投稿继续要求 Turnstile 服务端验证、限流、字段校验、精确图片数量和幂等校验。回执令牌仅向投稿者显示一次，D1 只保存其哈希。私有原稿、回执和审核备注不得输出到公开页面、GitHub 或日志。
-
-## 升级接续
-
-`0008_live_catalog.sql` 原样保留现有公开目录与私有稿件，建立全局版本、历史和备份状态。生产配置 `CONTENT_MODE=live` 后，旧 GitHub/部署回调只返回忽略，不再改变内容；Cron 接续旧队列中已审核但未公开的稿件。待审稿件仍须管理员审核。存在版本冲突或图片缺失的旧稿保留原稿与错误，不强行覆盖线上内容。
-
-`status=deployed` 是兼容旧数据库 CHECK 约束的已公开状态值；新增 `live_published_at` 标识即时公开时间，不代表执行过代码部署。新内容的 `dates.addedAt` 为首次公开日期，历史日期保留，未知核验日期仍为 null。
-
-## 本地开发与部署
-
-使用 Pixi 提供 Node.js、pnpm：
-
-```powershell
-pixi run --locked typecheck
-pixi run --locked test
-pixi run --locked build
-git diff --check
-```
-
-Astro 单独开发服务器使用仓库样本；完整动态接口与新详情需要 Wrangler。复制 `.dev.vars.example` 为本地 `.dev.vars`，不可提交真实值。`wrangler.jsonc` 保留占位符，脚本从环境变量生成被忽略的配置，生产和预览使用不同 D1/R2。既有数据库已经有目录；新建空数据库需要单独初始化样本，不能把初始化步骤加回日常部署。
-
-生产开启投稿需要 D1、R2、Turnstile 和 Access 配置，`PUBLICATION_ENABLED=true`。即时发布不再依赖 GitHub App；原 App 凭据保留供历史维护，不新增权限。GitHub 备份需要 `production` 环境的 `DEPLOY_WEBHOOK_SECRET`，与 Worker 同值；`GITHUB_TOKEN` 仅在备份 job 获得 Contents Write。
+开发与维护说明见 [AGENTS.md](AGENTS.md)。
 
 ## 来源与许可
 
-旧站内容保留其 `CC BY-NC-SA 4.0` 来源声明；SHOU-Online-Manual 内容保留其 `CC BY-SA 4.0` 来源声明。混合来源按条目分别保留署名、链接和许可。不得编造体验、价格、日期、位置或图片授权；图片须经使用权确认。整理日期不是用餐日期或现场核验日期。
-
-## 投稿字段与历史整理
-
-餐品和店铺照片均选填，可在评价中补充实拍或菜单。中文标签以空格分隔；旧英文标签兼容映射为中文，筛选词表独立于当前上架内容。
-
-价格可填写单价、完整区间或留空；区间必须同时提供上下限，且最高价不低于最低价。金额按整数分存储，已知金额必须注明来源。人均相同上下限显示为单价；预算筛选采用区间相交规则，未知价格不匹配具体预算。
-
-管理后台“历史资料整理”按明确的旧资料餐品 ID 清单分批下架餐品与关联评价，并转换中文标签；真实投稿和店铺保留。每批使用 D1 版本检查与原子写入，逐条保留审计与历史，失败可重试；不永久删除。普通部署不执行内容清理。
+内容按条目保留来源、署名与授权。旧站资料保留 **CC BY-NC-SA 4.0** 声明，SHOU-Online-Manual 资料保留 **CC BY-SA 4.0** 声明；不同来源分别遵循原许可。图片与投稿的授权以各条目为准。

@@ -1,6 +1,8 @@
 ---
 import '@fontsource-variable/epilogue';
 import '@fontsource-variable/plus-jakarta-sans';
+import '../styles/theme.css';
+import FloatingSubmit from '../components/FloatingSubmit.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import FormNotice from '../components/FormNotice.astro';
 
@@ -20,6 +22,15 @@ const navItems = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fbf9f6" />
+    <script is:inline>
+      (() => {
+        let saved;
+        try { saved = localStorage.getItem('shou-theme'); } catch {}
+        const dark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#191817' : '#fbf9f6');
+      })();
+    </script>
     <meta name="description" content="上海海洋大学校内和周边餐饮目录，同学分享的位置、餐品与用餐体验。" />
     <title>{title} · 今日海大吃什么</title>
   </head>
@@ -27,6 +38,7 @@ const navItems = [
     <FormNotice />
     <SiteHeader />
     <div class="app-content"><slot /></div>
+    <FloatingSubmit />
     <nav class="bottom-nav" aria-label="主要导航">
       {navItems.map((item) => {
         const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -178,3 +190,8 @@ const navItems = [
     }
   }
 </style>
+
+<script>
+  import { initTheme } from '../utils/site-controls';
+  initTheme();
+</script>

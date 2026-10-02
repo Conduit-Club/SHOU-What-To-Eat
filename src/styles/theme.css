@@ -1,0 +1,35 @@
+/* Shared palette for static pages, React islands and Worker-rendered details. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  color: #f2ebe4;
+  background: #191817;
+  --page-bg: #191817;
+  --surface: #191817;
+  --surface-card: #252220;
+  --surface-soft: #2c2824;
+  --ink: #f2ebe4;
+  --muted: #c5b3a4;
+  --line: #4c4036;
+  --orange: #b94013;
+  --orange-deep: #ffa575;
+  --orange-bright: #e66a38;
+  --green: #8cd5a6;
+  --honey: #ecc478;
+  --focus: #ffb484;
+  --theme-border: #594b40;
+  --theme-shadow: 0 8px 24px #0003;
+  --theme-soft: #302923;
+  --theme-danger: #ff9c8d;
+  --theme-success: #9bd6aa;
+  --theme-text: #d9c5b2;
+  --shadow-card: 0 4px 16px #0002;
+  --shadow-hover: 0 12px 32px #0004;
+}
+:root[data-theme='dark'] .bottom-nav { background: #252220f5; border-color: var(--line); }
+:root[data-theme='dark'] .bottom-nav a.active { background: #493024; }
+:root[data-theme='dark'] :is(input,select,textarea) { color: var(--ink); }
+:root[data-theme='dark'] :is(.decision-section,.dish-placeholder,.no-catalog-photo) { background: var(--surface-soft); }
+:root[data-theme='dark'] :is(.illustration-label,.catalog-photo>span) { background: #252220e8; color: var(--muted); }
+:root[data-theme='dark'] ::selection { background: #75412b; color: #fff; }
+:root[data-theme='dark'] .preference-card { background: var(--surface-card); }
+:root[data-theme='dark'] .preference-options .active { background: var(--ink); color: var(--page-bg); }
