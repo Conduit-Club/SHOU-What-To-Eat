@@ -1,3 +1,5 @@
+import { LEGACY_FOOD_IDS } from '../lib/legacy-foods';
+import { tagLabel } from '../utils/catalog-display';
 import { type Catalog, type Food, type Venue, type Review, deriveDistanceTags } from '../lib/catalog/index.js';
 import { parseManaged, validateManagedEdit, validateManagedRelations, type ManagedType, type ManagedRecord } from '../lib/catalog/management.js';
 import { canonicalVenue, canonicalFood, canonicalReview, imageRecord } from './publication/github.js';
@@ -30,6 +32,14 @@ async function recordWrites(db:D1Database, entries:LiveEntry[], revision:number,
     const record=entry.record, json=JSON.stringify(record),hash=await sha256(json);
     statements.push(db.prepare('INSERT INTO catalog_mirror(entity_type,entity_id,snapshot_id,payload_json,content_hash,synced_at) VALUES(?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET payload_json=excluded.payload_json,content_hash=excluded.content_hash,synced_at=excluded.synced_at').bind(entry.type,record.id,entry.snapshotId,json,hash,now));
     statements.push(db.prepare('INSERT INTO catalog_history(revision,entity_type,entity_id,payload_json,created_at) VALUES(?,?,?,?,?)').bind(revision,entry.type,record.id,json,now));
+    if('tags' in record){
+      statements.push(db.prepare('DELETE FROM entity_tags WHERE entity_type=? AND entity_id=?').bind(entry.type,record.id));
+      for(const raw of record.tags){
+        const label=tagLabel(raw),key=label.toLowerCase(),id=`tag-${(await sha256(key)).slice(0,32)}`;
+        statements.push(db.prepare('INSERT INTO tags(id,tag_key,label,created_at) VALUES(?,?,?,?) ON CONFLICT(tag_key) DO UPDATE SET label=excluded.label').bind(id,key,label,now));
+        statements.push(db.prepare('INSERT INTO entity_tags(entity_type,entity_id,tag_id) SELECT ?,?,id FROM tags WHERE tag_key=? ON CONFLICT DO NOTHING').bind(entry.type,record.id,key));
+      }
+    }
     const state=record.status==='archived'?'archived':'published';
     const table=entry.type==='venue'?'venues':entry.type==='food'?'foods':'reviews';
     statements.push(db.prepare(`UPDATE ${table} SET publication_state=?,content_hash=?,updated_at=?,published_at=COALESCE(published_at,?) WHERE id=?`).bind(state,hash,now,now,record.id),assertion(db));
@@ -121,4 +131,32 @@ export async function resumeApproved(env:AppEnv['Bindings']){
       await env.DB.prepare('UPDATE submissions SET live_error=?,live_attempt_at=? WHERE id=? AND live_published_at IS NULL').bind(code,new Date().toISOString(),row.id).run();
     }
   }
+}
+
+/** Resumable small batches: preserve all provenance and audit every changed record. */
+export async function maintainLegacyCatalog(env:AppEnv['Bindings'],reviewer:string) {
+ const {state,entries}=await readLive(env.DB);
+ const candidates=entries.flatMap(entry=>{
+  const original=entry.record;
+  const legacy=entry.type==='food'?LEGACY_FOOD_IDS.has(original.id):entry.type==='review'&&(original as Review).targetType==='food'&&LEGACY_FOOD_IDS.has((original as Review).targetId);
+  const record=structuredClone(original);
+  if(legacy)record.status='archived';
+  if('tags' in record)record.tags=[...new Set(record.tags.map(tagLabel))];
+  if(JSON.stringify(record)===JSON.stringify(original))return [];
+  return [{...entry,record}];
+ });
+ const changed=candidates.slice(0,5);
+ if(!changed.length)return {changed:0,remaining:0,revision:state.revision};
+ const now=new Date().toISOString(),statements=beginLiveWrite(env.DB,state.revision,now);
+ for(const entry of changed){
+  const previous=entries.find(e=>e.type===entry.type&&e.record.id===entry.record.id)!;
+  validateManagedEdit(entry.type,previous.record,entry.record);
+  // Existing cover references remain in history; archived content is never exposed.
+  const id=crypto.randomUUID();
+  statements.push(env.DB.prepare("INSERT INTO submissions(id,type,original_json,revision_json,receipt_hash,status,version,created_at,updated_at,reviewed_at,reviewer,schema_version,entity_type,entity_id,upload_state,snapshot_id,live_published_at) VALUES(?,'correction',?,?,?,'deployed',1,?,?,?,?,2,'management',?,'pending',?,?)").bind(id,JSON.stringify(previous.record),JSON.stringify({operation:'catalog-edit',entityType:entry.type,record:entry.record}),await sha256(crypto.randomUUID()),now,now,now,reviewer,`${entry.type}:${entry.record.id}`,entry.snapshotId,now));
+  statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'edit',1,?,?)").bind(crypto.randomUUID(),id,reviewer,'按站点所有者要求下架旧资料餐品及关联评价，保留原文与来源；标签转为中文。',now));
+ }
+ statements.push(...await recordWrites(env.DB,changed,state.revision+1,now),env.DB.prepare('DELETE FROM live_write_assertion'));
+ await env.DB.batch(statements);
+ return {changed:changed.length,remaining:candidates.length-changed.length,revision:state.revision+1};
 }

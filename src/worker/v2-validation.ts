@@ -1,3 +1,5 @@
+import { tagLabel } from '../utils/catalog-display';
+import { isChineseTag } from '../lib/submission-limits';
 import { SUBMISSION_LIMITS as LIMITS } from '../lib/submission-limits.js';
 export type V2EntityType = 'venue' | 'food' | 'review';
 export type V2Review = { rating: number; text: string };
@@ -44,7 +46,7 @@ export function validateV2Submission(value: unknown, existingRevision = false): 
   if (entityType === 'review') validateIndependentReview(payload);
   if (entityType === 'venue') validateVenue(payload);
   if (entityType === 'food') validateFood(payload, parentVenueId);
-  if (entityType === 'food' && expectedImages < 1 && !existingRevision) throw new V2ValidationError('food_photo_required');
+  if (!existingRevision && Array.isArray(payload.tags) && payload.tags.some(tag => !isChineseTag(tag))) throw new V2ValidationError('chinese_tags_required');
   validateSources(payload.sources);
   const publicPayload = cleanStrings(structuredClone(payload)) as Record<string, unknown>;
   delete publicPayload.turnstileToken;
@@ -61,6 +63,7 @@ export function validateV2Submission(value: unknown, existingRevision = false): 
 export function validateV2Revision(value: unknown, defaults: { expectedImages: number; expectedReviewImages: number; entityType: V2EntityType; snapshotId: string }): V2Submission {
   if (!isObject(value)) throw new V2ValidationError('invalid_revision');
   const candidate = {
+    payload: value.payload,
     ...value,
     schemaVersion: 2,
     entityType: value.entityType ?? defaults.entityType,
@@ -69,6 +72,7 @@ export function validateV2Revision(value: unknown, defaults: { expectedImages: n
     expectedReviewImages: value.expectedReviewImages ?? defaults.expectedReviewImages,
     turnstileToken: 'review-only',
   };
+  if(isObject(candidate.payload)&&Array.isArray(candidate.payload.tags)){candidate.payload={...candidate.payload,tags:[...new Set(candidate.payload.tags.map((t:unknown)=>typeof t==='string'?tagLabel(t):t))]};if(candidate.payload.tags.some((t:unknown)=>typeof t!=='string'||!isChineseTag(t)))throw new V2ValidationError('chinese_tags_required');}
   const result = validateV2Submission(candidate, true);
   if (result.entityType !== defaults.entityType) throw new V2ValidationError('entity_type_immutable');
   return result;

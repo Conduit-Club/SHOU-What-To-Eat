@@ -1,3 +1,4 @@
+import { FOOD_TAG_OPTIONS } from '../lib/tag-options';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatPrice, mealLabel, safePublicImage, tagLabel } from '../utils/catalog-display';
 import CatalogShelves from './CatalogShelves';
@@ -32,8 +33,8 @@ export default function FoodFinder({ initialCatalog }: { initialCatalog: Discove
   const selected = results.find(food => food.id === selectedId) ?? results[0] ?? null;
   const pick = useCallback(() => { setSelectedId(pickFoodId(results, selected?.id ?? null)); setDrawn(true); }, [results,selected?.id]);
   const reset = () => { setScope('all'); setMeal('all'); setBudget('all'); setTags([]); setDrawn(false); setSelectedId(null); };
-  const allTags = useMemo(() => [...new Set(foods.flatMap(food => food.tags))].sort((a,b) => tagLabel(a).localeCompare(tagLabel(b),'zh-CN')), [foods]);
-  const quickTags = ['noodles','rice','spicy','fried-food','soup'].filter(tag => allTags.includes(tag));
+  const allTags = useMemo(() => [...new Set([...FOOD_TAG_OPTIONS,...foods.flatMap(food => food.tags.map(tagLabel))])].sort((a,b) => tagLabel(a).localeCompare(tagLabel(b),'zh-CN')), [foods]);
+  const quickTags = ['面食','米饭类','微辣','炸物','汤类'].filter(tag => allTags.includes(tag));
   useEffect(() => { const keydown = (event: KeyboardEvent) => { const target=event.target as HTMLElement; if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !target.closest('input,textarea,select,button,a,[contenteditable]')) { event.preventDefault(); if(!loading&&results.length)pick(); } }; document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown); }, [pick,results.length,loading]);
   useEffect(() => { const keydown = (event: KeyboardEvent) => { if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();location.href='/foods/';}};document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown); }, []);
   return <div className="food-finder">

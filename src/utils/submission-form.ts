@@ -1,6 +1,6 @@
 import { turnstileWidget, resetTurnstile } from './turnstile-client';
 import { compressReviewImage } from './review-submission';
-import { SUBMISSION_LIMITS as LIMITS, parseYuan, splitTags } from '../lib/submission-limits';
+import { SUBMISSION_LIMITS as LIMITS, parseYuan, splitTags, isChineseTag } from '../lib/submission-limits';
 import { validateV2Submission, V2ValidationError } from '../worker/v2-validation';
 import { clearFormErrors, formProblems, notifyForm, showFormErrors } from './form-feedback';
 
@@ -40,14 +40,23 @@ export function initSubmissionForm() {
   const enableSection = (root: HTMLElement, enabled: boolean) => root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea').forEach(control => { control.disabled = !enabled || busy; });
   function syncFields() {
     const type = currentType();
-    form!.querySelector<HTMLElement>('[data-photo-count=entity-images]')!.textContent = photos.entity.length ? `已选 ${photos.entity.length} 张，首张作为默认封面。` : type==='food' ? '必填：至少一张这道餐品的实拍照片。' : '选填：推荐门头或窗口实拍，方便同学找到。';
-    form!.querySelector<HTMLElement>('[data-entity-photo-required]')!.hidden = type !== 'food';
+    form!.querySelector<HTMLElement>('[data-photo-count=entity-images]')!.textContent = photos.entity.length ? `已选 ${photos.entity.length} 张，首张作为默认封面。` : '选填：可以先分享资料，日后通过评价补充实拍照片。';
+    form!.querySelector<HTMLElement>('[data-entity-photo-required]')!.hidden = true;
     for (const kind of ['venue','food']) { const root = form!.querySelector<HTMLElement>(`#${kind}-fields`)!; root.hidden = kind !== type; enableSection(root,kind === type); }
     const offCampus = type === 'venue' && value('venueCategory') === 'off-campus';
     const distances = form!.querySelector<HTMLElement>('#distance-fields')!; distances.hidden = !offCampus; enableSection(distances,offCampus);
     field('venueDistanceBasis').required = offCampus && Boolean(value('venueDistanceMeters'));
     form!.querySelector<HTMLElement>('[data-distance-required]')!.hidden = !field('venueDistanceBasis').required;
-    for (const kind of ['venue','food']) { field(kind+'PriceSource').required = kind === type && Boolean(value(kind+'Price')); form!.querySelector<HTMLElement>(`[data-price-required=${kind}]`)!.hidden = !field(kind+'PriceSource').required; }
+    for (const kind of ['venue','food']) {
+      const range=checked(kind+'PriceRange');
+      const single=form!.querySelector<HTMLElement>(`[data-price-single=${kind}]`)!;
+      const bounds=form!.querySelector<HTMLElement>(`[data-price-range=${kind}]`)!;
+      single.hidden=range; bounds.hidden=!range; enableSection(single,kind===type&&!range); enableSection(bounds,kind===type&&range);
+      const hasPrice=range ? Boolean(value(kind+'PriceMin')||value(kind+'PriceMax')) : Boolean(value(kind+'Price'));
+      field(kind+'PriceMin').required=field(kind+'PriceMax').required=kind===type&&range&&hasPrice;
+      field(kind+'PriceSource').required=kind===type&&hasPrice;
+      form!.querySelector<HTMLElement>(`[data-price-required=${kind}]`)!.hidden=!field(kind+'PriceSource').required;
+    }
     const hasPhotos = photos.entity.length + photos.attachedReview.length > 0;
     const metadata = form!.querySelector<HTMLElement>('#image-metadata')!; metadata.hidden = !hasPhotos; enableSection(metadata,hasPhotos);
     const licensed = hasPhotos && value('photoOrigin') === 'licensed';
@@ -113,7 +122,9 @@ export function initSubmissionForm() {
   const attached = () => { const rating = Number(form!.querySelector<HTMLInputElement>('input[name=attachedRating]:checked')?.value ?? 0); const text = value('attachedText'); return rating || text || photos.attachedReview.length ? { rating,text } : null; };
   function payload() {
     const type = currentType();
-    const price = value(type+'Price') ? { amountCents: parseYuan(value(type+'Price')),currency: 'CNY',unit: type === 'venue' ? '人' : '份',source: value(type+'PriceSource') } : null;
+    const range=checked(type+'PriceRange');
+    const hasPrice=range ? Boolean(value(type+'PriceMin')||value(type+'PriceMax')) : Boolean(value(type+'Price'));
+    const price = hasPrice ? { ...(range ? {minCents:parseYuan(value(type+'PriceMin')),maxCents:parseYuan(value(type+'PriceMax'))} : {amountCents:parseYuan(value(type+'Price'))}),currency:'CNY',unit:type==='venue'?'人':'份',source:value(type+'PriceSource') } : null;
     const data = type === 'venue' ? { name: value('venueName'),type: value('venueType'),campusScope: value('venueCategory'),location: { address: value('venueAddress'),campusArea: value('venueCampusArea') || null,floor: value('venueFloor') || null,distanceMeters: value('venueCategory') === 'off-campus' && value('venueDistanceMeters') ? Number(value('venueDistanceMeters')) : null,distanceBasis: value('venueCategory') === 'off-campus' ? value('venueDistanceBasis') || null : null },tags: splitTags(value('venueTags')),description: value('venueDescription') || null,averagePrice: price } : { name: value('foodName'),venueId: value('foodVenueId'),mealType: value('foodMealType') || null,tags: splitTags(value('foodTags')),description: value('foodDescription') || null,price };
     return { ...data,...(attached() ? { attachedReview: attached() } : {}) };
   }
@@ -132,10 +143,12 @@ export function initSubmissionForm() {
     const problems = formProblems(form!);
     const add = (name: string, message: string) => problems.push({ element: field(name),message });
     const type = currentType();
-    if(type==='food'&&!photos.entity.length)problems.push({element:form!.querySelector('#entity-images'),message:'餐品照片：请至少上传一张这道餐品的实拍图。'});
     if(type==='food'&&checked('imageIllustrative')&&value('photoOrigin')==='licensed')problems.push({element:field('imageIllustrative'),message:'新餐品需要实拍照片，请勿使用网络示意图。'});
-    if (value(type+'Price') && parseYuan(value(type+'Price')) === null) add(type+'Price','价格：请输入 0–100000 元，最多两位小数。');
+    const priceFields=checked(type+'PriceRange')?['PriceMin','PriceMax']:['Price'];
+    for(const suffix of priceFields)if(value(type+suffix)&&parseYuan(value(type+suffix))===null)add(type+suffix,'价格：请输入 0–100000 元，最多两位小数。');
+    if(checked(type+'PriceRange')&&value(type+'PriceMin')&&value(type+'PriceMax')&&Number(value(type+'PriceMin'))>Number(value(type+'PriceMax')))add(type+'PriceMax','最高价不能低于最低价。');
     const tags = splitTags(value(type+'Tags'));
+    if(tags.some(tag=>!isChineseTag(tag)))add(type+'Tags','标签请使用中文，以空格分隔，例如：微辣 下饭。');
     if (tags.length > LIMITS.tags || tags.some(tag => tag.length > LIMITS.tag) || new Set(tags.map(tag => tag.toLocaleLowerCase())).size !== tags.length) add(type+'Tags','标签：最多 30 个，每个最多 60 字，请去掉重复标签。');
     if (type === 'venue' && value('venueCategory') === 'off-campus' && Boolean(value('venueDistanceMeters')) !== Boolean(value('venueDistanceBasis'))) add(value('venueDistanceMeters') ? 'venueDistanceBasis' : 'venueDistanceMeters','距离与依据：请同时填写，或同时留空。');
     if (attached()?.rating === 0) problems.push({ element: form!.querySelector('input[name=attachedRating]'),message: '随稿评价：请先选择 1–5 星评分，也可以清空评价后只提交资料。' });
