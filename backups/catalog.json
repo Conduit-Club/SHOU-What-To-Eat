@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 2,
+  "revision": 13,
   "catalog": {
     "schemaVersion": 2,
     "restaurants": [
@@ -13,7 +13,7 @@
         "category": "off-campus",
         "aliases": [],
         "tags": [
-          "KFC",
+          "肯德基",
           "快餐",
           "炸鸡"
         ],
@@ -112,8 +112,8 @@
           "A 区 7-11"
         ],
         "tags": [
-          "on-campus",
-          "convenience-store"
+          "校内",
+          "便利店"
         ],
         "location": {
           "address": "A 区 7-11，具体楼栋待补充。",
@@ -158,8 +158,8 @@
           "B 区 7-11"
         ],
         "tags": [
-          "on-campus",
-          "convenience-store"
+          "校内",
+          "便利店"
         ],
         "location": {
           "address": "研究生区，和第三食堂同一栋楼。",
@@ -205,8 +205,8 @@
           "第一餐厅"
         ],
         "tags": [
-          "on-campus",
-          "canteen"
+          "校内",
+          "食堂"
         ],
         "location": {
           "address": "本科生宿舍区附近，窗口分布在一楼和二楼。",
@@ -282,8 +282,8 @@
         "category": "on-campus",
         "aliases": [],
         "tags": [
-          "on-campus",
-          "xinjiang-flavor"
+          "校内",
+          "新疆风味"
         ],
         "location": {
           "address": "第二食堂二楼靠外侧，新疆风味。",
@@ -341,8 +341,8 @@
           "蜜雪冰城"
         ],
         "tags": [
-          "on-campus",
-          "drink"
+          "校内",
+          "饮品"
         ],
         "location": {
           "address": "第二食堂一楼。",
@@ -390,8 +390,8 @@
           "第二餐厅"
         ],
         "tags": [
-          "on-campus",
-          "canteen"
+          "校内",
+          "食堂"
         ],
         "location": {
           "address": "本科生宿舍区附近，一楼和二楼均有窗口。",
@@ -464,8 +464,8 @@
           "三餐"
         ],
         "tags": [
-          "on-campus",
-          "canteen"
+          "校内",
+          "食堂"
         ],
         "location": {
           "address": "研究生区，与 B 区 7-11 同一栋楼。食堂共两层。",
@@ -584,10 +584,11 @@
         ],
         "price": null,
         "tags": [
-          "porridge"
+          "粥类"
         ],
         "description": "一食堂新增品类；原记录当时尚无同学评价。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -616,10 +617,11 @@
         ],
         "price": null,
         "tags": [
-          "fried-food"
+          "炸物"
         ],
         "description": "炸物窗口；同学推荐，具体楼层待确认。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -648,10 +650,11 @@
         ],
         "price": null,
         "tags": [
-          "fried-food"
+          "炸物"
         ],
         "description": "炸物窗口；同学推荐，具体楼层待确认。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -688,10 +691,11 @@
           "verifiedAt": null
         },
         "tags": [
-          "dumpling"
+          "饺子"
         ],
         "description": "一楼；旧记录另称更早曾为 1 元/个，现价待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -728,10 +732,11 @@
           "verifiedAt": null
         },
         "tags": [
-          "iron-plate"
+          "铁板"
         ],
         "description": "一楼铁板窗口；有同学明确推荐。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -777,10 +782,11 @@
           "verifiedAt": null
         },
         "tags": [
-          "iron-plate"
+          "铁板"
         ],
         "description": "一楼铁板窗口；原记录将铁板饭和铁板鸡排合并记载。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -818,10 +824,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "一食堂正餐品类，具体窗口与面种待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -850,10 +857,11 @@
         ],
         "price": null,
         "tags": [
-          "pancake"
+          "饼类"
         ],
         "description": "一食堂正餐品类，具体窗口与价格待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -882,10 +890,11 @@
         ],
         "price": null,
         "tags": [
-          "set-meal"
+          "套餐打菜"
         ],
         "description": "一楼大伙打菜窗口；原资料未记录具体菜品和价格。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -914,10 +923,11 @@
         ],
         "price": null,
         "tags": [
-          "rice"
+          "米饭类"
         ],
         "description": "二楼；评价提及可选。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -946,10 +956,11 @@
         ],
         "price": null,
         "tags": [
-          "wonton"
+          "馄饨"
         ],
         "description": "一食堂正餐品类，具体窗口与价格待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-today",
@@ -986,10 +997,11 @@
           "verifiedAt": null
         },
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "同学明确推荐；现价待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1018,10 +1030,11 @@
         ],
         "price": null,
         "tags": [
-          "soup"
+          "汤类"
         ],
         "description": "同学反馈称汤鲜、料多；价格待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1050,10 +1063,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "风味餐厅品类；价格待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1082,10 +1096,11 @@
         ],
         "price": null,
         "tags": [
-          "drink"
+          "饮品"
         ],
         "description": "具体菜单、甜度选项及本店实付价格待补充。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1114,10 +1129,11 @@
         ],
         "price": null,
         "tags": [
-          "rice-noodle"
+          "米粉肠粉"
         ],
         "description": "二食堂资料明确列出的品类；旧单独条目因目标档口不明未迁移。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1146,10 +1162,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "二楼窗口品类，价格与当前营业状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1178,10 +1195,11 @@
         ],
         "price": null,
         "tags": [
-          "claypot"
+          "砂锅"
         ],
         "description": "一楼；配菜有过历史变更反馈。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1210,10 +1228,11 @@
         ],
         "price": null,
         "tags": [
-          "cold-noodles"
+          "凉面凉皮"
         ],
         "description": "二楼；有同学推荐。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1242,10 +1261,11 @@
         ],
         "price": null,
         "tags": [
-          "rice"
+          "米饭类"
         ],
         "description": "二楼；来源整理时称新开，营业状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1274,10 +1294,11 @@
         ],
         "price": null,
         "tags": [
-          "dumpling"
+          "饺子"
         ],
         "description": "后勤餐饮介绍列出的品类，具体窗口及楼层待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1306,10 +1327,11 @@
         ],
         "price": null,
         "tags": [
-          "fried-food"
+          "炸物"
         ],
         "description": "二楼；有同学推荐。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1338,10 +1360,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "二楼窗口品类，价格与当前营业状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1370,10 +1393,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "后勤餐饮介绍列出的品类，具体窗口及楼层待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1402,10 +1426,11 @@
         ],
         "price": null,
         "tags": [
-          "rice"
+          "米饭类"
         ],
         "description": "二楼；来源整理时称新开，营业状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1434,10 +1459,11 @@
         ],
         "price": null,
         "tags": [
-          "roast-meat"
+          "烧腊"
         ],
         "description": "二楼窗口品类，价格与当前营业状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1466,10 +1492,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "二楼；有同学推荐。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1498,10 +1525,11 @@
         ],
         "price": null,
         "tags": [
-          "set-meal"
+          "套餐打菜"
         ],
         "description": "一楼；评价不一，具体窗口与现价待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1530,11 +1558,12 @@
         ],
         "price": null,
         "tags": [
-          "noodles",
-          "spicy"
+          "面食",
+          "辣味"
         ],
         "description": "二楼；有同学推荐。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "what-to-eat-in-shou-contributions",
@@ -1563,10 +1592,11 @@
         ],
         "price": null,
         "tags": [
-          "soup"
+          "汤类"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1595,10 +1625,11 @@
         ],
         "price": null,
         "tags": [
-          "cold-noodles"
+          "凉面凉皮"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1627,10 +1658,11 @@
         ],
         "price": null,
         "tags": [
-          "iron-plate"
+          "铁板"
         ],
         "description": "一楼；同学分享的吃饱选择，当前窗口状态待核。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1659,10 +1691,11 @@
         ],
         "price": null,
         "tags": [
-          "korean"
+          "韩式"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1691,10 +1724,11 @@
         ],
         "price": null,
         "tags": [
-          "spicy"
+          "辣味"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1723,10 +1757,11 @@
         ],
         "price": null,
         "tags": [
-          "breakfast"
+          "早餐"
         ],
         "description": "一楼早餐区。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1755,10 +1790,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1787,10 +1823,11 @@
         ],
         "price": null,
         "tags": [
-          "noodles"
+          "面食"
         ],
         "description": "一楼面食区，可添加雪菜、素鸡等配菜。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1819,10 +1856,11 @@
         ],
         "price": null,
         "tags": [
-          "pastry"
+          "糕点"
         ],
         "description": "一楼糕点房。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1851,10 +1889,11 @@
         ],
         "price": null,
         "tags": [
-          "set-meal"
+          "套餐打菜"
         ],
         "description": "一楼正餐时段。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1883,10 +1922,11 @@
         ],
         "price": null,
         "tags": [
-          "stir-fry"
+          "小炒"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1915,10 +1955,11 @@
         ],
         "price": null,
         "tags": [
-          "small-plates"
+          "小碟菜"
         ],
         "description": "二楼窗口品类。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1947,10 +1988,11 @@
         ],
         "price": null,
         "tags": [
-          "breakfast"
+          "早餐"
         ],
         "description": "一楼早餐区。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -1979,10 +2021,11 @@
         ],
         "price": null,
         "tags": [
-          "breakfast"
+          "早餐"
         ],
         "description": "一楼早餐区。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -2011,11 +2054,12 @@
         ],
         "price": null,
         "tags": [
-          "breakfast",
-          "porridge"
+          "早餐",
+          "粥类"
         ],
         "description": "一楼早餐区。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
@@ -2044,10 +2088,11 @@
         ],
         "price": null,
         "tags": [
-          "breakfast"
+          "早餐"
         ],
         "description": "一楼早餐区。",
         "images": [],
+        "status": "archived",
         "sources": [
           {
             "repository": "SHOU-Online-Manual",
