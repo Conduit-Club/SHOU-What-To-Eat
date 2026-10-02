@@ -7,6 +7,7 @@
   --surface: #191817;
   --surface-card: #252220;
   --surface-soft: #2c2824;
+  --status-result-bg: #252220;
   --ink: #f2ebe4;
   --muted: #c5b3a4;
   --line: #4c4036;
@@ -28,8 +29,10 @@
 :root[data-theme='dark'] .bottom-nav { background: #252220f5; border-color: var(--line); }
 :root[data-theme='dark'] .bottom-nav a.active { background: #493024; }
 :root[data-theme='dark'] :is(input,select,textarea) { color: var(--ink); }
-:root[data-theme='dark'] :is(.decision-section,.dish-placeholder,.no-catalog-photo) { background: var(--surface-soft); }
+:root[data-theme='dark'] :is(.decision-section,.dish-placeholder,.no-catalog-photo,.photo-picker) { background: var(--surface-soft); }
 :root[data-theme='dark'] :is(.illustration-label,.catalog-photo>span) { background: #252220e8; color: var(--muted); }
 :root[data-theme='dark'] ::selection { background: #75412b; color: #fff; }
 :root[data-theme='dark'] .preference-card { background: var(--surface-card); }
 :root[data-theme='dark'] .preference-options .active { background: var(--ink); color: var(--page-bg); }
+
+:root[data-theme='dark'] .quick-review { background: var(--surface-card); }
