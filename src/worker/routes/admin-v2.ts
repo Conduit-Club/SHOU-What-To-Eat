@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { requireAccess } from '../security.js';
 import { publicationEnabled, liveContent } from '../config.js';
-import { publishLive } from '../live-catalog.js';
+import { publishLive, maintainLegacyCatalog } from '../live-catalog.js';
 import { sha256 } from './submissions.js';
 import { privateMediaResponse } from '../media.js';
 import { validateV2Revision, V2ValidationError, type V2EntityType } from '../v2-validation.js';
@@ -13,6 +13,14 @@ import type { AppEnv } from '../types.js';
 export const adminV2Routes = new Hono<AppEnv>();
 adminV2Routes.use('/*', requireAccess);
 adminV2Routes.route('/content', contentAdminRoutes);
+
+adminV2Routes.post('/maintenance/legacy-catalog',async context=>{
+ if(!publicationEnabled(context.env)||!liveContent(context.env))return unavailable(context);
+ if(context.req.header('Origin')!==new URL(context.req.url).origin)return fail(context,'invalid_origin','请求来源不允许。',403);
+ if(context.req.header('X-Catalog-Maintenance')!=='archive-legacy-and-localize-tags')return fail(context,'invalid_confirmation','请确认清理范围。',422);
+ try{return context.json(await maintainLegacyCatalog(context.env,context.get('reviewer')));}
+ catch{return fail(context,'maintenance_conflict','目录版本已变化，请刷新后重试。已完成部分仍保留。',409);}
+});
 
 adminV2Routes.get('/submissions', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);

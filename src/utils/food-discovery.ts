@@ -14,7 +14,7 @@ export function matchesDiscoveryFood(food: DiscoveryFood, filters: FoodFilters):
     if (venue?.category !== 'off-campus' || !location || typeof location !== 'object' || typeof location.distanceMeters !== 'number' || !location.distanceBasis || location.distanceMeters > limit) return false;
   }
   if (filters.meal !== 'all' && !food.mealTypes.includes(filters.meal)) return false;
-  if (filters.tags.some((tag) => !food.tags.includes(tag))) return false;
+  if (filters.tags.some((tag) => !food.tags.map(tagLabel).includes(tagLabel(tag)))) return false;
   if (filters.budget !== 'all') {
     const price = food.price;
     if (!price || typeof price !== 'object') return false;

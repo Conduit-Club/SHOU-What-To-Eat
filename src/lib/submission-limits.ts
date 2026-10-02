@@ -8,7 +8,7 @@ export const SUBMISSION_LIMITS = {
 } as const;
 
 export function splitTags(value: string): string[] {
-  return value.split(/[,，、]/).map(tag => tag.trim()).filter(Boolean);
+  return value.split(/[\s,，、]+/).map(tag => tag.trim()).filter(Boolean);
 }
 
 /** Parse decimal yuan without silently rounding fractional cents or exponential notation. */
@@ -18,3 +18,6 @@ export function parseYuan(value: string): number | null {
   const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
   return cents <= SUBMISSION_LIMITS.maxPriceCents ? cents : null;
 }
+
+/** Tags are Chinese words, optionally including digits (e.g. 校外500米). */
+export function isChineseTag(value: string): boolean { return /^[\p{Script=Han}0-9·]+$/u.test(value) && /\p{Script=Han}/u.test(value); }

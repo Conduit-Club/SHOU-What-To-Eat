@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safePublicImage } from '../src/utils/catalog-display.ts';
+import { safePublicImage, formatPrice } from '../src/utils/catalog-display.ts';
 
 const approved = {
   url: 'https://cdn.example.test/review.webp',
@@ -30,3 +30,5 @@ test('safePublicImage keeps approved provenance, hides pending images, and rejec
     assert.equal(safePublicImage({ ...approved, url }), null, url);
   }
 });
+
+test('equal price endpoints display once for a venue',()=>{assert.equal(formatPrice({minCents:5000,maxCents:5000,unit:'人'}),'¥50 / 人');});

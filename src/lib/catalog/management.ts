@@ -1,3 +1,4 @@
+import { isChineseTag } from '../submission-limits';
 import { foodSchema, reviewSchema, venueSchema, type Food, type Review, type Venue } from './index.js';
 
 export type ManagedType = 'venue' | 'food' | 'review';
@@ -25,6 +26,7 @@ export function validateManagedEdit(type: ManagedType, before: ManagedRecord, in
     if (next.targetId !== oldReview.targetId || next.targetType !== oldReview.targetType || next.rating !== oldReview.rating || next.text !== oldReview.text || next.authorAlias !== oldReview.authorAlias) throw new Error('review_content_immutable');
   } else {
     const oldEntity = before as Food | Venue, next = record as Food | Venue;
+    if(next.tags.some(tag=>!oldEntity.tags.includes(tag)&&!isChineseTag(tag)))throw new Error('chinese_tags_required');
     if (JSON.stringify(next.dates) !== JSON.stringify(oldEntity.dates)) throw new Error('dates_immutable');
     if (type === 'venue' && JSON.stringify((record as Venue).foods) !== JSON.stringify((before as Venue).foods)) throw new Error('food_links_immutable');
   }
