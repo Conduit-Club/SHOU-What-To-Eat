@@ -42,7 +42,7 @@ Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核
 
 ## GitHub 异步备份
 
-`Back up live catalog` 工作流每小时第 17、47 分钟尝试拉取，也支持手动运行。GitHub 调度可能延迟，不承诺固定时间完成。工作流用现有 `DEPLOY_WEBHOOK_SECRET` 对带时间戳、方法、路径和正文的请求签名；独立备份域前缀防止与旧部署签名混用，签名五分钟内有效。
+`Back up live catalog` 工作流每天 UTC+8 凌晨 4 点尝试拉取（cron 使用 UTC，即前一天 20:00），也支持手动运行。GitHub 调度可能延迟，不承诺固定时间完成。工作流用现有 `DEPLOY_WEBHOOK_SECRET` 对带时间戳、方法、路径和正文的请求签名；独立备份域前缀防止与旧部署签名混用，签名五分钟内有效。
 
 - `GET /api/v2/backup/export`：导出已公开及可恢复下架的规范化内容，包含来源、许可、图片引用；不导出待审稿件、回执、私有备注、IP 哈希或 Secrets。
 - 快照写入独立 `data-backup` 分支的 `backups/catalog.json`、`manifest.json`。每次有变更就创建提交，保留 Git 历史；不会合并到生产代码，也不会触发内容重部署。
