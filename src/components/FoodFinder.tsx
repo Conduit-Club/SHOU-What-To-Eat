@@ -61,7 +61,7 @@ export default function FoodFinder({ initialCatalog }: { initialCatalog: Discove
         </section>
       </div>
     </section>
-    {error && <p className="catalog-load-error">完整目录加载失败，先显示已载入的内容。 <button onClick={retry}>重新加载</button></p>}
+    {error && <p className="catalog-load-error" role="alert">{error} <button onClick={retry}>重新加载</button></p>}
     <CatalogShelves items={foods.map(foodCard)} type="food" />
     <CatalogShelves items={catalog.venues.map(venueCard)} type="venue" />
     <style>{`

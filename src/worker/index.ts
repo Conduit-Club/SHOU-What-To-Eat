@@ -13,6 +13,7 @@ import { backupRoutes } from './routes/backup.js';
 import { liveDetail } from './live-detail.js';
 import { resumeApproved } from './live-catalog.js';
 import type { AppEnv } from './types.js';
+import { isDatabaseError } from './errors.js';
 
 const app = new Hono<AppEnv>();
  app.use('/api/*', cors({ origin: (origin, context) => (context.env.ALLOWED_ORIGINS ?? '').split(',').map((item: string) => item.trim()).includes(origin) ? origin : null, allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization', 'Cf-Access-Jwt-Assertion', 'Idempotency-Key', 'X-Submission-Version', 'X-Image-Slot', 'X-Image-Index', 'X-Image-Alt', 'X-Image-Source', 'X-Image-Source-Note', 'X-Image-Copyright-Holder', 'X-Image-License', 'X-Image-Permission', 'X-Image-Rights-Confirmed', 'X-Image-Is-Illustrative', 'X-Image-Metadata-Encoding', 'X-Image-Cover-Allowed'] }));
@@ -32,7 +33,9 @@ app.route('/api/v2/admin', adminV2Routes);
 app.route('/api/v1/webhooks', webhookRoutes);
 app.get('/media/:assetId', async (context) => publicMediaResponse(context.req.raw, context.env, context.req.param('assetId')));
 app.notFound((context) => context.json({ error: { code: 'not_found', message: '没有找到该 API。' } }, 404, { 'Cache-Control': 'no-store' }));
-app.onError((_error, context) => context.json({ error: { code: 'internal_error', message: '请求暂时无法处理。' } }, 500, { 'Cache-Control': 'no-store' }));
+app.onError((error, context) => isDatabaseError(error)
+  ? context.json({ error: { code: 'database_error', message: '数据库错误，请稍后重试。' } }, 503, { 'Cache-Control': 'no-store' })
+  : context.json({ error: { code: 'internal_error', message: '请求暂时无法处理。' } }, 500, { 'Cache-Control': 'no-store' }));
 
 export default {
   async fetch(request: Request, env: AppEnv['Bindings'], executionContext: ExecutionContext) {
@@ -42,7 +45,7 @@ export default {
       if(url.pathname==='/catalog-snapshot.json')return Response.json({schemaVersion:2,snapshotId:'current'},{headers:{'Cache-Control':'no-store'}});
       let path=url.pathname;try{path=decodeURIComponent(path);}catch{return new Response('Not found',{status:404});}
       const detail=path.replace(/\/index\.html$/,'/').match(/^\/(foods|restaurants)\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/);
-      if(detail){try{return await liveDetail(request,env,detail[1]==='foods'?'food':'venue',detail[2]);}catch{return new Response('资料暂时无法加载，请稍后刷新。',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});}}
+      if(detail){try{return await liveDetail(request,env,detail[1]==='foods'?'food':'venue',detail[2]);}catch(error){return new Response(isDatabaseError(error)?'数据库错误，请稍后重试。':'资料暂时无法加载，请稍后刷新。',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});}}
       if(/^\/(foods|restaurants)\/.+/.test(path)&&!/^\/(foods|restaurants)\/index\.html$/.test(path))return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
     }
     if (url.pathname === '/api' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) return app.fetch(request, env, executionContext);
