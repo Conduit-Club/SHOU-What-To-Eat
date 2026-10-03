@@ -78,6 +78,8 @@ Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核
 
 ## 本地开发与部署
 
+GitHub 仓库为 `Conduit-Club/SHOU-What-To-Eat`，npm 与 Pixi 项目标识为 `shou-what-to-eat`。Cloudflare Worker 继续使用既有名称 `what-to-eat-in-shou-today-done-right` 和 `what-to-eat-in-shou-today-done-right-preview`；它们是部署目标，不随仓库改名，禁止全局替换。
+
 使用 Pixi 提供 Node.js、pnpm：
 
 ```powershell

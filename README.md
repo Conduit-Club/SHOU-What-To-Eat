@@ -6,7 +6,7 @@
 上海海洋大学同学一起维护的校园与周边餐饮指南。
 
 [![在线访问](https://img.shields.io/badge/立即开饭-eat.shoumc.com-E85D2A?style=for-the-badge&logo=cloudflare&logoColor=white)](https://eat.shoumc.com)
-[![GitHub Stars](https://img.shields.io/github/stars/Conduit-Club/what-to-eat-in-shou-today-done-right?style=for-the-badge&logo=github&label=Stars&color=E6A530)](https://github.com/Conduit-Club/what-to-eat-in-shou-today-done-right/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/Conduit-Club/SHOU-What-To-Eat?style=for-the-badge&logo=github&label=Stars&color=E6A530)](https://github.com/Conduit-Club/SHOU-What-To-Eat/stargazers)
 
 ![Astro](https://img.shields.io/badge/Astro-18181B?style=flat-square&logo=astro&logoColor=FF5D01)
 ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
@@ -32,7 +32,7 @@
 
 ## 一起把海大的饭搭子地图补全
 
-发现宝藏店铺？[来投稿](https://eat.shoumc.com/submit/)。发现功能问题或有新点子？[告诉我们](https://github.com/Conduit-Club/what-to-eat-in-shou-today-done-right/issues)。
+发现宝藏店铺？[来投稿](https://eat.shoumc.com/submit/)。发现功能问题或有新点子？[告诉我们](https://github.com/Conduit-Club/SHOU-What-To-Eat/issues)。
 
 开发与维护说明见 [AGENTS.md](AGENTS.md)。
 

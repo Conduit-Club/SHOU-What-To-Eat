@@ -23,7 +23,7 @@
     "ALLOWED_ORIGINS": "http://localhost:4321",
     "TURNSTILE_HOSTNAME": "eat.shoumc.com",
     "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
-    "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+    "GITHUB_REPOSITORY": "Conduit-Club/SHOU-What-To-Eat",
     "PUBLICATION_ENABLED": "false"
   },
   "triggers": { "crons": [] },
@@ -42,7 +42,7 @@
         "ALLOWED_ORIGINS": "http://localhost:4321",
         "TURNSTILE_HOSTNAME": "eat.shoumc.com",
         "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
-        "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+        "GITHUB_REPOSITORY": "Conduit-Club/SHOU-What-To-Eat",
         "PUBLICATION_ENABLED": "false"
       },
       "triggers": { "crons": [] }
@@ -62,7 +62,7 @@
         "ALLOWED_ORIGINS": "https://eat.shoumc.com",
         "TURNSTILE_HOSTNAME": "eat.shoumc.com",
         "PUBLIC_TURNSTILE_SITE_KEY": "replace-with-public-turnstile-site-key",
-        "GITHUB_REPOSITORY": "Conduit-Club/what-to-eat-in-shou-today-done-right",
+        "GITHUB_REPOSITORY": "Conduit-Club/SHOU-What-To-Eat",
         "PUBLICATION_ENABLED": "false"
       },
       "triggers": { "crons": [] }
