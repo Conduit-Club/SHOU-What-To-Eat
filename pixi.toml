@@ -1,5 +1,5 @@
 [workspace]
-name = "what-to-eat-in-shou-today-done-right"
+name = "shou-what-to-eat"
 version = "0.1.0"
 description = "今日海大吃什么：静态餐饮站和 Cloudflare 投稿审核服务"
 channels = ["conda-forge"]

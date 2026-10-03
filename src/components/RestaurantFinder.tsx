@@ -193,22 +193,22 @@ export default function RestaurantFinder({ restaurants, foods = [] }: Props) {
       .control-copy{margin:0;color:var(--muted);font-size:13px;line-height:1.75}
       .filter-block{margin-top:25px}
       .field-label{display:block;margin-bottom:9px;color:var(--ink);font-size:12px;font-weight:800}
-      .filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:4px;border-radius:14px;background:#f4f0eb}
+      .filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:4px;border-radius:14px;background:var(--theme-soft,#f4f0eb)}
       .filter{min-width:0;min-height:44px;padding:0 7px;border:0;border-radius:11px;background:transparent;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
-      .filter.active{background:var(--ink);color:#fff}
+      .filter.active{background:var(--ink);color:var(--page-bg)}
       .search{display:flex;align-items:center;gap:10px;min-height:50px;margin-top:16px;padding:0 15px;border:1px solid var(--line);border-radius:var(--radius-control);background:var(--surface-soft);color:var(--muted);transition:border-color .2s,box-shadow .2s}
       .search>span{flex:0 0 auto;font-size:22px;line-height:1}
       .search input{width:100%;min-width:0;min-height:44px;padding:0;border:0;background:transparent;color:var(--ink);font-size:16px;outline:0}
-      .search:focus-within{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,53,.15)}
-      .search input::placeholder{color:#a5a8b5}
-      .pick{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:10px;width:100%;min-height:62px;margin-top:14px;padding:10px 18px;border:0;border-radius:18px;background:linear-gradient(135deg,var(--orange),var(--orange-deep));box-shadow:0 14px 26px -12px rgba(255,107,53,.55);color:#fff;text-align:left;transition:transform .2s,box-shadow .2s;cursor:pointer}
+      .search:focus-within{border-color:var(--orange);box-shadow:var(--theme-shadow,0 0 0 4px rgba(255,107,53,.15))}
+      .search input::placeholder{color:var(--theme-text,#a5a8b5)}
+      .pick{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:10px;width:100%;min-height:62px;margin-top:14px;padding:10px 18px;border:0;border-radius:18px;background:linear-gradient(135deg,var(--orange),var(--orange-deep));box-shadow:var(--theme-shadow,0 14px 26px -12px rgba(255,107,53,.55));color:#fff;text-align:left;transition:transform .2s,box-shadow .2s;cursor:pointer}
       .pick:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
       .pick:active{transform:scale(.97)}
       .pick:disabled{opacity:.5;cursor:not-allowed;transform:none}
       .pick-icon{grid-row:span 2;font-size:24px}
       .pick>span:nth-child(2){font-size:14px;font-weight:800}
       .pick small{color:#ffe5db;font-size:10px;line-height:1.4}
-      .suggestion{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:8px 8px 8px 13px;border:1px solid #ffd5c8;border-radius:16px;background:#fff2eb;color:var(--orange-deep);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+      .suggestion{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:8px 8px 8px 13px;border:1px solid var(--theme-border,#ffd5c8);border-radius:16px;background:var(--theme-soft,#fff2eb);color:var(--orange-deep);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
       .suggestion>span{min-width:0}
       .suggestion button{display:grid;flex:0 0 44px;width:44px;min-height:44px;place-items:center;margin-left:auto;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
       .discovery{min-width:0}
@@ -219,10 +219,10 @@ export default function RestaurantFinder({ restaurants, foods = [] }: Props) {
       .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
       .restaurant{display:flex;min-width:0;overflow:hidden;flex-direction:column;border:1px solid rgba(45,49,66,.07);border-radius:var(--radius-card);background:var(--surface-card);box-shadow:var(--shadow-card);text-decoration:none;transition:transform .2s,box-shadow .2s,border-color .2s}
       .restaurant:hover{border-color:rgba(255,107,53,.2);box-shadow:var(--shadow-hover);transform:translateY(-3px)}
-      .restaurant-image{position:relative;aspect-ratio:16/10;overflow:hidden;background:#f5eee7}
+      .restaurant-image{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--theme-soft,#f5eee7)}
       .restaurant-image>img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .35s}
       .restaurant:hover .restaurant-image>img{transform:scale(1.03)}
-      .photo-placeholder{display:grid;width:100%;height:100%;place-items:center;align-content:center;gap:5px;background:radial-gradient(circle at 55% 25%,#fffdf9 0 6%,transparent 7%),linear-gradient(135deg,#fff7f0,#f4e6db);color:#b89a8d;font-size:11px;font-weight:700}
+      .photo-placeholder{display:grid;width:100%;height:100%;place-items:center;align-content:center;gap:5px;background:radial-gradient(circle at 55% 25%,#fffdf9 0 6%,transparent 7%),linear-gradient(135deg,#fff7f0,#f4e6db);color:var(--theme-text,#b89a8d);font-size:11px;font-weight:700}
       .photo-placeholder svg{width:72px;height:58px;fill:none;stroke:#d3ad9b;stroke-linecap:round;stroke-linejoin:round;stroke-width:2}
       .image-badges{position:absolute;top:12px;right:12px;left:12px;display:flex;justify-content:space-between;gap:8px}
       .image-badges span{padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.88);color:var(--ink);font-size:10px;font-weight:800;backdrop-filter:blur(8px)}
@@ -237,11 +237,11 @@ export default function RestaurantFinder({ restaurants, foods = [] }: Props) {
       .food-preview span{margin-right:4px;color:var(--honey)}
       .restaurant-meta{justify-content:flex-start;flex-wrap:wrap}
       .price{color:var(--ink);font-size:14px;font-weight:800;overflow-wrap:anywhere}
-      .tag{padding:5px 9px;border-radius:999px;background:#f0fff4;color:#2e9d60;font-size:11px;font-weight:800}
+      .tag{padding:5px 9px;border-radius:999px;background:var(--theme-soft,#f0fff4);color:var(--theme-text,#2e9d60);font-size:11px;font-weight:800}
       .card-bottom{padding:13px 19px 17px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
       .card-bottom>span{min-width:0;overflow-wrap:anywhere}
       .detail{flex:0 0 auto;color:var(--orange-deep);font-weight:800}
-      .empty{display:grid;justify-items:center;padding:80px 20px;border:1px dashed #e1d5cc;border-radius:24px;color:var(--muted);text-align:center}
+      .empty{display:grid;justify-items:center;padding:80px 20px;border:1px dashed var(--theme-border,#e1d5cc);border-radius:24px;color:var(--muted);text-align:center}
       .empty-icon{font-size:34px;color:var(--orange)}
       .empty p{font-size:14px}
       .empty button{min-height:44px;padding:0 16px;border:1.5px solid var(--orange);border-radius:999px;background:transparent;color:var(--orange-deep);font-size:12px;font-weight:800;cursor:pointer}

@@ -4,12 +4,16 @@ const pathname = Astro.url.pathname;
 <header class="site-header">
   <a class="site-brand" href="/" aria-label="今日海大吃什么首页"><span class="site-logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 14h20c0 9-5 13-10 13S6 23 6 14Z"/><path d="m9 5 18-2M9 9l18-2"/></svg></span><span>今日吃什么<small>上海海洋大学 · 临港</small></span></a>
   <nav class="site-links" aria-label="目录导航"><a href="/" aria-current={pathname === '/' ? 'page' : undefined}>首页</a><a href="/foods/" aria-current={pathname.startsWith('/foods/') ? 'page' : undefined}>找餐品</a><a href="/restaurants/" aria-current={pathname.startsWith('/restaurants/') ? 'page' : undefined}>找店铺</a><a href="/status/" aria-current={pathname.startsWith('/status') ? 'page' : undefined}>投稿进度</a></nav>
-  <a class="site-contribute" href="/submit/"><span aria-hidden="true">＋</span> 我要投稿</a>
+  <button class="theme-toggle" type="button" aria-label="切换明暗主题" title="切换明暗主题">
+    <svg class="theme-moon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg>
+    <svg class="theme-sun" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+    <span class="theme-label">切换主题</span>
+  </button>
 </header>
 <style>
   .site-header{width:calc(100% - clamp(32px,4vw,96px));margin:auto;min-height:94px;display:flex;align-items:center;justify-content:space-between;gap:28px;border-bottom:1px solid var(--line)}
   .site-brand{display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none;font-size:24px;font-weight:850;color:var(--orange-deep);letter-spacing:-.04em}.site-brand small{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em}.site-logo{width:48px;height:48px;display:grid;place-items:center;background:var(--orange-bright);border-radius:17px;color:#fff}.site-logo svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
   .site-links{display:flex;gap:30px;align-items:center}.site-links a{min-height:48px;display:flex;align-items:center;font-size:14px;font-weight:750;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent}.site-links a[aria-current]{color:var(--orange-deep);border-color:var(--orange)}
-  .site-contribute{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 23px;border-radius:999px;background:var(--orange);color:white;text-decoration:none;font-size:14px;font-weight:750;box-shadow:0 7px 18px -9px #ce4a13}.site-contribute span{font-size:22px}
-  @media(max-width:760px){.site-header{min-height:76px;gap:12px}.site-brand{font-size:20px;gap:9px}.site-logo{width:40px;height:40px;border-radius:14px}.site-links{display:none}.site-contribute{padding:0 15px;font-size:12px;min-height:44px}}
+  .theme-toggle{display:flex;align-items:center;justify-content:center;gap:9px;flex:none;min-height:46px;padding:0 17px;border:1px solid var(--line);border-radius:999px;background:var(--surface-card);color:var(--ink);font-size:12px;font-weight:750}.theme-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.theme-sun{display:none}:global([data-theme=dark]) .theme-sun{display:block}:global([data-theme=dark]) .theme-moon{display:none}
+  @media(max-width:760px){.site-header{min-height:76px;gap:12px}.site-brand{font-size:20px;gap:9px}.site-logo{width:40px;height:40px;border-radius:14px}.site-links{display:none}.theme-toggle{padding:0 13px;min-height:44px}.theme-label{display:none}}
 </style>
