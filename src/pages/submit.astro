@@ -3,13 +3,16 @@ import Layout from '../templates/Layout.astro';
 
 import PhotoUploader from '../components/PhotoUploader.astro';
 import StarRating from '../components/StarRating.astro';
+import ContributionAccess from '../components/ContributionAccess.astro';
+import PublicationIdentity from '../components/PublicationIdentity.astro';
 import snapshot from '../../public/catalog-snapshot.json';
 const venues: {id:string;name:string}[] = [];
 ---
 <Layout title="提交餐饮信息">
   <main class="submit-page">
     <header class="page-top"><a href="/">← 返回食单</a><a href="/status/">投稿进度 ↗</a></header>
-    <section class="submit-hero"><p class="eyebrow">SHOU FOOD · CONTRIBUTION</p><h1>分享一家店，<br />或你喜欢的那一口。</h1><p>补充店铺和餐品资料，也可以选填一条自己的用餐评价。审核后公开，未知信息请留空。<span class="required-mark">*</span> 为必填。</p></section>
+    <section class="submit-hero"><p class="eyebrow">SHOU FOOD · CONTRIBUTION</p><h1>分享一家店，<br />或你喜欢的那一口。</h1><p>补充店铺和餐品资料，也可以选填一条自己的用餐评价。未知信息请留空。<span class="required-mark">*</span> 为必填。</p></section>
+    <ContributionAccess />
     <form id="submission-form" class="submission-form" data-snapshot-id={snapshot.snapshotId} novalidate>
       <fieldset class="type-field"><legend>你想分享什么？</legend><div class="type-grid">
         <label><input type="radio" name="entityType" value="venue" checked /><span><b>餐厅 / 档口</b><small>补充一家值得去的店</small></span></label>
@@ -28,7 +31,7 @@ const venues: {id:string;name:string}[] = [];
       <section id="food-fields" class="form-section" aria-labelledby="food-heading" hidden>
         <div class="section-heading"><div><h2 id="food-heading">餐品</h2></div><small>找到这道菜的归属</small></div>
         <label><span>所属餐厅 / 档口 <b class="required-mark" aria-hidden="true">*</b></span><select name="foodVenueId" required data-label="所属餐厅 / 档口"><option value="">请选择店铺</option>{venues.map(venue => <option value={venue.id}>{venue.name}</option>)}</select></label>
-        <p class="field-note">店铺尚未收录？先投稿店铺，再使用回执里的“为此店铺添加餐品”。</p>
+        <p class="field-note">店铺尚未收录？请先投稿餐厅或档口，等待管理员批准后再添加餐品。登录直发只能选择已公开店铺。</p>
         <div class="row"><label><span>餐品名称 <b class="required-mark" aria-hidden="true">*</b></span><input name="foodName" required maxlength="120" data-label="餐品名称" placeholder="例如：酸菜鱼" /></label><label><span>餐段</span><select name="foodMealType" data-label="餐段"><option value="">未注明</option><option value="breakfast">早餐</option><option value="meal">正餐</option><option value="snack">小吃</option><option value="dessert">甜点</option><option value="drink">饮品</option></select></label></div>
         <label><span>餐品标签</span><input aria-describedby="food-tags-help" name="foodTags" maxlength="1830" data-label="餐品标签" placeholder="微辣 鱼类 下饭" /></label>
         <p id="food-tags-help" class="field-note">使用中文标签，以空格分隔，例如：微辣 鱼类 下饭。最多 30 个。</p><label><span>餐品描述</span><textarea name="foodDescription" maxlength="1000" rows="4" data-label="餐品描述" placeholder="说说这道餐品是什么，最多 1000 字。"></textarea></label>
@@ -40,8 +43,9 @@ const venues: {id:string;name:string}[] = [];
           <div id="entity-previews" class="upload-previews" aria-live="polite"></div>
           <p class="field-note">可上传餐品实拍、店面或窗口照片。</p>
         </section>
-        <details class="attached-review form-section" id="attached-review"><summary><span class="review-summary-icon" aria-hidden="true">☆</span><span><strong>顺便留一条用餐评价</strong><small>选填 · 随资料一起审核</small></span><b aria-hidden="true">＋</b></summary>
+        <details class="attached-review form-section" id="attached-review"><summary><span class="review-summary-icon" aria-hidden="true">☆</span><span><strong>顺便留一条用餐评价</strong><small>选填 · 随资料一起发表</small></span><b aria-hidden="true">＋</b></summary>
           <div class="attached-body"><p class="field-note">可以只打星，也可以写最多 256 字并附图。欢迎上传店铺菜单，帮同学了解有哪些菜和当前价格。</p><StarRating name="attachedRating" required={false} />
+            <PublicationIdentity />
             <label><span>你的感受</span><textarea name="attachedText" rows="3" data-label="随稿评价" placeholder="味道、分量、服务，有什么想告诉同学的？" aria-describedby="attached-count"></textarea><small id="attached-count">0 / 256</small></label>
             <PhotoUploader id="review-images" title="添加用餐评价照片" limit={3} /><div id="review-previews" class="upload-previews" aria-live="polite"></div>
             <button type="button" id="remove-attached-review">不附评价，清空这一栏</button>
@@ -54,9 +58,9 @@ const venues: {id:string;name:string}[] = [];
           <p class="field-note">此声明适用于本次选择的全部照片；混合来源的照片请分别投稿。</p>
         </section>
       </aside>
-      <div class="submission-bottom"><p class="notice">ⓘ 资料与随稿评价通过审核后公开。不要填写私人联系方式；提交成功表示已收到，不代表已发布。</p><div id="turnstile-slot"></div><button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><button id="retry-submission" type="button" hidden>继续保存上一份投稿</button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button></div>
+      <div class="submission-bottom"><p class="notice">ⓘ 登录用户的餐品与随稿评价在完成全部图片后直接公开；餐厅、档口及未登录投稿需管理员审核。评价默认匿名署名。不要填写私人联系方式。</p><div id="turnstile-slot"></div><button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><button id="retry-submission" type="button" hidden>继续完成上一份投稿</button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button></div>
     </form>
-    <section id="receipt-panel" class="form-section receipt-panel" hidden aria-labelledby="receipt-heading"><h2 id="receipt-heading">投稿已收到，保存好这份回执</h2><p class="field-note">令牌用于私下查询进度，请妥善保存。</p><div class="row"><label>回执编号<input id="receipt-id" readonly autocomplete="off" /></label><label id="receipt-entity-row">内容编号<input id="receipt-entity-id" readonly autocomplete="off" /></label></div><label>查询令牌<div class="token-control"><input id="receipt-token" type="password" readonly autocomplete="off" /><button id="receipt-token-toggle" type="button" aria-pressed="false">显示</button></div></label><div class="receipt-actions"><a id="receipt-status-link" href="/status/">查询此投稿 →</a><a id="receipt-food-link" href="/submit/" hidden>为此店铺添加餐品 ＋</a></div></section>
+    <section id="receipt-panel" class="form-section receipt-panel" hidden aria-labelledby="receipt-heading"><h2 id="receipt-heading">投稿已收到，保存好这份回执</h2><p class="field-note">令牌用于私下查询进度，请妥善保存。</p><div class="row"><label>回执编号<input id="receipt-id" readonly autocomplete="off" /></label><label id="receipt-entity-row">内容编号<input id="receipt-entity-id" readonly autocomplete="off" /></label></div><label>查询令牌<div class="token-control"><input id="receipt-token" type="password" readonly autocomplete="off" /><button id="receipt-token-toggle" type="button" aria-pressed="false">显示</button></div></label><div class="receipt-actions"><a id="receipt-public-link" href="/foods/" hidden>查看已公开餐品 →</a><a id="receipt-status-link" href="/status/">查询此投稿 →</a><a id="receipt-food-link" href="/submit/" hidden>店铺审核通过后添加餐品 ＋</a></div></section>
   </main>
 </Layout>
 <script>
@@ -70,3 +74,4 @@ const venues: {id:string;name:string}[] = [];
 </style>
 
 <style>.price-fields{border:1px solid var(--line);border-radius:18px;padding:20px;margin-top:18px}.price-fields legend{font-weight:700}.price-fields .check-label{margin-bottom:16px}</style>
+<style>@media(max-width:400px){.submit-hero h1{font-size:30px}.type-grid{grid-template-columns:1fr}.form-section{padding:17px}.section-heading h2{font-size:22px}.attached-review{padding:0}.attached-review summary{padding:17px;gap:9px}.attached-review summary>span:nth-child(2){min-width:0}.attached-review summary strong{font-size:13px}.attached-body{padding:17px}.price-fields{padding:14px}.check-label{align-items:flex-start}.check-label input{margin-top:4px}.notice{padding:15px}}</style>

@@ -2,13 +2,17 @@
 import StarRating from './StarRating.astro';
 import PhotoUploader from './PhotoUploader.astro';
 import snapshot from '../../public/catalog-snapshot.json';
+import ContributionAccess from './ContributionAccess.astro';
+import PublicationIdentity from './PublicationIdentity.astro';
 interface Props { targetType: 'venue' | 'food'; targetId: string; targetName: string }
 const { targetType, targetId, targetName } = Astro.props;
 ---
 <section id="review-form" class="quick-review" aria-labelledby="quick-review-heading">
-  <header class="quick-heading"><div><p>YOUR TABLE TALK</p><h2 id="quick-review-heading">{targetType === 'food' ? '这顿吃得怎么样？' : '这家店，你想推荐吗？'}</h2><span>给「{targetName}」留一点真实的感受。</span></div><span class="moderation-badge">审核后公开</span></header>
+  <header class="quick-heading"><div><p>YOUR TABLE TALK</p><h2 id="quick-review-heading">{targetType === 'food' ? '这顿吃得怎么样？' : '这家店，你想推荐吗？'}</h2><span>给「{targetName}」留一点真实的感受。</span></div><span class="moderation-badge" data-publication-badge>未登录评价需审核</span></header>
+  <ContributionAccess review />
   <form data-quick-review data-target-type={targetType} data-target-id={targetId} data-target-name={targetName} data-snapshot-id={snapshot.snapshotId} novalidate>
     <StarRating />
+    <PublicationIdentity />
     <div class="review-text-field"><label for="quick-review-text">说说味道、分量或服务 <span>选填</span></label><textarea id="quick-review-text" name="text" rows="3" placeholder="好吃在哪里？有哪些小提醒？最多 256 字。" aria-describedby="quick-review-count"></textarea><small id="quick-review-count" data-review-count>0 / 256</small></div>
     <PhotoUploader id="quick-review-images" title="添加用餐照片" limit={3} />
     <div class="quick-previews" data-review-previews aria-live="polite"></div>
@@ -17,7 +21,7 @@ const { targetType, targetId, targetName } = Astro.props;
       <div data-external-rights hidden><label>来源页或来源说明 <b class="required-mark" aria-hidden="true">*</b><input name="source" maxlength="480" data-label="图片来源" placeholder="HTTPS 来源页或具体来源说明" /></label><div class="rights-row"><label>作者 / 版权方 <b class="required-mark" aria-hidden="true">*</b><input name="holder" maxlength="160" data-label="图片版权方" /></label><label>许可 / 授权说明 <b class="required-mark" aria-hidden="true">*</b><input name="license" maxlength="120" data-label="图片许可" /></label></div><label class="rights-check"><input type="checkbox" name="illustrative" />这是示意图，并非本店实拍</label></div>
       <label class="rights-check"><input type="checkbox" name="rights" data-label="照片使用权" /><span data-rights-label>这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。</span><b class="required-mark" aria-hidden="true">*</b></label>
     </div>
-    <div class="quick-bottom"><div class="quick-turnstile" data-review-turnstile></div><div class="quick-actions"><p>{targetType === 'venue' ? '欢迎在评价中附上菜单照片，分享菜名和价格。评价审核后公开。' : '可以只打星，也欢迎补充餐品实拍。评价审核后公开。'}</p><button type="submit" class="send-review">提交评价 <span aria-hidden="true">↗</span></button><button type="button" data-review-retry hidden>继续完成图片上传 ↻</button></div></div>
+    <div class="quick-bottom"><div class="quick-turnstile" data-review-turnstile></div><div class="quick-actions"><p>{targetType === 'venue' ? '欢迎附上菜单照片，分享菜名和价格。全部图片完成后才能发表。' : '可以只打星，也欢迎补充实拍。全部图片完成后才能发表。'}</p><button type="submit" class="send-review">提交评价 <span aria-hidden="true">↗</span></button><button type="button" data-review-retry hidden>继续完成评价 ↻</button></div></div>
     <p class="quick-feedback" data-review-feedback role="status" aria-live="polite"></p>
     <div class="quick-receipt" data-review-receipt hidden><strong>评价已收到，等待审核。</strong><span>本次回执已保存在当前浏览器会话。</span><a data-review-status href="/status/">查看审核进度 →</a><details><summary>保存回执，便于之后查询</summary><label>回执编号<input data-receipt-id readonly /></label><label>查询令牌<input data-receipt-token type="password" readonly /></label><button type="button" data-receipt-toggle>显示令牌</button><small>请自行妥善保存，关闭浏览器后会话中的回执可能丢失。</small></details></div>
   </form>
@@ -27,6 +31,7 @@ const { targetType, targetId, targetName } = Astro.props;
   import { completeReview, compressReviewImage, createReview, ReviewRequestError, type ReviewReceipt, type ReviewImage } from '../utils/review-submission';
   import { formProblems, showFormErrors, notifyForm, clearFormErrors } from '../utils/form-feedback';
   import { validateV2Submission } from '../worker/v2-validation';
+  import { isPublished } from '../utils/submission-request';
   document.querySelectorAll<HTMLFormElement>('[data-quick-review]').forEach(form => {
     const text = form.querySelector<HTMLTextAreaElement>('textarea')!;
     const count = form.querySelector<HTMLElement>('[data-review-count]')!;
@@ -98,7 +103,7 @@ const { targetType, targetId, targetName } = Astro.props;
       const history = read(historyKey); const records = history && typeof history === 'object' && !Array.isArray(history) ? history : {};
       records[receipt.submissionId] = receipt; save(historyKey,records);
       form.querySelector<HTMLElement>('[data-review-receipt]')!.hidden = false;
-      form.querySelector<HTMLElement>('[data-review-receipt] strong')!.textContent = complete ? '评价已收到，等待审核。' : '评分和文字已保存，请继续完成图片上传。';
+      form.querySelector<HTMLElement>('[data-review-receipt] strong')!.textContent = complete ? isPublished(receipt.status) ? '评价已公开，感谢分享。' : '评价已收到，等待审核。' : receipt.publicationMode === 'direct' ? '评分和文字已保存，请继续完成发表。' : '评分和文字已保存，请继续完成图片上传。';
       form.querySelector<HTMLAnchorElement>('[data-review-status]')!.href = '/status/?id=' + encodeURIComponent(receipt.submissionId);
       form.querySelector<HTMLInputElement>('[data-receipt-id]')!.value = receipt.submissionId;
       form.querySelector<HTMLInputElement>('[data-receipt-token]')!.value = receipt.receiptToken;
@@ -137,20 +142,21 @@ const { targetType, targetId, targetName } = Astro.props;
           const token = form.querySelector<HTMLInputElement>('input[name=cf-turnstile-response]')?.value;
           if(!token) throw new Error('请先完成下方的真人验证。');
           const rating = Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value);
-          const fingerprint = JSON.stringify([rating,text.value.trim(),images.length]);
+          const visibility = form.querySelector<HTMLInputElement>('input[name=visibility]:checked')?.value === 'username' ? 'username' : 'anonymous';
+          const fingerprint = JSON.stringify([rating,text.value.trim(),images.length,visibility]);
           if(attempt && attempt.fingerprint !== fingerprint) throw new Error('上次提交结果尚未确认。请保持原评分、文字和照片数量重试，避免重复评价。');
           attempt ??= { key: crypto.randomUUID(), fingerprint };
-          savePending(await createReview({ snapshotId: form.dataset.snapshotId!, targetType: form.dataset.targetType as 'venue' | 'food', targetId: form.dataset.targetId!, rating, text: text.value, imageCount: images.length, turnstileToken: token, idempotencyKey: attempt.key }));
+          savePending(await createReview({ snapshotId: form.dataset.snapshotId!, targetType: form.dataset.targetType as 'venue' | 'food', targetId: form.dataset.targetId!, rating, text: text.value, imageCount: images.length, turnstileToken: token, idempotencyKey: attempt.key, visibility }));
         }
         if(!pending) throw new Error('没有找到可继续的评价回执。');
-        const version = await completeReview(pending, prepared, saveVersion);
-        const finished: ReviewReceipt = { ...pending, version };
+        const completion = await completeReview(pending, prepared, saveVersion);
+        const finished: ReviewReceipt = { ...pending, ...completion };
         showReceipt(finished); pending = null; attempt = null; retry.hidden = true;
         try { sessionStorage.removeItem(pendingKey); } catch { /* Keep the completed receipt visible. */ }
         images.forEach(image => URL.revokeObjectURL(image.url)); images = []; form.reset(); renderPreviews(); updateCount();
         resetTurnstile();
         form.querySelector<HTMLElement>('[data-external-rights]')!.hidden = true;
-        message('感谢分享，评价审核后会公开。','success');
+        message(completion.status === 'published' ? '评价已公开。刷新页面即可查看，感谢分享。' : '感谢分享，评价审核后会公开。','success');
       } catch(error) {
         if(error instanceof ReviewRequestError && !pending && error.status >= 400 && error.status < 500 && !['idempotency_replayed','idempotency_conflict'].includes(error.code)) attempt = null;
         if(error instanceof ReviewRequestError && !pending) resetTurnstile();
@@ -164,3 +170,4 @@ const { targetType, targetId, targetName } = Astro.props;
 <style>
   .quick-review{margin-top:32px;padding:clamp(20px,2.4vw,34px);scroll-margin-top:24px;border:1px solid var(--theme-border,#eedbd0);border-radius:27px;background:linear-gradient(150deg,#fffdf9,white 60%);box-shadow:var(--theme-shadow,0 8px 26px -16px #d1b6a1)}.quick-heading{display:flex;align-items:start;justify-content:space-between;gap:14px;margin-bottom:27px}.quick-heading p{margin:0 0 9px;color:var(--orange-deep);font-size:10px;font-weight:750;letter-spacing:.12em}.quick-heading h2{margin:0 0 10px;font-size:25px;letter-spacing:-.04em}.quick-heading>div>span{color:var(--muted);font-size:12px;line-height:1.8}.moderation-badge{flex:none;padding:6px 10px;border-radius:999px;background:var(--theme-soft,#f2efe6);color:var(--theme-text,#6f624d);font-size:10px}.review-text-field{margin-top:23px}.review-text-field>label{display:block;margin-bottom:10px;font-size:13px;font-weight:700}.review-text-field label>span{margin-left:6px;color:var(--muted);font-size:10px;font-weight:400}.review-text-field textarea{width:100%;padding:13px 15px;border:1px solid var(--theme-border,#e6d8cb);border-radius:16px;background:var(--theme-soft,#fffefa);font-size:14px;line-height:1.8;color:var(--ink);resize:vertical}.review-text-field>small{display:block;margin-top:5px;text-align:right;color:var(--muted);font-size:10px}.review-text-field .over-limit{color:var(--theme-text,#ad3020)}.photo-tools{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:13px}.add-photos{position:relative;display:flex;align-items:center;gap:9px;min-height:44px;padding:8px 14px;border:1px dashed var(--theme-border,#d4bca6);border-radius:12px;color:var(--orange-deep);font-size:12px;font-weight:700;cursor:pointer}.add-photos svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}.add-photos small{display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:400}.add-photos input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.add-photos:focus-within{outline:3px solid var(--focus);outline-offset:3px}.photo-tools>span{max-width:320px;color:var(--muted);font-size:10px;line-height:1.8}.quick-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin-top:15px}.quick-previews:empty{display:none}.quick-previews :global(.quick-preview){min-width:0;padding:10px;border:1px solid var(--line);border-radius:15px;background:var(--surface-card)}.quick-previews :global(img){display:block;width:100%;height:120px;border-radius:10px;object-fit:cover}.quick-previews :global(label){display:grid;gap:6px;margin-top:10px;color:var(--muted);font-size:10px}.quick-previews :global(input){min-width:0;width:100%;padding:0 8px;border:1px solid var(--line);border-radius:8px;font-size:12px}.quick-previews :global(button){padding:0 8px;border:0;background:transparent;color:var(--orange-deep);font-size:11px}.photo-rights{margin-top:15px;padding:15px;border-radius:15px;background:var(--theme-soft,#faf6ef)}.photo-rights label{display:grid;gap:7px;font-size:11px;font-weight:650}.photo-rights select,.photo-rights input:not([type=checkbox]){width:100%;min-width:0;padding:0 11px;border:1px solid var(--theme-border,#e3d4c3);border-radius:10px;background:var(--surface-card);font-size:13px}.photo-rights [data-external-rights]{margin-top:15px}.rights-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.photo-rights .rights-check{display:flex;align-items:center;min-height:44px;gap:9px;margin-top:8px;font-size:11px;font-weight:400;line-height:1.7}.rights-check input{flex:none;width:18px;height:18px;accent-color:var(--orange)}.quick-bottom{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:22px}.quick-turnstile{min-width:0;max-width:100%}.quick-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}.quick-actions p{max-width:230px;margin:0;color:var(--muted);font-size:10px;line-height:1.8}.send-review{display:flex;align-items:center;justify-content:center;gap:12px;min-height:47px;padding:0 20px;border:0;border-radius:999px;background:var(--orange);color:white;font-size:13px;font-weight:750}.quick-actions [data-review-retry]{min-height:44px;padding:0 14px;border:1px solid var(--theme-border,#dfb49b);border-radius:999px;background:var(--surface-card);color:var(--orange-deep);font-size:12px}.quick-actions button:disabled{opacity:.55;cursor:wait}.quick-feedback{margin:12px 0 0;font-size:12px;color:var(--muted);line-height:1.8}.quick-feedback:empty{display:none}.quick-feedback[data-tone=error]{color:var(--theme-text,#ad3020)}.quick-feedback[data-tone=success]{color:var(--green)}.quick-receipt{display:grid;gap:8px;margin-top:17px;padding:17px;border-radius:16px;background:var(--theme-soft,#eef8ef);color:var(--theme-text,#225b36);font-size:12px}.quick-receipt[hidden]{display:none}.quick-receipt>span{font-size:11px}.quick-receipt a{display:flex;align-items:center;min-height:44px;font-weight:700}.quick-receipt summary{min-height:44px;display:flex;align-items:center;cursor:pointer}.quick-receipt label{display:grid;gap:5px;margin:12px 0}.quick-receipt input{min-width:0;width:100%;padding:0 10px;border:1px solid var(--theme-border,#c8dcc8);border-radius:8px;background:var(--surface-card);font-size:12px}.quick-receipt button{border:1px solid var(--theme-border,#bdd6bf);border-radius:10px;background:var(--surface-card);color:var(--theme-text,#225b36)}.quick-receipt small{display:block;margin-top:12px;color:var(--muted);line-height:1.7}@media(max-width:600px){.quick-heading{flex-wrap:wrap;gap:10px}.quick-heading h2{font-size:23px}.review-text-field textarea{font-size:16px}.quick-actions{width:100%;margin:0;justify-content:space-between}.quick-actions p{max-width:170px}.rights-row{grid-template-columns:1fr}.quick-previews :global(input),.photo-rights input:not([type=checkbox]),.photo-rights select{font-size:16px}}
 </style>
+<style>@media(max-width:600px){.quick-review{padding:18px;border-radius:22px}.quick-heading h2{font-size:21px;line-height:1.45}.quick-heading>div{min-width:0}.quick-heading>div>span{overflow-wrap:anywhere}.quick-actions{align-items:stretch;flex-direction:column;gap:10px}.quick-actions p{max-width:none}.send-review{width:100%}.quick-actions [data-review-retry]{width:100%;min-height:46px}}</style>

@@ -3,10 +3,12 @@ import { compressReviewImage } from './review-submission';
 import { SUBMISSION_LIMITS as LIMITS, parseYuan, splitTags, isChineseTag } from '../lib/submission-limits';
 import { validateV2Submission, V2ValidationError } from '../worker/v2-validation';
 import { clearFormErrors, formProblems, notifyForm, showFormErrors } from './form-feedback';
+import { submissionFetch, isPublished } from './submission-request';
 
 type EntityType = 'venue' | 'food';
 type Photo = { blob: Blob; url: string; alt: string };
-type Receipt = { submissionId: string; receiptToken: string; version: number; type: EntityType; expectedImages: number; expectedReviewImages: number; entityId?: string };
+type Receipt = { submissionId: string; receiptToken: string; version: number; type: EntityType; expectedImages: number; expectedReviewImages: number; entityId?: string; status?: string; publicationMode?: string };
+type Completion = { version: number; status: 'pending' | 'published' };
 class SubmissionError extends Error { constructor(message: string, readonly code: string, readonly status: number) { super(message); } }
 export function initSubmissionForm() {
   const form = document.querySelector<HTMLFormElement>('#submission-form');
@@ -65,6 +67,9 @@ export function initSubmissionForm() {
     field('rightsConfirmed').required = hasPhotos;
     form!.querySelector('[data-rights-label]')!.textContent = licensed ? '我确认已获得相应使用权，并授权本站按所填许可展示。' : '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。';
     submit.disabled = busy || !widget || Boolean(pending);
+    submit.textContent = type === 'food' && form!.closest<HTMLElement>('.submit-page')?.dataset.directPublishing === 'true' ? '直接发表餐品 →' : '提交审核 →';
+    const usernameChoice = form!.querySelector<HTMLInputElement>('[data-username-choice]');
+    if (usernameChoice) usernameChoice.disabled = busy || usernameChoice.dataset.accountAvailable !== 'true';
     retry.disabled = busy;
   }
   function setBusy(next: boolean) {
@@ -77,7 +82,7 @@ export function initSubmissionForm() {
     const records = (() => { try { const data = JSON.parse(read(historyKey) ?? '{}'); return data && typeof data === 'object' && !Array.isArray(data) ? data : {}; } catch { return {}; } })();
     records[receipt.submissionId] = receipt; write(historyKey,records);
     panel.hidden = false;
-    panel.querySelector('h2')!.textContent = complete ? '投稿已收到，保存好这份回执' : '资料已保存，请继续完成图片上传';
+    panel.querySelector('h2')!.textContent = complete ? isPublished(receipt.status) ? '已公开，保存好这份回执' : '投稿已收到，等待管理员审核' : receipt.publicationMode === 'direct' ? '资料已保存，请继续完成发表' : '资料已保存，请继续完成图片上传';
     document.querySelector<HTMLInputElement>('#receipt-id')!.value = receipt.submissionId;
     document.querySelector<HTMLInputElement>('#receipt-entity-id')!.value = receipt.entityId ?? '';
     document.querySelector<HTMLElement>('#receipt-entity-row')!.hidden = !receipt.entityId;
@@ -87,6 +92,10 @@ export function initSubmissionForm() {
     document.querySelector<HTMLAnchorElement>('#receipt-status-link')!.href = '/status/?id='+encodeURIComponent(receipt.submissionId);
     const add = document.querySelector<HTMLAnchorElement>('#receipt-food-link')!; add.hidden = receipt.type !== 'venue' || !receipt.entityId || !complete;
     add.href = '/submit/?venueEntityId='+encodeURIComponent(receipt.entityId ?? '');
+    add.textContent = '店铺审核通过后添加餐品 ＋';
+    const publicLink = document.querySelector<HTMLAnchorElement>('#receipt-public-link')!;
+    publicLink.hidden = !complete || !isPublished(receipt.status) || !receipt.entityId;
+    publicLink.href = (receipt.type === 'food' ? '/foods/' : '/restaurants/') + encodeURIComponent(receipt.entityId ?? '') + '/';
   }
   function savePending(receipt: Receipt) { pending = receipt; write(pendingKey,receipt); retry.hidden = false; showReceipt(receipt,false); }
   function updateVersion(version: number) { if (pending) savePending({ ...pending,version }); }
@@ -170,20 +179,21 @@ export function initSubmissionForm() {
     return true;
   }
   async function request(url: string, init: RequestInit = {}) {
-    const response = await fetch(url,{ ...init,cache:'no-store' });
+    const response = await submissionFetch(url, init);
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new SubmissionError(body?.error?.message || '服务暂时无法处理，请稍后重试。',body?.error?.code || 'request_failed',response.status);
     if (!body || typeof body !== 'object') throw new Error('服务器回执无效，请保持本次资料重试。');
     return body;
   }
-  async function complete(receipt: Receipt) {
+  async function complete(receipt: Receipt): Promise<Completion> {
     const base = '/api/v2/submissions/'+encodeURIComponent(receipt.submissionId);
     const authorization = { Authorization:'Bearer '+receipt.receiptToken };
     const status = await request(base+'/status',{ headers:authorization });
     if (!Number.isSafeInteger(status.version)) throw new Error('回执版本无效。');
     updateVersion(status.version);
-    if (status.uploadState === 'pending') return status.version as number;
-    if (status.uploadState !== 'uploading') throw new Error('这份投稿当前无法继续上传，请在进度页查看状态。');
+    if (isPublished(status.status)) return { version: status.version, status: 'published' };
+    if (status.uploadState === 'pending' && status.publicationMode !== 'direct') return { version: status.version, status: 'pending' };
+    if (!['pending', 'uploading'].includes(status.uploadState)) throw new Error('这份投稿当前无法继续上传，请在进度页查看状态。');
     let version: number = status.version;
     const metadata = photoMetadata();
     const limits = { entity:receipt.expectedImages,attachedReview:receipt.expectedReviewImages };
@@ -201,16 +211,16 @@ export function initSubmissionForm() {
     }
     const final = await request(base+'/finalize',{ method:'POST',headers: { ...authorization,'Content-Type':'application/json' },body:JSON.stringify({ expectedVersion:version,expectedImages:receipt.expectedImages,expectedReviewImages:receipt.expectedReviewImages }) });
     if (!Number.isSafeInteger(final.version)) throw new Error('完成回执版本无效。');
-    return final.version as number;
+    return { version: final.version, status: isPublished(final.status) ? 'published' : 'pending' };
   }
-  function finished(receipt: Receipt, version: number) {
-    const completeReceipt = { ...receipt,version }; showReceipt(completeReceipt);
+  function finished(receipt: Receipt, completion: Completion) {
+    const completeReceipt = { ...receipt,...completion }; showReceipt(completeReceipt);
     if (receipt.type === 'venue' && receipt.entityId) { try { sessionStorage.setItem('shou-parent-receipt:'+receipt.entityId,receipt.receiptToken); } catch { /* The receipt is still visible for manual preservation. */ } }
     pending = null; attempt = null; retry.hidden = true;
     try { sessionStorage.removeItem(pendingKey); } catch { /* Leave the visible receipt. */ }
     for (const slot of ['entity','attachedReview'] as const) { photos[slot].forEach(photo => URL.revokeObjectURL(photo.url)); photos[slot] = []; renderPhotos(slot); }
     form!.reset(); form!.querySelector<HTMLDetailsElement>('#attached-review')!.open = false; updateCount(); clearFormErrors(form!); resetTurnstile();
-    message('投稿已收到，等待管理员审核。请保存下方回执。','success');
+    message(completion.status === 'published' ? '餐品与随稿评价已公开，可从下方查看。请保存回执。' : '投稿已收到，等待管理员审核。请保存下方回执。','success');
   }
   const widget = turnstileWidget();
   if (widget) form.querySelector('#turnstile-slot')!.append(widget);
@@ -226,7 +236,8 @@ export function initSubmissionForm() {
     if(!validate())return;
     const token = form.querySelector<HTMLInputElement>('[name=cf-turnstile-response]')?.value;
     if(!token){showFormErrors(form,[{element:form.querySelector('#turnstile-slot'),message:'请先完成真人验证。'}]);return;}
-    const data = { schemaVersion:2,entityType:currentType(),snapshotId:form.dataset.snapshotId,payload:payload(),parent:parent(),expectedImages:photos.entity.length,expectedReviewImages:photos.attachedReview.length };
+    const visibility = form.querySelector<HTMLInputElement>('input[name=visibility]:checked')?.value ?? 'anonymous';
+    const data = { schemaVersion:2,entityType:currentType(),snapshotId:form.dataset.snapshotId,payload:payload(),parent:parent(),visibility,expectedImages:photos.entity.length,expectedReviewImages:photos.attachedReview.length };
     const fingerprint=JSON.stringify(data);
     if(attempt && attempt.fingerprint !== fingerprint){message('上次提交结果尚未确认。请保持原资料和照片数量重试，避免重复投稿。','error');return;}
     attempt ??= { key:crypto.randomUUID(),fingerprint };
@@ -234,7 +245,7 @@ export function initSubmissionForm() {
     try {
       const result=await request('/api/v2/submissions',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':attempt.key},body:JSON.stringify({...data,turnstileToken:token})});
       if(typeof result.submissionId !== 'string' || typeof result.receiptToken !== 'string' || !result.submissionId || !result.receiptToken || !Number.isSafeInteger(result.version))throw new Error('投稿回执无效，请保持原资料重试。');
-      const receipt: Receipt = { submissionId:result.submissionId,receiptToken:result.receiptToken,version:result.version,type:currentType(),expectedImages:photos.entity.length,expectedReviewImages:photos.attachedReview.length,...(typeof result.entityId==='string'?{entityId:result.entityId}:{}) };
+      const receipt: Receipt = { submissionId:result.submissionId,receiptToken:result.receiptToken,version:result.version,type:currentType(),expectedImages:photos.entity.length,expectedReviewImages:photos.attachedReview.length,status:result.status,publicationMode:result.publicationMode,...(typeof result.entityId==='string'?{entityId:result.entityId}:{}) };
       savePending(receipt); finished(receipt,await complete(receipt));
     } catch(error) {
       if(error instanceof SubmissionError && error.status < 500 && !['idempotency_replayed','idempotency_conflict'].includes(error.code))attempt=null;
@@ -268,4 +279,5 @@ export function initSubmissionForm() {
     }
   } catch { /* Ignore malformed private state. */ }
   syncFields();
+  form.closest('.submit-page')?.addEventListener('contribution-auth', syncFields);
 }
