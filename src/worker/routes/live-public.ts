@@ -4,6 +4,7 @@ import { readPublicDetail } from '../public-detail.js';
 import { discoveryCatalog } from '../../lib/catalog/discovery.js';
 import { liveContent } from '../config.js';
 import type { AppEnv } from '../types.js';
+import { ifNoneMatchMatches } from '../etag.js';
 
 export const livePublicRoutes=new Hono<AppEnv>();
 livePublicRoutes.use('/*',async(c,next)=>{
@@ -20,7 +21,7 @@ livePublicRoutes.get('/catalog',async c=>{
   const requested=c.req.header('If-None-Match');
   if(requested){
     const current=await c.env.DB.prepare('SELECT revision FROM live_catalog_state WHERE id=1').first<{revision:number}>();
-    if(current&&requested===tag(current.revision)){c.header('ETag',tag(current.revision));return c.body(null,304);}
+    if(current&&ifNoneMatchMatches(requested,tag(current.revision))){c.header('ETag',tag(current.revision));return c.body(null,304);}
   }
   const {state,catalog}=await readLive(c.env.DB);
   c.header('ETag',tag(state.revision));

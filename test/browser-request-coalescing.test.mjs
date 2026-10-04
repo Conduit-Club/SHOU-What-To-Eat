@@ -46,3 +46,10 @@ test('catalog refresh reaches the server each time and only reuses a validated b
   assert.equal(calls[4].headers['If-None-Match'],'"eat-catalog-v1-2"');
   await assert.rejects(loadCatalog(async()=>new Response(null,{status:304})),/目录暂时无法加载/);
 });
+
+test('browser returns Cloudflare weak ETag unchanged and accepts only server-confirmed 304 reuse',async()=>{
+  const data={foods:[],venues:[],revision:14},weak='W/"eat-catalog-v1-14"',calls=[];
+  const send=async(path,init)=>{calls.push(init);return calls.length===1?Response.json(data,{headers:{ETag:weak}}):new Response(null,{status:304});};
+  assert.deepEqual(await loadCatalog(send),data);assert.deepEqual(await loadCatalog(send),data);
+  assert.equal(calls.length,2);assert.equal(calls[1].headers['If-None-Match'],weak);assert.equal(calls[1].cache,'no-store');
+});
