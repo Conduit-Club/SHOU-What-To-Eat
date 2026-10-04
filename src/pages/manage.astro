@@ -1,0 +1,5 @@
+---
+import Layout from '../templates/Layout.astro';
+import AdminWorkspace from '../components/AdminWorkspace';
+---
+<Layout title="内容管理"><AdminWorkspace client:load /><noscript>管理员工作区需要启用 JavaScript。<a href="/auth/login?returnTo=%2Fmanage%2F">登录管理员账号</a></noscript></Layout>

@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api", "/api/*", "/media/*", "/foods/*", "/restaurants/*", "/catalog-index.json", "/catalog-snapshot.json"],
+    "run_worker_first": ["/auth", "/auth/*", "/api", "/api/*", "/media/*", "/foods/*", "/restaurants/*", "/catalog-index.json", "/catalog-snapshot.json"],
     "not_found_handling": "404-page"
   },
   "d1_databases": [{
@@ -58,6 +58,9 @@
         "migrations_dir": "migrations"
       }],
       "vars": {
+        "OIDC_ISSUER": "https://auth.shoumc.com/api/auth",
+        "OIDC_CLIENT_ID": "shou-eat-production",
+        "OIDC_REDIRECT_URI": "https://eat.shoumc.com/auth/callback",
         "MEDIA_MODE": "r2",
         "ALLOWED_ORIGINS": "https://eat.shoumc.com",
         "TURNSTILE_HOSTNAME": "eat.shoumc.com",

@@ -136,12 +136,12 @@ test('v2 publication listing returns an empty list when only legacy jobs exist',
   });
 });
 
-test('v2 publication listing requires Access before querying publication jobs', async () => {
+test('v2 publication listing requires a verified administrator before querying publication jobs', async () => {
   const database = createDatabase();
   const runtime = env(database);
   const response = await worker.fetch(request('/api/v2/admin/publications'), runtime, {});
   assert.equal(response.status, 401);
-  assert.deepEqual(await response.json(), { error: { code: 'unauthorized', message: '需要审核员登录。' } });
+  assert.deepEqual(await response.json(), { error: { code: 'unauthorized', message: '请先登录管理员账号。', loginUrl: '/auth/login?returnTo=%2Fadmin%2F' } });
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.equal(database.queryCount, 0);
 });
