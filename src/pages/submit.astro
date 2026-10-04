@@ -5,6 +5,7 @@ import PhotoUploader from '../components/PhotoUploader.astro';
 import StarRating from '../components/StarRating.astro';
 import ContributionAccess from '../components/ContributionAccess.astro';
 import PublicationIdentity from '../components/PublicationIdentity.astro';
+import DiningDate from '../components/DiningDate.astro';
 import snapshot from '../../public/catalog-snapshot.json';
 const venues: {id:string;name:string}[] = [];
 ---
@@ -46,6 +47,7 @@ const venues: {id:string;name:string}[] = [];
         <details class="attached-review form-section" id="attached-review"><summary><span class="review-summary-icon" aria-hidden="true">☆</span><span><strong>顺便留一条用餐评价</strong><small>选填 · 随资料一起发表</small></span><b aria-hidden="true">＋</b></summary>
           <div class="attached-body"><p class="field-note">可以只打星，也可以写最多 256 字并附图。欢迎上传店铺菜单，帮同学了解有哪些菜和当前价格。</p><StarRating name="attachedRating" required={false} />
             <PublicationIdentity />
+            <DiningDate name="attachedVisitedAt" />
             <label><span>你的感受</span><textarea name="attachedText" rows="3" data-label="随稿评价" placeholder="味道、分量、服务，有什么想告诉同学的？" aria-describedby="attached-count"></textarea><small id="attached-count">0 / 256</small></label>
             <PhotoUploader id="review-images" title="添加用餐评价照片" limit={3} /><div id="review-previews" class="upload-previews" aria-live="polite"></div>
             <button type="button" id="remove-attached-review">不附评价，清空这一栏</button>

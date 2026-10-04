@@ -1,8 +1,41 @@
-<fieldset class="publication-identity">
+<fieldset class="publication-identity" data-publication-identity>
   <legend>评价署名</legend>
-  <label><input type="radio" name="visibility" value="anonymous" checked /><span>匿名发表</span></label>
-  <label><input type="radio" name="visibility" value="username" data-username-choice disabled /><span data-username-label>使用账号用户名（登录后可选）</span></label>
+  <label><input type="radio" name="visibility" value="anonymous" checked /><span><strong>匿名发表</strong><small>隐藏账号用户名与头像</small></span></label>
+  <label><input type="radio" name="visibility" value="username" data-username-choice disabled /><span class="identity-avatar" aria-hidden="true"><span data-identity-initial>我</span><img data-identity-avatar hidden alt="" width="32" height="32" referrerpolicy="no-referrer" /></span><span data-username-label>公开账号用户名与头像（登录后可选）</span></label>
+  <p data-identity-note>这条评价仅显示「匿名同学」，不公开账号用户名或头像。</p>
 </fieldset>
+<script>
+  import { fetchAccountSession } from '../utils/auth-session';
+  import { updatePublicationIdentity } from '../utils/publication-identity';
+  const roots = [...document.querySelectorAll<HTMLElement>('[data-publication-identity]')];
+  let updating = false;
+  const paints = new Map<HTMLElement, () => void>();
+  for (const root of roots) {
+    paints.set(root, updatePublicationIdentity(root, null));
+    root.addEventListener('change', () => paints.get(root)?.());
+    root.closest('form')?.addEventListener('reset', () => queueMicrotask(() => paints.get(root)?.()));
+    root.querySelector<HTMLImageElement>('[data-identity-avatar]')!.addEventListener('error', event => { const image = event.currentTarget as HTMLImageElement; image.hidden = true; image.removeAttribute('src'); });
+  }
+  async function refresh() {
+    if (updating || !roots.length) return;
+    updating = true;
+    try {
+      const account = await fetchAccountSession();
+      for (const root of roots) {
+        paints.set(root, updatePublicationIdentity(root, account.user));
+        root.dispatchEvent(new CustomEvent('contribution-auth', { bubbles: true }));
+      }
+    } catch {
+      for (const root of roots) {
+        paints.set(root, updatePublicationIdentity(root, null));
+        root.querySelector<HTMLElement>('[data-identity-note]')!.textContent = '账号状态暂时无法读取，请刷新或登录后再选择账号署名。';
+      }
+    } finally { updating = false; }
+  }
+  void refresh();
+  window.addEventListener('focus', () => void refresh());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
+</script>
 <style>
-  .publication-identity{display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap;min-width:0;margin:18px 0;padding:12px 15px;border:1px solid var(--line);border-radius:14px;font-size:12px}.publication-identity legend{padding:0 5px;font-weight:750}.publication-identity label{display:flex;align-items:center;min-height:38px;gap:8px;min-width:0;line-height:1.7}.publication-identity span{overflow-wrap:anywhere}.publication-identity input{flex:none;width:18px;height:18px;accent-color:var(--orange)}
+  .publication-identity{display:grid;gap:10px;min-width:0;margin:18px 0;padding:12px 15px;border:1px solid var(--line);border-radius:14px;font-size:12px}.publication-identity legend{padding:0 5px;font-weight:750}.publication-identity label{display:flex;align-items:center;min-height:46px;gap:10px;min-width:0;padding:5px 0;line-height:1.7;cursor:pointer}.publication-identity label>span{overflow-wrap:anywhere}.publication-identity input{flex:none;width:18px;height:18px;accent-color:var(--orange)}.publication-identity strong,.publication-identity small{display:block}.publication-identity small,.publication-identity p{color:var(--muted);font-size:11px;font-weight:400;line-height:1.8}.publication-identity p{margin:0;border-top:1px solid var(--line);padding-top:9px}.identity-avatar{position:relative;display:grid;place-items:center;flex:none;width:32px;height:32px;overflow:hidden;border-radius:50%;background:var(--surface-soft);color:var(--orange-deep);font-weight:700}.identity-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.identity-avatar img[hidden]{display:none}
 </style>
