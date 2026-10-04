@@ -501,6 +501,23 @@ test('catalog ETag checks one authoritative revision and changes immediately wit
   });
 });
 
+test('catalog weak/list validators check the authoritative current revision before 304 and invalid or old tags read content',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
+  const reads=[],prepare=db.prepare.bind(db);db.prepare=sql=>{reads.push(sql);return prepare(sql);};
+  const catalog=value=>worker.fetch(request('/catalog-index.json',{headers:{'If-None-Match':value}}),env,{});
+  for(const value of ['W/"eat-catalog-v1-1"','"old", W/"eat-catalog-v1-1"','"comma,in,tag", "eat-catalog-v1-1"','*']) {
+    reads.length=0;const response=await catalog(value);
+    assert.equal(response.status,304,value);assert.equal(await response.text(),'');assert.equal(response.headers.get('ETag'),'"eat-catalog-v1-1"');assert.equal(response.headers.get('Cache-Control'),'no-store');
+    assert.deepEqual(reads,['SELECT revision FROM live_catalog_state WHERE id=1']);
+  }
+  for(const value of ['W/"eat-catalog-v1-0"','"eat-catalog-v1-0", "other"','W/ "eat-catalog-v1-1"','"eat-catalog-v1-1", invalid','*, "eat-catalog-v1-1"']) {
+    reads.length=0;const response=await catalog(value);
+    assert.equal(response.status,200,value);assert.equal((await response.json()).revision,1);assert.equal(reads[0],'SELECT revision FROM live_catalog_state WHERE id=1');assert.equal(reads.length,3);
+  }
+  db.sqlite.exec('UPDATE live_catalog_state SET revision=2 WHERE id=1');
+  const changed=await catalog('W/"eat-catalog-v1-1"');assert.equal(changed.status,200);assert.equal((await changed.json()).revision,2);assert.equal(changed.headers.get('ETag'),'"eat-catalog-v1-2"');
+});
+
 test('live media is private before commit and hidden or archived photos stop serving',async()=>{
   const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'});
   await withExternalStubs(async()=>{
