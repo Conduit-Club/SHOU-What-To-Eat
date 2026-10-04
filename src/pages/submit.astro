@@ -32,7 +32,7 @@ const venues: {id:string;name:string}[] = [];
       <section id="food-fields" class="form-section" aria-labelledby="food-heading" hidden>
         <div class="section-heading"><div><h2 id="food-heading">餐品</h2></div><small>找到这道菜的归属</small></div>
         <label><span>所属餐厅 / 档口 <b class="required-mark" aria-hidden="true">*</b></span><select name="foodVenueId" required data-label="所属餐厅 / 档口"><option value="">请选择店铺</option>{venues.map(venue => <option value={venue.id}>{venue.name}</option>)}</select></label>
-        <p class="field-note">店铺尚未收录？请先投稿餐厅或档口，等待管理员批准后再添加餐品。登录直发只能选择已公开店铺。</p>
+        <p class="field-note">店铺尚未收录？请先添加餐厅或档口。管理员可直接公开店铺；普通账号需等待审核通过，再添加餐品。餐品直发只能选择已公开店铺。</p>
         <div class="row"><label><span>餐品名称 <b class="required-mark" aria-hidden="true">*</b></span><input name="foodName" required maxlength="120" data-label="餐品名称" placeholder="例如：酸菜鱼" /></label><label><span>餐段</span><select name="foodMealType" data-label="餐段"><option value="">未注明</option><option value="breakfast">早餐</option><option value="meal">正餐</option><option value="snack">小吃</option><option value="dessert">甜点</option><option value="drink">饮品</option></select></label></div>
         <label><span>餐品标签</span><input aria-describedby="food-tags-help" name="foodTags" maxlength="1830" data-label="餐品标签" placeholder="微辣 鱼类 下饭" /></label>
         <p id="food-tags-help" class="field-note">使用中文标签，以空格分隔，例如：微辣 鱼类 下饭。最多 30 个。</p><label><span>餐品描述</span><textarea name="foodDescription" maxlength="1000" rows="4" data-label="餐品描述" placeholder="说说这道餐品是什么，最多 1000 字。"></textarea></label>
@@ -60,7 +60,7 @@ const venues: {id:string;name:string}[] = [];
           <p class="field-note">此声明适用于本次选择的全部照片；混合来源的照片请分别投稿。</p>
         </section>
       </aside>
-      <div class="submission-bottom"><p class="notice">ⓘ 登录用户的餐品与随稿评价在完成全部图片后直接公开；餐厅、档口及未登录投稿需管理员审核。评价默认匿名署名。不要填写私人联系方式。</p><div id="turnstile-slot"></div><button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><button id="retry-submission" type="button" hidden>继续完成上一份投稿</button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button></div>
+      <div class="submission-bottom"><p class="notice">ⓘ 登录用户的餐品与随稿评价在完成全部图片后直接公开；有效管理员新增餐厅、档口也可直接公开。普通账号的店铺与未登录投稿需审核。评价默认匿名署名。不要填写私人联系方式。</p><div id="turnstile-slot"></div><button class="submit-button" type="submit">提交审核 <span aria-hidden="true">→</span></button><button id="retry-submission" type="button" hidden>继续完成上一份投稿</button><p class="feedback" role="status" aria-live="polite"></p><button id="draft" class="draft" type="button">下载本地草稿</button></div>
     </form>
     <section id="receipt-panel" class="form-section receipt-panel" hidden aria-labelledby="receipt-heading"><h2 id="receipt-heading">投稿已收到，保存好这份回执</h2><p class="field-note">令牌用于私下查询进度，请妥善保存。</p><div class="row"><label>回执编号<input id="receipt-id" readonly autocomplete="off" /></label><label id="receipt-entity-row">内容编号<input id="receipt-entity-id" readonly autocomplete="off" /></label></div><label>查询令牌<div class="token-control"><input id="receipt-token" type="password" readonly autocomplete="off" /><button id="receipt-token-toggle" type="button" aria-pressed="false">显示</button></div></label><div class="receipt-actions"><a id="receipt-public-link" href="/foods/" hidden>查看已公开餐品 →</a><a id="receipt-status-link" href="/status/">查询此投稿 →</a><a id="receipt-food-link" href="/submit/" hidden>店铺审核通过后添加餐品 ＋</a></div></section>
   </main>

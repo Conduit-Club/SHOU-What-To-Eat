@@ -195,6 +195,107 @@ function finalizeV2(env, receipt, version, headers = {}) {
   return worker.fetch(request('/api/v2/submissions/' + receipt.submissionId + '/finalize', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer ' + receipt.receiptToken,...headers}, body:JSON.stringify({expectedVersion:version}) }),env,{});
 }
 
+function administratorSession(database, id = 1) {
+  const actor=authenticatedSession(database,id);
+  database.sqlite.prepare('UPDATE auth_sessions SET was_admin=1,admin_until=? WHERE token_hash=?').run(Math.floor(Date.now()/1000)+3600,actor.tokenHash);
+  return actor;
+}
+
+test('verified admins publish new venues and attached reviews immediately with explicit audit and idempotent replay',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),admin=administratorSession(db);
+ await withExternalStubs(async()=>{
+  for(const type of ['restaurant','stall']) {
+   const key='admin-new-venue-key-'+type,headers={...admin.headers,'Idempotency-Key':key};
+   const payload={...venuePayload('本地管理员'+type),type,attachedReview:{rating:4,text:'本地随稿评价'}};
+   const created=await submitV2(env,db,'venue',payload,{headers});
+   assert.equal(created.response.status,201,JSON.stringify(created.body));
+   assert.equal(created.body.status,'published');assert.equal(created.body.publicationMode,'direct');assert.equal(created.body.version,2);
+   const row=db.sqlite.prepare('SELECT submitter_user_id,publication_mode,live_published_at,attached_review_id FROM submissions WHERE id=?').get(created.body.submissionId);
+   assert.equal(row.submitter_user_id,admin.id);assert.ok(row.live_published_at);
+   const review=(await readLive(db)).catalog.reviews.find(value=>value.id===row.attached_review_id);
+   assert.equal(review.authorAlias,null);assert.equal(review.authorAvatar,null);
+   const audit=db.sqlite.prepare("SELECT reviewer,reason FROM audit_events WHERE submission_id=? AND action='publish'").get(created.body.submissionId);
+   assert.deepEqual(plain(audit),{reviewer:'auth:1:同学1',reason:'authenticated_admin_direct'});
+   const revision=(await readLive(db)).state.revision;
+   const replay=await submitV2(env,db,'venue',payload,{headers});assert.equal(replay.response.status,409);assert.equal(replay.body.error.code,'idempotency_replayed');
+   assert.equal((await readLive(db)).state.revision,revision);
+   assert.equal((await finalizeV2(env,created.body,1,admin.headers)).status,200);
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(created.body.submissionId).n,1);
+  }
+ });
+});
+
+test('expired or forged admin venue authority cannot bypass moderation, CSRF or the creation transaction',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),admin=administratorSession(db),user=authenticatedSession(db,2);
+ await withExternalStubs(async()=>{
+  for(const headers of [{...admin.headers,'X-CSRF-Token':'wrong'},{...admin.headers,Origin:'https://evil.invalid'}])assert.equal((await submitV2(env,db,'venue',venuePayload(),{headers})).response.status,403);
+  const originalBatch=db.batch.bind(db);
+  let revoked=false;
+  db.batch=async statements=>{
+   if(!revoked&&statements.some(statement=>/^INSERT INTO submissions/.test(statement.sql))) {
+    revoked=true;db.sqlite.prepare('UPDATE auth_sessions SET admin_until=1 WHERE token_hash=?').run(admin.tokenHash);
+   }
+   return originalBatch(statements);
+  };
+  const denied=await submitV2(env,db,'venue',venuePayload(),{headers:admin.headers});
+  assert.equal(denied.response.status,401);assert.equal(denied.body.error.code,'admin_session_expired');
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM submissions').get().n,0);
+  assert.equal(db.sqlite.prepare('SELECT SUM(request_count) n FROM rate_limits').get().n,0);
+  const expired=await submitV2(env,db,'venue',venuePayload(),{headers:admin.headers});assert.equal(expired.response.status,401);
+  const fake=await submitV2(env,db,'venue',venuePayload(),{headers:{...user.headers,'X-User-Role':'admin','Cf-Access-Jwt-Assertion':'unverified-admin'}});
+  assert.equal(fake.response.status,202);assert.equal(fake.body.publicationMode,'moderated');
+  const renewed=administratorSession(db,2);
+  const stillModerated=await finalizeV2(env,fake.body,1,renewed.headers);assert.equal(stillModerated.status,200);assert.equal((await stillModerated.json()).status,'pending');
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM live_write_assertion').get().n,0);
+ });
+});
+
+test('admin venue photos stay private until complete, require the original currently authorized admin and retry once after renewal',async()=>{
+ const db=new SqliteD1(),bucket=fakeR2Bucket(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2',IMAGES:bucket});let admin=administratorSession(db);
+ await withExternalStubs(async()=>{
+  const created=await submitV2(env,db,'venue',venuePayload(),{headers:admin.headers,body:{expectedImages:1}}),id=created.body.submissionId;
+  assert.equal(created.response.status,202);assert.equal(created.body.publicationMode,'direct');
+  assert.equal((await finalizeV2(env,created.body,1,admin.headers)).status,409);
+  const uploaded=await worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(created.body.receiptToken,0,1),...admin.headers},body:uploadWebp()}),env,{});
+  assert.equal(uploaded.status,201);
+  db.sqlite.prepare('UPDATE auth_sessions SET admin_until=1 WHERE token_hash=?').run(admin.tokenHash);
+  const expired=await finalizeV2(env,created.body,2,admin.headers);assert.equal(expired.status,401);assert.equal((await expired.json()).error.code,'admin_session_expired');
+  const other=administratorSession(db,2);assert.equal((await finalizeV2(env,created.body,2,other.headers)).status,403);
+  const ordinary=authenticatedSession(db);assert.equal((await finalizeV2(env,created.body,2,ordinary.headers)).status,401);
+  admin=administratorSession(db);
+  const key=[...bucket.objects.keys()][0],object=bucket.objects.get(key);bucket.objects.delete(key);
+  assert.equal((await finalizeV2(env,created.body,2,admin.headers)).status,409);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM media_assets WHERE submission_id=? AND object_state='published'").get(id).n,0);
+  bucket.objects.set(key,object);
+  const ready=db.sqlite.prepare('SELECT version FROM submissions WHERE id=?').get(id).version;
+  const published=await finalizeV2(env,created.body,ready,admin.headers);assert.equal(published.status,200);assert.equal((await published.json()).status,'published');
+  const revision=(await readLive(db)).state.revision;
+  assert.equal((await finalizeV2(env,created.body,ready,admin.headers)).status,200);
+  assert.equal((await readLive(db)).state.revision,revision);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(id).n,1);
+ });
+});
+
+test('admin direct venue publication reports authority lost during R2 work and preserves the same receipt for retry',async()=>{
+ for(const revoke of ['logout','role-expiry']) {
+  const db=new SqliteD1(),bucket=fakeR2Bucket(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2',IMAGES:bucket});let admin=administratorSession(db);
+  await withExternalStubs(async()=>{
+   const created=await submitV2(env,db,'venue',venuePayload(),{headers:admin.headers,body:{expectedImages:1}}),id=created.body.submissionId;
+   assert.equal((await worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(created.body.receiptToken,0,1),...admin.headers},body:uploadWebp()}),env,{})).status,201);
+   const before=(await readLive(db)).state.revision,head=bucket.head;
+   bucket.head=async(...args)=>{const result=await head(...args);db.sqlite.prepare(revoke==='logout'?'DELETE FROM auth_sessions WHERE token_hash=?':'UPDATE auth_sessions SET admin_until=1 WHERE token_hash=?').run(admin.tokenHash);return result;};
+   const failed=await finalizeV2(env,created.body,2,admin.headers);assert.equal(failed.status,401,revoke);assert.equal((await failed.json()).error.code,'admin_session_expired');
+   assert.equal((await readLive(db)).state.revision,before);
+   assert.deepEqual(plain(db.sqlite.prepare('SELECT status,version,upload_state,live_published_at FROM submissions WHERE id=?').get(id)),{status:'pending',version:3,upload_state:'pending',live_published_at:null});
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM media_assets WHERE submission_id=? AND object_state='published'").get(id).n,0);
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(id).n,0);
+   bucket.head=head;admin=administratorSession(db);
+   assert.equal((await finalizeV2(env,created.body,3,admin.headers)).status,200);
+   assert.equal((await readLive(db)).state.revision,before+1);
+  });
+ }
+});
+
 test('normal users directly publish no-image food and reviews, with anonymous default and explicit verified username',async()=>{
  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
  await withExternalStubs(async()=>{
