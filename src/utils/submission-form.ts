@@ -4,6 +4,7 @@ import { SUBMISSION_LIMITS as LIMITS, parseYuan, splitTags, isChineseTag } from 
 import { validateV2Submission, V2ValidationError } from '../worker/v2-validation';
 import { clearFormErrors, formProblems, notifyForm, showFormErrors } from './form-feedback';
 import { submissionFetch, isPublished } from './submission-request';
+import { loginHref } from './auth-session';
 
 type EntityType = 'venue' | 'food';
 type Photo = { blob: Blob; url: string; alt: string };
@@ -66,8 +67,10 @@ export function initSubmissionForm() {
     for (const name of ['imageSource','imageHolder','imageLicense']) field(name).required = licensed;
     field('rightsConfirmed').required = hasPhotos;
     form!.querySelector('[data-rights-label]')!.textContent = licensed ? '我确认已获得相应使用权，并授权本站按所填许可展示。' : '这些照片由本人拍摄，我授权本站展示，并可选作对应餐品或店铺的封面。';
-    submit.disabled = busy || !widget || Boolean(pending);
-    submit.textContent = type === 'food' && form!.closest<HTMLElement>('.submit-page')?.dataset.directPublishing === 'true' ? '直接发表餐品 →' : '提交审核 →';
+    const access = form!.closest<HTMLElement>('.submit-page')?.dataset;
+    const adminExpired = type === 'venue' && access?.adminState === 'expired';
+    submit.disabled = busy || !widget || Boolean(pending) || adminExpired;
+    submit.textContent = adminExpired ? '请先续权，再发表店铺 →' : type === 'venue' && access?.adminDirectPublishing === 'true' ? '直接发表店铺 →' : type === 'food' && access?.directPublishing === 'true' ? '直接发表餐品 →' : '提交审核 →';
     const usernameChoice = form!.querySelector<HTMLInputElement>('[data-username-choice]');
     if (usernameChoice) usernameChoice.disabled = busy || usernameChoice.dataset.accountAvailable !== 'true';
     retry.disabled = busy;
@@ -92,10 +95,11 @@ export function initSubmissionForm() {
     document.querySelector<HTMLAnchorElement>('#receipt-status-link')!.href = '/status/?id='+encodeURIComponent(receipt.submissionId);
     const add = document.querySelector<HTMLAnchorElement>('#receipt-food-link')!; add.hidden = receipt.type !== 'venue' || !receipt.entityId || !complete;
     add.href = '/submit/?venueEntityId='+encodeURIComponent(receipt.entityId ?? '');
-    add.textContent = '店铺审核通过后添加餐品 ＋';
+    add.textContent = isPublished(receipt.status) ? '给这家店添加餐品 ＋' : '店铺审核通过后添加餐品 ＋';
     const publicLink = document.querySelector<HTMLAnchorElement>('#receipt-public-link')!;
     publicLink.hidden = !complete || !isPublished(receipt.status) || !receipt.entityId;
     publicLink.href = (receipt.type === 'food' ? '/foods/' : '/restaurants/') + encodeURIComponent(receipt.entityId ?? '') + '/';
+    publicLink.textContent = receipt.type === 'food' ? '查看已公开餐品 →' : '查看已公开店铺 →';
   }
   function savePending(receipt: Receipt) { pending = receipt; write(pendingKey,receipt); retry.hidden = false; showReceipt(receipt,false); }
   function updateVersion(version: number) { if (pending) savePending({ ...pending,version }); }
@@ -181,7 +185,15 @@ export function initSubmissionForm() {
   async function request(url: string, init: RequestInit = {}) {
     const response = await submissionFetch(url, init);
     const body = await response.json().catch(() => null);
-    if (!response.ok) throw new SubmissionError(body?.error?.message || '服务暂时无法处理，请稍后重试。',body?.error?.code || 'request_failed',response.status);
+    if (!response.ok) {
+      if (body?.error?.code === 'admin_session_expired') {
+        const root = form!.closest<HTMLElement>('.submit-page');
+        if (root) { root.dataset.adminState = 'expired'; root.dataset.adminDirectPublishing = 'false'; }
+        const renew = root?.querySelector<HTMLAnchorElement>('[data-contribution-renew]');
+        if (renew) { renew.href = loginHref(); renew.hidden = false; }
+      }
+      throw new SubmissionError(body?.error?.message || '服务暂时无法处理，请稍后重试。',body?.error?.code || 'request_failed',response.status);
+    }
     if (!body || typeof body !== 'object') throw new Error('服务器回执无效，请保持本次资料重试。');
     return body;
   }
@@ -220,7 +232,7 @@ export function initSubmissionForm() {
     try { sessionStorage.removeItem(pendingKey); } catch { /* Leave the visible receipt. */ }
     for (const slot of ['entity','attachedReview'] as const) { photos[slot].forEach(photo => URL.revokeObjectURL(photo.url)); photos[slot] = []; renderPhotos(slot); }
     form!.reset(); form!.querySelector<HTMLDetailsElement>('#attached-review')!.open = false; updateCount(); clearFormErrors(form!); resetTurnstile();
-    message(completion.status === 'published' ? '餐品与随稿评价已公开，可从下方查看。请保存回执。' : '投稿已收到，等待管理员审核。请保存下方回执。','success');
+    message(completion.status === 'published' ? `${receipt.type === 'venue' ? '店铺' : '餐品'}与随稿评价已公开，可从下方查看。请保存回执。` : '投稿已收到，等待管理员审核。请保存下方回执。','success');
   }
   const widget = turnstileWidget();
   if (widget) form.querySelector('#turnstile-slot')!.append(widget);

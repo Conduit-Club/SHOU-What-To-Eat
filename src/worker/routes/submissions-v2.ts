@@ -11,6 +11,7 @@ import type { AuthSession } from '../auth.js';
 import { submissionActor, SubmissionAuthFailure, submissionSessionAssertion, submissionWriteAssertion } from '../submission-auth.js';
 import { diningDate } from '../../utils/dining-date.js';
 import { publicAvatar } from '../../utils/review-identity.js';
+import { adminSessionValid, adminWriteBatch } from '../admin-auth.js';
 
 export const submissionV2Routes = new Hono<AppEnv>();
 submissionV2Routes.onError((cause, context) => {
@@ -45,6 +46,7 @@ submissionV2Routes.post('/', async (context) => {
       if (existing) return replayOrConflict(context, existing, requestHash);
     } catch { return unavailable(context); }
   }
+  if (direct && submission.entityType === 'venue' && actor?.wasAdmin && !actor.isAdmin) return adminRenewal(context);
   // The raw request hash precedes defaults: a retry across midnight matches the
   // original request. The saved date and identity are captured only once here.
   const createdAt = new Date().toISOString();
@@ -77,7 +79,8 @@ submissionV2Routes.post('/', async (context) => {
   const uploadState = submission.expectedImages || submission.expectedReviewImages ? 'uploading' : 'pending';
   const publicJson = JSON.stringify(submission.publicJson);
   const type = submission.entityType === 'review' ? 'review' : 'new';
-  const publicationMode = direct && submission.entityType !== 'venue' ? 'direct' : 'moderated';
+  const adminDirect = direct && submission.entityType === 'venue' && Boolean(actor?.isAdmin);
+  const publicationMode = direct && (submission.entityType !== 'venue' || adminDirect) ? 'direct' : 'moderated';
   try {
     const statements = [
       ...(actor ? [submissionSessionAssertion(context.env, actor)] : []),
@@ -89,7 +92,7 @@ submissionV2Routes.post('/', async (context) => {
       context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, reason, created_at) VALUES (?, ?, 'system', 'submit', 1, ?, ?)").bind(crypto.randomUUID(), id, `v2:${submission.entityType}`, createdAt),
       ...(actor ? [context.env.DB.prepare('DELETE FROM live_write_assertion')] : []),
     ];
-    await context.env.DB.batch(statements);
+    await adminWriteBatch(context.env, statements, adminDirect ? actor! : undefined);
   } catch {
     await releaseRateLimit(context.env.DB, ipHash, windowStart).catch(() => undefined);
     if (accountRateKey) await releaseRateLimit(context.env.DB, accountRateKey, windowStart).catch(() => undefined);
@@ -99,11 +102,12 @@ submissionV2Routes.post('/', async (context) => {
         if (existing) return replayOrConflict(context, existing, requestHash);
       } catch { /* Keep the public error generic. */ }
     }
+    if (adminDirect && await adminSessionValid(context.env, actor!).catch(() => undefined) === false) return adminRenewal(context);
     return unavailable(context);
   }
   let status: string = uploadState, version = 1;
   if (publicationMode === 'direct' && uploadState === 'pending' && actor) {
-    try { await publishDirect(context.env, id, version, actor); status = 'published'; version++; }
+    try { await publishDirect(context.env, id, version, actor, submission.entityType); status = 'published'; version++; }
     catch { /* Return the private receipt: a saved draft can retry finalization. */ }
   }
   return context.json({ submissionId: id, entityId, status, uploadState, publicationMode, version, expectedImages: submission.expectedImages, expectedReviewImages: submission.expectedReviewImages, uploadedImages: 0, receiptToken }, status === 'published' ? 201 : 202, { 'Cache-Control': 'no-store' });
@@ -186,6 +190,7 @@ submissionV2Routes.post('/:id/finalize', async (context) => {
   // A lost successful response may retry with the version before publication.
   // Return the committed result without publishing or auditing a second time.
   if (receipt.live_published_at) return finalizedResponse(context, receipt, counts, receipt.version, 'published');
+  if (receipt.publication_mode === 'direct' && receipt.entity_type === 'venue' && !actor?.isAdmin) return adminRenewal(context);
   if (receipt.status !== 'pending') return error(context, 'submission_not_pending', '该投稿当前无法继续，请在进度页查看状态。', 409);
   if (Number(value.expectedVersion) !== receipt.version) return error(context, 'version_conflict', '投稿版本已变化，请刷新后重试。', 409);
   if (counts.entity !== receipt.expected_images || counts.attachedReview !== receipt.expected_review_images) return error(context, 'image_count_mismatch', '图片数量尚未完成。', 409);
@@ -205,9 +210,10 @@ submissionV2Routes.post('/:id/finalize', async (context) => {
   if (receipt.publication_mode === 'direct') {
     if (!actor || actor.userId !== receipt.submitter_user_id) return error(context, 'submission_owner_required', '请使用原投稿账号公开这份投稿。', 403);
     if (!liveContent(context.env)) return unavailable(context, 'direct_publication_unavailable', '直接发表暂时不可用，请保留回执后重试。');
-    try { await publishDirect(context.env, receipt.id, version, actor); }
+    try { await publishDirect(context.env, receipt.id, version, actor, receipt.entity_type); }
     catch (cause) {
       const code = publicationFailure(cause);
+      if (code === 'admin_session_expired') return adminRenewal(context);
       return error(context, code, code === 'parent_venue_unpublished' ? '所属餐厅或档口尚未公开，请等待店铺审核通过后重试。' : code === 'review_target_unavailable' ? '评价目标已下架，暂时无法公开这条评价。' : '资料已保存，暂时无法公开，请保留回执并继续完成投稿。', code === 'publication_failed' ? 503 : 409);
     }
     return finalizedResponse(context, receipt, counts, version + 1, 'published');
@@ -330,17 +336,20 @@ function finalizedResponse(context: Context<AppEnv>, receipt: SubmissionReceipt,
 
 function publicationFailure(cause: unknown) {
   const code = cause instanceof Error ? cause.message : '';
-  return ['parent_venue_unpublished', 'review_target_unavailable', 'images_incomplete', 'media_object_missing', 'revision_conflict', 'entity_already_published', 'submission_owner_required'].includes(code) ? code : 'publication_failed';
+  return ['parent_venue_unpublished', 'review_target_unavailable', 'images_incomplete', 'media_object_missing', 'revision_conflict', 'entity_already_published', 'submission_owner_required', 'admin_session_expired'].includes(code) ? code : 'publication_failed';
 }
 
-async function publishDirect(env: AppEnv['Bindings'], id: string, version: number, actor: AuthSession) {
-  try { return await publishLive(env, id, version, `user:${actor.userId}`, false, actor); }
+async function publishDirect(env: AppEnv['Bindings'], id: string, version: number, actor: AuthSession, entityType: string) {
+  const reviewer = entityType === 'venue' ? `auth:${actor.userId}:${actor.username}` : `user:${actor.userId}`;
+  try { return await publishLive(env, id, version, reviewer, false, actor); }
   catch (cause) {
-    const code = publicationFailure(cause), now = new Date().toISOString();
+    const authority = entityType === 'venue' ? await adminSessionValid(env, actor).catch(() => undefined) : undefined;
+    const code = authority === false ? 'admin_session_expired' : publicationFailure(cause), now = new Date().toISOString();
     await env.DB.batch([
       env.DB.prepare('UPDATE submissions SET live_error=? WHERE id=? AND version=? AND live_published_at IS NULL').bind(code, id, version),
-      env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) SELECT ?,?,?,'retry',?,?,? WHERE EXISTS (SELECT 1 FROM submissions WHERE id=? AND version=? AND live_published_at IS NULL)").bind(crypto.randomUUID(), id, `user:${actor.userId}`, version, `direct_publish_failed:${code}`, now, id, version),
+      env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) SELECT ?,?,?,'retry',?,?,? WHERE EXISTS (SELECT 1 FROM submissions WHERE id=? AND version=? AND live_published_at IS NULL)").bind(crypto.randomUUID(), id, reviewer, version, `direct_publish_failed:${code}`, now, id, version),
     ]).catch(() => undefined);
+    if (code === 'admin_session_expired') throw new Error(code);
     throw cause;
   }
 }
@@ -362,4 +371,5 @@ function priceOf(value: unknown) { if (value && typeof value === 'object') { con
 function replayOrConflict(context: Context<AppEnv>, existing: { submission_id: string; request_hash: string }, requestHash: string) { return existing.request_hash === requestHash ? error(context, 'idempotency_replayed', '该重复提交标识已经使用，请使用首次响应中的回执令牌查询状态。', 409, undefined, { submissionId: existing.submission_id }) : error(context, 'idempotency_conflict', '重复提交标识已用于另一份稿件。', 409); }
 function unavailable(context: Context<AppEnv>, code = 'service_unavailable', message = '投稿服务暂未配置完成，请稍后重试。') { return error(context, code, message, 503); }
 function notFound(context: Context<AppEnv>) { return error(context, 'not_found', '没有找到该投稿。', 404); }
+function adminRenewal(context: Context<AppEnv>) { return error(context, 'admin_session_expired', '管理员身份已到期或需要重新确认。资料与照片会保留，请在新标签页续权后继续。', 401); }
 function error(context: Context<AppEnv>, code: string, message: string, status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 503, headers?: Record<string, string>, extra?: Record<string, unknown>) { return context.json({ ...(extra ?? {}), error: { code, message } }, status, { 'Cache-Control': 'no-store', ...(headers ?? {}) }); }
