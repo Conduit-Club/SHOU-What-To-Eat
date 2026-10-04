@@ -29,9 +29,9 @@ export function missingDatabaseConfig(env: AppEnv['Bindings']): string[] {
 
 export function missingReviewConfig(env: AppEnv['Bindings']): string[] {
   const missing = missingSubmissionConfig(env);
-  if (!env.ACCESS_TEAM_DOMAIN?.trim()) missing.push('ACCESS_TEAM_DOMAIN');
-  if (!env.ACCESS_AUD?.trim()) missing.push('ACCESS_AUD');
-  if (!env.ACCESS_REVIEWER_EMAIL?.trim()) missing.push('ACCESS_REVIEWER_EMAIL');
+  const hasAuth = Boolean(env.OIDC_CLIENT_ID?.trim() && env.OIDC_CLIENT_SECRET?.trim() && env.OIDC_REDIRECT_URI?.trim());
+  const hasAccess = Boolean(env.ACCESS_TEAM_DOMAIN?.trim() && env.ACCESS_AUD?.trim() && env.ACCESS_REVIEWER_EMAIL?.trim());
+  if (!hasAuth && !hasAccess) missing.push('ADMIN_AUTH');
   return missing;
 }
 

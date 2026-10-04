@@ -14,6 +14,7 @@ import { liveDetail } from './live-detail.js';
 import { resumeApproved } from './live-catalog.js';
 import type { AppEnv } from './types.js';
 import { isDatabaseError } from './errors.js';
+import { authRoutes } from './routes/auth.js';
 
 const app = new Hono<AppEnv>();
  app.use('/api/*', cors({ origin: (origin, context) => (context.env.ALLOWED_ORIGINS ?? '').split(',').map((item: string) => item.trim()).includes(origin) ? origin : null, allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization', 'Cf-Access-Jwt-Assertion', 'Idempotency-Key', 'X-Submission-Version', 'X-Image-Slot', 'X-Image-Index', 'X-Image-Alt', 'X-Image-Source', 'X-Image-Source-Note', 'X-Image-Copyright-Holder', 'X-Image-License', 'X-Image-Permission', 'X-Image-Rights-Confirmed', 'X-Image-Is-Illustrative', 'X-Image-Metadata-Encoding', 'X-Image-Cover-Allowed'] }));
@@ -24,12 +25,17 @@ const health = (context: Context<AppEnv>) => {
 };
 app.get('/api/health', health);
 app.get('/api/v1/health', health);
+app.route('/auth', authRoutes);
 app.route('/api/v1/submissions', submissionRoutes);
 app.route('/api/v2/submissions', submissionV2Routes);
 app.route('/api/v2/public', livePublicRoutes);
 app.route('/api/v2/backup', backupRoutes);
 app.route('/api/v1/admin', adminRoutes);
 app.route('/api/v2/admin', adminV2Routes);
+// The existing /admin paths remain protected at the Cloudflare Access edge.
+// Unified Auth management uses distinct paths with identical Worker checks.
+app.route('/api/manage/v1', adminRoutes);
+app.route('/api/manage/v2', adminV2Routes);
 app.route('/api/v1/webhooks', webhookRoutes);
 app.get('/media/:assetId', async (context) => publicMediaResponse(context.req.raw, context.env, context.req.param('assetId')));
 app.notFound((context) => context.json({ error: { code: 'not_found', message: '没有找到该 API。' } }, 404, { 'Cache-Control': 'no-store' }));
@@ -48,7 +54,7 @@ export default {
       if(detail){try{return await liveDetail(request,env,detail[1]==='foods'?'food':'venue',detail[2]);}catch(error){return new Response(isDatabaseError(error)?'数据库错误，请稍后重试。':'资料暂时无法加载，请稍后刷新。',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});}}
       if(/^\/(foods|restaurants)\/.+/.test(path)&&!/^\/(foods|restaurants)\/index\.html$/.test(path))return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
     }
-    if (url.pathname === '/api' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) return app.fetch(request, env, executionContext);
+    if (url.pathname === '/auth' || url.pathname.startsWith('/auth/') || url.pathname === '/api' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) return app.fetch(request, env, executionContext);
     if (!env.ASSETS) return new Response('Static assets are not configured.\n', { status: 503, headers: { 'Cache-Control': 'no-store' } });
     return env.ASSETS.fetch(request);
   },

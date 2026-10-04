@@ -13,6 +13,11 @@ export type AppEnv = {
     ACCESS_TEAM_DOMAIN: string;
     ACCESS_AUD: string;
     ACCESS_REVIEWER_EMAIL: string;
+    OIDC_ISSUER?: string;
+    OIDC_CLIENT_ID?: string;
+    OIDC_CLIENT_SECRET?: string;
+    OIDC_REDIRECT_URI?: string;
+    OIDC_ALLOW_LOCAL_HTTP?: string;
     GITHUB_APP_ID: string;
     GITHUB_PRIVATE_KEY: string;
     GITHUB_INSTALLATION_ID: string;
@@ -21,5 +26,5 @@ export type AppEnv = {
     DEPLOY_WEBHOOK_SECRET: string;
     IMAGES?: R2Bucket;
   };
-  Variables: { reviewer: string };
+  Variables: { reviewer: string; authSession?: import('./auth.js').AuthSession | null };
 };
