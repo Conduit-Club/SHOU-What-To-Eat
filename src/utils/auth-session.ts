@@ -5,6 +5,19 @@ export type AccountSession = {
   csrfToken: string | null;
 };
 
+export function adminSessionState(user: AccountSession['user'], now = Math.floor(Date.now() / 1000)): 'none' | 'active' | 'expiring' | 'expired' {
+  if (!user?.wasAdmin) return 'none';
+  const until = Math.min(user.expiresAt, user.adminExpiresAt);
+  if (!user.isAdmin || until <= now) return 'expired';
+  return until - now <= 60 ? 'expiring' : 'active';
+}
+
+export function contributionCapabilities(account: AccountSession, now = Math.floor(Date.now() / 1000)) {
+  const direct = Boolean(account.directPublishing && account.user && account.user.expiresAt > now);
+  const state = adminSessionState(account.user, now);
+  return { direct, adminDirect: direct && (state === 'active' || state === 'expiring'), adminState: state };
+}
+
 const pendingSessions = new WeakMap<typeof fetch, Promise<AccountSession>>();
 
 /** Share concurrent display refreshes only; writes always request a fresh CSRF

@@ -3,32 +3,51 @@ interface Props { review?: boolean }
 const { review = false } = Astro.props;
 ---
 <aside class="contribution-access" data-contribution-access data-review={String(review)}>
-  <p data-contribution-policy>登录后，餐品与评价可直接公开；餐厅、档口仍需管理员批准。匿名投稿需审核。</p>
+  <p data-contribution-policy>登录后，餐品与评价可直接公开；普通账号新增餐厅、档口需管理员批准，管理员可直接发布。未登录投稿需审核。</p>
   <a data-contribution-login href="/auth/login?returnTo=%2Fsubmit%2F">登录后直接发表 →</a>
+  <a data-contribution-renew href="/auth/login?returnTo=%2Fsubmit%2F" target="_blank" rel="noopener noreferrer" hidden>续权后直接发布店铺 ↗</a>
 </aside>
 <script>
-  import { fetchAccountSession, loginHref } from '../utils/auth-session';
+  import { contributionCapabilities, fetchAccountSession, loginHref, type AccountSession } from '../utils/auth-session';
   const areas = [...document.querySelectorAll<HTMLElement>('[data-contribution-access]')];
   let active = false;
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  function render(account: AccountSession) {
+    const { direct, adminDirect, adminState } = contributionCapabilities(account);
+    for (const area of areas) {
+      const review = area.dataset.review === 'true';
+      const policy = area.querySelector<HTMLElement>('[data-contribution-policy]')!;
+      const login = area.querySelector<HTMLAnchorElement>('[data-contribution-login]')!;
+      const renew = area.querySelector<HTMLAnchorElement>('[data-contribution-renew]')!;
+      login.href = loginHref(); login.hidden = Boolean(account.user) || !account.configured;
+      renew.href = loginHref(); renew.hidden = review || !direct || adminState !== 'expired';
+      policy.textContent = direct
+        ? review ? `已以「${account.user!.username}」登录。评价完成提交后直接公开；默认匿名署名，可选择账号用户名。`
+          : adminDirect ? `已以管理员「${account.user!.username}」登录。餐厅、档口、餐品及随稿评价完成全部图片验证后直接公开，无需再次审核。`
+          : adminState === 'expired' ? '管理员身份已到期。餐品与评价仍可直接发表；新增店铺请先续权，表单与已上传照片会保留。'
+          : `已以「${account.user!.username}」登录。餐品与随稿评价完成提交后直接公开；餐厅、档口仍需管理员批准，餐品只能添加到已公开店铺。`
+        : review ? '登录后，评价可直接公开，仍可匿名署名；未登录的评价需管理员审核。' : '登录后，餐品与评价可直接公开；普通账号新增餐厅、档口需管理员批准。未登录投稿需审核。';
+      const root = area.closest('.quick-review') ?? area.closest('.submit-page');
+      if (root instanceof HTMLElement) {
+        root.dataset.directPublishing = String(direct);
+        root.dataset.adminDirectPublishing = String(adminDirect);
+        root.dataset.adminState = adminState;
+      }
+      const badge = root?.querySelector<HTMLElement>('[data-publication-badge]');
+      if (badge) badge.textContent = direct ? '登录用户直接公开' : '未登录评价需审核';
+      root?.dispatchEvent(new CustomEvent('contribution-auth', { bubbles: true }));
+    }
+  }
   async function refreshContributionAccess() {
     if (active || !areas.length) return;
     active = true;
     try {
       const account = await fetchAccountSession();
-      for (const area of areas) {
-        const review = area.dataset.review === 'true';
-        const direct = Boolean(account.user && account.directPublishing);
-        const policy = area.querySelector<HTMLElement>('[data-contribution-policy]')!;
-        const login = area.querySelector<HTMLAnchorElement>('[data-contribution-login]')!;
-        login.href = loginHref(); login.hidden = Boolean(account.user) || !account.configured;
-        policy.textContent = direct
-          ? `已以「${account.user!.username}」登录。${review ? '评价' : '餐品与随稿评价'}完成提交后直接公开${review ? '；默认匿名署名，可选择账号用户名。' : '；餐厅、档口仍需管理员批准，餐品只能添加到已公开店铺。'}`
-          : review ? '登录后，评价可直接公开，仍可匿名署名；未登录的评价需管理员审核。' : '登录后，餐品与评价可直接公开；餐厅、档口仍需管理员批准。未登录投稿需审核。';
-        const root = area.closest('.quick-review') ?? area.closest('.submit-page');
-        if (root instanceof HTMLElement) root.dataset.directPublishing = String(direct);
-        const badge = root?.querySelector<HTMLElement>('[data-publication-badge]');
-        if (badge) badge.textContent = direct ? '登录用户直接公开' : '未登录评价需审核';
-        root?.dispatchEvent(new CustomEvent('contribution-auth', { bubbles: true }));
+      render(account);
+      clearTimeout(expiryTimer);
+      if (account.user) {
+        const until = Math.min(account.user.expiresAt, account.user.adminExpiresAt > Date.now() / 1000 ? account.user.adminExpiresAt : account.user.expiresAt);
+        expiryTimer = setTimeout(() => render(account), Math.max(0, until * 1000 - Date.now()) + 50);
       }
     } catch {
       for (const area of areas) area.querySelector<HTMLElement>('[data-contribution-policy]')!.textContent = '账号状态暂时无法读取，请刷新后再提交。';

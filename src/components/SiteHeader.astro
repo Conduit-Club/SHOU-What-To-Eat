@@ -6,10 +6,11 @@ const pathname = Astro.url.pathname;
   <nav class="site-links" aria-label="目录导航"><a href="/" aria-current={pathname === '/' ? 'page' : undefined}>首页</a><a href="/foods/" aria-current={pathname.startsWith('/foods/') ? 'page' : undefined}>找餐品</a><a href="/restaurants/" aria-current={pathname.startsWith('/restaurants/') ? 'page' : undefined}>找店铺</a><a href="/status/" aria-current={pathname.startsWith('/status') ? 'page' : undefined}>投稿进度</a></nav>
   <div class="site-actions">
   <div class="account-controls" data-account-controls>
+    <a class="account-manage" href="/manage/" data-account-manage hidden aria-current={pathname.startsWith('/manage') ? 'page' : undefined}>管理</a>
     <div class="account-guest" data-account-guest><a href="/auth/login" data-account-login>登录</a><a href="/auth/register" data-account-register>注册</a></div>
     <details class="account-member" data-account-member hidden>
-      <summary aria-label="账号菜单"><img data-account-avatar hidden alt="" referrerpolicy="no-referrer" width="30" height="30" /><span class="account-initial" data-account-initial aria-hidden="true"></span><span data-account-name></span><span aria-hidden="true">⌄</span></summary>
-      <div class="account-menu"><a href="/auth/account">账号与头像</a><a href="/manage/" data-account-admin hidden>内容管理</a><a href="/auth/login?returnTo=%2Fmanage%2F" data-account-renew hidden>确认管理员身份</a><form action="/auth/logout" method="post"><input type="hidden" name="csrfToken" data-account-csrf /><input type="hidden" name="returnTo" data-account-return /><button type="submit">退出本站</button></form></div>
+      <summary aria-label="打开账号菜单"><img data-account-avatar hidden alt="" referrerpolicy="no-referrer" width="30" height="30" /><span class="account-initial" data-account-initial aria-hidden="true"></span><span data-account-name></span><span class="account-label">账号</span><span aria-hidden="true">⌄</span></summary>
+      <div class="account-menu"><div class="account-menu-identity"><strong data-account-menu-name></strong><small data-account-role></small></div><a href="/manage/" data-account-admin hidden>管理工作区 · 投稿审核</a><a href="/auth/login?returnTo=%2Fmanage%2F" data-account-renew hidden target="_blank" rel="noopener noreferrer">重新确认管理员身份 ↗</a><a href="/auth/account" target="_blank" rel="noopener noreferrer">统一账号设置 ↗</a><form action="/auth/logout" method="post"><input type="hidden" name="csrfToken" data-account-csrf /><input type="hidden" name="returnTo" data-account-return /><button type="submit">退出本站</button></form></div>
     </details>
     <span class="account-unavailable" data-account-unavailable hidden>账号暂不可用</span>
   </div>
@@ -21,31 +22,48 @@ const pathname = Astro.url.pathname;
   </div>
 </header>
 <script>
-  import { fetchAccountSession, loginHref } from '../utils/auth-session';
+  import { adminSessionState, fetchAccountSession, loginHref, type AccountSession } from '../utils/auth-session';
   const controls = document.querySelector<HTMLElement>('[data-account-controls]');
   if (controls) {
     const element = <T extends HTMLElement>(selector: string) => controls.querySelector<T>(selector)!;
     const returnTo = () => location.pathname + location.search + location.hash;
+    let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+    let failedAvatar = '';
+    const render = (session: AccountSession) => {
+      const user = session.user && session.user.expiresAt > Date.now() / 1000 ? session.user : null;
+      const state = adminSessionState(user);
+      element('[data-account-guest]').hidden = Boolean(user) || !session.configured;
+      element('[data-account-member]').hidden = !user;
+      element('[data-account-unavailable]').hidden = session.configured;
+      element('[data-account-manage]').hidden = !user?.wasAdmin;
+      element('[data-account-admin]').hidden = !user?.wasAdmin;
+      element('[data-account-renew]').hidden = state !== 'expired' && state !== 'expiring';
+      element<HTMLAnchorElement>('[data-account-renew]').href = loginHref(returnTo());
+      if (user) {
+        element('[data-account-name]').textContent = user.username;
+        element('[data-account-menu-name]').textContent = user.username;
+        element('[data-account-initial]').textContent = Array.from(user.username)[0];
+        element('[data-account-role]').textContent = state === 'expired' ? '管理员身份已到期 · 需要重新确认' : state === 'expiring' ? '管理员身份即将到期' : state === 'active' ? '管理员 · 可审核与直接添加店铺' : '登录账号 · 餐品与评价可直接发表';
+        const avatar = element<HTMLImageElement>('[data-account-avatar]');
+        const picture = user.picture && user.picture !== failedAvatar ? user.picture : null;
+        avatar.hidden = !picture;
+        element('[data-account-initial]').hidden = Boolean(picture);
+        if (picture && avatar.getAttribute('src') !== picture) avatar.src = picture;
+        else if (!picture) avatar.removeAttribute('src');
+        element<HTMLInputElement>('[data-account-csrf]').value = session.csrfToken ?? '';
+      }
+    };
     const refresh = async () => {
       element<HTMLAnchorElement>('[data-account-login]').href = loginHref(returnTo());
       element<HTMLAnchorElement>('[data-account-register]').href = '/auth/register?' + new URLSearchParams({ returnTo: returnTo() });
       element<HTMLInputElement>('[data-account-return]').value = returnTo();
       try {
         const session = await fetchAccountSession();
-        element('[data-account-guest]').hidden = Boolean(session.user) || !session.configured;
-        element('[data-account-member]').hidden = !session.user;
-        element('[data-account-unavailable]').hidden = session.configured;
+        render(session);
+        clearTimeout(expiryTimer);
         if (session.user) {
-          element('[data-account-name]').textContent = session.user.username;
-          element('[data-account-initial]').textContent = Array.from(session.user.username)[0];
-          const avatar = element<HTMLImageElement>('[data-account-avatar]');
-          avatar.hidden = !session.user.picture;
-          element('[data-account-initial]').hidden = Boolean(session.user.picture);
-          if (session.user.picture) avatar.src = session.user.picture;
-          else avatar.removeAttribute('src');
-          element<HTMLInputElement>('[data-account-csrf]').value = session.csrfToken ?? '';
-          element('[data-account-admin]').hidden = !session.user.isAdmin;
-          element('[data-account-renew]').hidden = !session.user.wasAdmin || session.user.isAdmin;
+          const until = Math.min(session.user.expiresAt, session.user.adminExpiresAt > Date.now() / 1000 ? session.user.adminExpiresAt : session.user.expiresAt);
+          expiryTimer = setTimeout(() => render(session), Math.max(0, until * 1000 - Date.now()) + 50);
         }
       } catch { /* The working login links remain available if the status read fails. */ }
     };
@@ -54,9 +72,10 @@ const pathname = Astro.url.pathname;
     window.addEventListener('hashchange', () => void refresh());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refresh(); });
     setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60000);
-    element<HTMLImageElement>('[data-account-avatar]').addEventListener('error', () => { element('[data-account-avatar]').hidden = true; element('[data-account-initial]').hidden = false; });
+    element<HTMLImageElement>('[data-account-avatar]').addEventListener('error', () => { failedAvatar = element<HTMLImageElement>('[data-account-avatar]').src; element('[data-account-avatar]').hidden = true; element('[data-account-initial]').hidden = false; });
     controls.querySelector('form')!.addEventListener('submit', () => { element<HTMLInputElement>('[data-account-return]').value = returnTo(); });
     document.addEventListener('click', event => { const member = element<HTMLDetailsElement>('[data-account-member]'); if (!member.contains(event.target as Node)) member.open = false; });
+    controls.addEventListener('keydown', event => { if (event.key === 'Escape') { const member = element<HTMLDetailsElement>('[data-account-member]'); member.open = false; member.querySelector('summary')!.focus(); } });
   }
 </script>
 <style>
@@ -69,4 +88,7 @@ const pathname = Astro.url.pathname;
   @media(max-width:760px){.site-header{min-height:76px;gap:12px}.site-brand{font-size:20px;gap:9px}.site-logo{width:40px;height:40px;border-radius:14px}.site-links{display:none}.site-actions{gap:10px}.account-member summary>span[data-account-name]{max-width:64px}.account-guest{gap:8px}.theme-toggle{padding:0 10px;min-height:44px}.theme-label{display:none}}
   @media(max-width:360px){.site-brand{font-size:18px}.site-logo{width:34px;height:34px}.account-member summary>span[data-account-name]{max-width:44px}.site-actions{gap:7px}}
   @media(max-width:400px){.site-header{gap:8px}.site-brand{font-size:18px;gap:7px}.site-logo{width:34px;height:34px}.site-brand small{font-size:9px;letter-spacing:0}.site-actions{gap:7px}.account-member summary>span[data-account-name]{display:none}.account-member summary{gap:5px}.account-guest{font-size:12px;gap:7px}.theme-toggle{width:40px;padding:0;min-height:42px}}
+</style>
+<style>
+  .account-controls{display:flex;align-items:center;gap:12px}.account-manage{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;color:var(--orange-deep);text-decoration:none;font-size:13px;font-weight:750}.account-manage[aria-current]{background:var(--surface-soft)}.account-label{font-size:12px;color:var(--muted)}.account-menu{width:min(250px,calc(100vw - 96px))}.account-menu-identity{padding:10px 12px;border-bottom:1px solid var(--line);margin-bottom:5px;overflow-wrap:anywhere}.account-menu-identity strong,.account-menu-identity small{display:block}.account-menu-identity strong{font-size:14px}.account-menu-identity small{font-size:11px;line-height:1.8;color:var(--muted);margin-top:5px}@media(max-width:760px){.account-controls{gap:7px}.account-manage{padding:0 9px;font-size:12px}.account-member summary>span[data-account-name]{display:none}}@media(max-width:340px){.account-label{display:none}.account-manage{display:none}}
 </style>
