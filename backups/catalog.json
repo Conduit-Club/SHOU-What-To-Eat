@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 13,
+  "revision": 14,
   "catalog": {
     "schemaVersion": 2,
     "restaurants": [
@@ -2113,6 +2113,30 @@
       }
     ],
     "reviews": [
+      {
+        "schemaVersion": 2,
+        "id": "eaafb2a4-14f4-44d4-807f-b34484536eec",
+        "targetType": "food",
+        "targetId": "812a5c7e-4ca2-40e1-86e6-2c1ed0ef2534",
+        "rating": 5,
+        "text": "好吃!",
+        "images": [],
+        "authorAlias": null,
+        "visitedAt": null,
+        "verifiedAt": null,
+        "updatedAt": null,
+        "sources": [
+          {
+            "repository": "shou-food-contributions",
+            "path": "submissions/de2807bb-1a2a-4c4b-b1ea-89d1415ad279",
+            "revision": "47c214607a4c14ab096513338fef3cd402385fc65e8c4b656ac7135daa62b68a",
+            "license": null,
+            "note": "审核通过的匿名投稿",
+            "sourceUrl": null,
+            "collectedAt": null
+          }
+        ]
+      },
       {
         "schemaVersion": 2,
         "id": "first-canteen-review-a",
