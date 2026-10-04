@@ -5,10 +5,24 @@ export type AccountSession = {
   csrfToken: string | null;
 };
 
-export async function fetchAccountSession(send: typeof fetch = fetch): Promise<AccountSession> {
-  const response = await send('/auth/session', { cache: 'no-store', credentials: 'same-origin' });
-  if (!response.ok) throw new Error('账号状态暂时无法加载，请稍后重试。');
-  return response.json();
+const pendingSessions = new WeakMap<typeof fetch, Promise<AccountSession>>();
+
+/** Share concurrent display refreshes only; writes always request a fresh CSRF
+ * token. No account response survives completion as a cached session. */
+export function fetchAccountSession(send: typeof fetch = fetch, fresh = false): Promise<AccountSession> {
+  const pending = !fresh && pendingSessions.get(send);
+  if (pending) return pending;
+  const request = (async () => {
+    const response = await send('/auth/session', { cache: 'no-store', credentials: 'same-origin' });
+    if (!response.ok) throw new Error('账号状态暂时无法加载，请稍后重试。');
+    return response.json() as Promise<AccountSession>;
+  })();
+  if (!fresh) {
+    pendingSessions.set(send, request);
+    const clear = () => { if (pendingSessions.get(send) === request) pendingSessions.delete(send); };
+    void request.then(clear, clear);
+  }
+  return request;
 }
 
 export function loginHref(path = location.pathname + location.search + location.hash): string {
@@ -30,7 +44,7 @@ export async function adminRequest(path: string, init: RequestInit = {}, send: t
     // Acquire the current CSRF token after a renewal in another tab. The
     // Worker alone decides whether this cookie or a verified Access JWT grants
     // admin rights, and always checks cookie-authenticated writes.
-    const session = await fetchAccountSession(send);
+    const session = await fetchAccountSession(send, true);
     if (session.csrfToken) headers.set('X-CSRF-Token', session.csrfToken);
   }
   const response = await send(base + path, { ...init, cache: 'no-store', credentials: 'same-origin', headers });

@@ -136,8 +136,11 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   return {submissionId:id,status:'published',revision:state.revision+1,backupStatus:'pending'};
 }
 
+// Require the partial index from 0012: the status index can otherwise keep
+// scanning already-published history even when no work remains.
+export const LIVE_RESUME_SQL = "SELECT id,version,reviewer,entity_type FROM submissions INDEXED BY idx_submissions_live_resume WHERE schema_version=2 AND status IN ('exporting','export_failed','merged_dev','merged_main') AND live_published_at IS NULL AND (live_attempt_at IS NULL OR live_attempt_at<?) ORDER BY CASE entity_type WHEN 'venue' THEN 0 WHEN 'food' THEN 1 ELSE 2 END,created_at LIMIT 10";
 export async function resumeApproved(env:AppEnv['Bindings']){
-  const rows=(await env.DB.prepare("SELECT id,version,reviewer,entity_type FROM submissions WHERE schema_version=2 AND status IN ('exporting','export_failed','merged_dev','merged_main') AND live_published_at IS NULL AND (live_attempt_at IS NULL OR live_attempt_at<?) ORDER BY CASE entity_type WHEN 'venue' THEN 0 WHEN 'food' THEN 1 ELSE 2 END,created_at LIMIT 10").bind(new Date(Date.now()-300000).toISOString()).all<any>()).results;
+  const rows=(await env.DB.prepare(LIVE_RESUME_SQL).bind(new Date(Date.now()-300000).toISOString()).all<any>()).results;
   for(const row of rows){
     try{await publishLive(env,row.id,row.version,row.reviewer||'migration',true);}
     catch(error){
