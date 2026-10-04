@@ -128,7 +128,7 @@ export function initSubmissionForm() {
       finally { setBusy(false); }
     });
   }
-  const attached = () => { const rating = Number(form!.querySelector<HTMLInputElement>('input[name=attachedRating]:checked')?.value ?? 0); const text = value('attachedText'); return rating || text || photos.attachedReview.length ? { rating,text } : null; };
+  const attached = () => { const rating = Number(form!.querySelector<HTMLInputElement>('input[name=attachedRating]:checked')?.value ?? 0); const text = value('attachedText'); return rating || text || photos.attachedReview.length ? { rating,text,...(value('attachedVisitedAt') ? {visitedAt:value('attachedVisitedAt')} : {}) } : null; };
   function payload() {
     const type = currentType();
     const range=checked(type+'PriceRange');
@@ -171,8 +171,8 @@ export function initSubmissionForm() {
         if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(metadata.source+metadata.holder+metadata.license)) add('imageSource','图片来源与授权信息包含无效控制字符。');
       } catch (error) {
         const code = error instanceof V2ValidationError ? error.code : '';
-        const name = code.includes('description') ? type+'Description' : code.includes('name') ? type+'Name' : code.includes('address') ? 'venueAddress' : code.includes('price') ? type+'PriceSource' : code.includes('meal') ? 'foodMealType' : code.includes('review') ? 'attachedText' : type+'Name';
-        add(name,'请检查填写内容与字段格式。'+(code ? `（${code}）` : ''));
+        const name = code.includes('visitedAt') ? 'attachedVisitedAt' : code.includes('description') ? type+'Description' : code.includes('name') ? type+'Name' : code.includes('address') ? 'venueAddress' : code.includes('price') ? type+'PriceSource' : code.includes('meal') ? 'foodMealType' : code.includes('review') ? 'attachedText' : type+'Name';
+        add(name,code === 'future_visitedAt' ? '用餐日期不能晚于今天（UTC+8）。' : '请检查填写内容与字段格式。'+(code ? `（${code}）` : ''));
       }
     }
     if (problems.length) { showFormErrors(form!,problems); feedback.textContent = '请先补全上方提示的内容。'; return false; }

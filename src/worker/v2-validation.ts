@@ -1,8 +1,9 @@
 import { tagLabel } from '../utils/catalog-display';
 import { isChineseTag } from '../lib/submission-limits';
 import { SUBMISSION_LIMITS as LIMITS } from '../lib/submission-limits.js';
+import { diningDate } from '../utils/dining-date.js';
 export type V2EntityType = 'venue' | 'food' | 'review';
-export type V2Review = { rating: number; text: string };
+export type V2Review = { rating: number; text: string; visitedAt?: string | null };
 export type V2Coordinates = { latitude: number; longitude: number } | null;
 export type V2Submission = {
   schemaVersion: 2;
@@ -44,9 +45,9 @@ export function validateV2Submission(value: unknown, existingRevision = false): 
   if (parentVenueId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parentVenueId)) throw new V2ValidationError('invalid_parent_venue');
   if (parent.venueEntityId && payload.venueId && parent.venueEntityId !== payload.venueId) throw new V2ValidationError('parent_venue_mismatch');
   allowedKeys(payload, entityType === 'venue' ? ['name','type','kind','campusScope','category','location','address','campus','floor','landmark','coordinates','distanceM','distance','description','openingHours','tags','averagePrice','attachedReview','sources','visitedAt','verifiedAt','updatedAt','parentId','aliases','foods'] : entityType === 'food' ? ['name','venueId','mealType','mealTypes','description','price','tags','attachedReview','sources','visitedAt','verifiedAt','updatedAt'] : ['targetType','targetId','rating','text','authorAlias','sources','visitedAt','verifiedAt','updatedAt']);
-  const attachedReview = entityType === 'venue' || entityType === 'food' ? parseAttachedReview(payload.attachedReview) : null;
+  const attachedReview = entityType === 'venue' || entityType === 'food' ? parseAttachedReview(payload.attachedReview, existingRevision) : null;
   if (!attachedReview && expectedReviewImages > 0) throw new V2ValidationError('review_images_without_review');
-  if (entityType === 'review') validateIndependentReview(payload);
+  if (entityType === 'review') validateIndependentReview(payload, existingRevision);
   if (entityType === 'venue') validateVenue(payload);
   if (entityType === 'food') validateFood(payload, parentVenueId);
   if (!existingRevision && Array.isArray(payload.tags) && payload.tags.some(tag => !isChineseTag(tag))) throw new V2ValidationError('chinese_tags_required');
@@ -144,7 +145,7 @@ function validateDistance(location: Record<string, unknown>, value: Record<strin
   if (typeof distanceBasis !== 'string' || !DISTANCE_BASES.has(distanceBasis)) throw new V2ValidationError('invalid_distance_basis');
 }
 
-function validateIndependentReview(value: Record<string, unknown>) {
+function validateIndependentReview(value: Record<string, unknown>, existingRevision: boolean) {
   const targetType = value.targetType;
   if (typeof targetType !== 'string' || !['venue', 'food'].includes(targetType)) throw new V2ValidationError('invalid_review_target');
   stringValue(value.targetId, 1, 160, 'invalid_review_target');
@@ -154,16 +155,24 @@ function validateIndependentReview(value: Record<string, unknown>) {
   const text = optionalString(value.text, 0, 256, 'invalid_review_text') ?? '';
   if (!rating && !text) throw new V2ValidationError('empty_review');
   validateDates(value);
+  validateDiningDate(value.visitedAt, existingRevision);
 }
 
-function parseAttachedReview(value: unknown): V2Review | null {
+function parseAttachedReview(value: unknown, existingRevision: boolean): V2Review | null {
   if (value === undefined || value === null) return null;
   if (!isObject(value)) throw new V2ValidationError('invalid_attached_review');
-  allowedKeys(value, ['rating','text']);
+  allowedKeys(value, ['rating','text','visitedAt']);
   const rating = boundedInteger(value.rating, 1, 5, 'invalid_rating');
   const text = optionalString(value.text, 0, 256, 'invalid_review_text') ?? '';
   if (!rating && !text) throw new V2ValidationError('empty_review');
-  return { rating, text };
+  const visitedAt = validateDiningDate(value.visitedAt, existingRevision);
+  return { rating, text, ...(value.visitedAt !== undefined ? { visitedAt } : {}) };
+}
+
+function validateDiningDate(value: unknown, existingRevision: boolean): string | null {
+  const date = optionalCalendarDate(value, 'invalid_visitedAt');
+  if (!existingRevision && date && date > diningDate()) throw new V2ValidationError('future_visitedAt');
+  return date;
 }
 
 function validateCoordinates(value: unknown): V2Coordinates {

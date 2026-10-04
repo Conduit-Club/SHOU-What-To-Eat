@@ -9,6 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { webcrypto } from 'node:crypto';
 import worker from '../src/worker/index.ts';
 import { publishLive, editLive, readLive, resumeApproved, maintainLegacyCatalog } from '../src/worker/live-catalog.ts';
+import { diningDate } from '../src/utils/dining-date.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotSeed = loadSeedSql();
@@ -210,6 +211,72 @@ test('normal users directly publish no-image food and reviews, with anonymous de
   const retry=await finalizeV2(env,created.body,1,user.headers);assert.equal(retry.status,200);assert.equal((await retry.json()).status,'published');assert.equal((await readLive(db)).state.revision,revision);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(created.body.submissionId).n,1);
   assert.doesNotMatch(JSON.stringify(after.catalog),/submitter_user_id|receipt_hash|token_hash|local-subject|local-csrf/);
+ });
+});
+
+test('review date defaults at first creation in UTC+8 and idempotent retries across midnight preserve anonymous identity',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-04T15:59:59.000Z')});
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
+ const picture='https://auth.shoumc.com/api/profile/avatar/'+'a'.repeat(64)+'.png';
+ db.sqlite.prepare('UPDATE auth_users SET picture=? WHERE id=1').run(picture);
+ await withExternalStubs(async()=>{
+  const target=(await readLive(db)).catalog.restaurants[0].id,payload={targetType:'venue',targetId:target,rating:4,text:'本地日期测试',authorAlias:'伪造署名'};
+  const extra={headers:{...user.headers,'Idempotency-Key':'review-midnight-request'}};
+  const first=await submitV2(env,db,'review',payload,extra);assert.equal(first.response.status,201,JSON.stringify(first.body));
+  const row=db.sqlite.prepare('SELECT created_at,revision_json,public_author_alias,public_author_avatar,public_identity_recorded FROM submissions WHERE id=?').get(first.body.submissionId);
+  assert.equal(JSON.parse(row.revision_json).payload.visitedAt,'2026-10-04');assert.equal(row.public_author_alias,null);assert.equal(row.public_author_avatar,null);assert.equal(row.public_identity_recorded,1);
+  assert.equal(diningDate(Date.parse(row.created_at)),'2026-10-04');
+  t.mock.timers.tick(2000);assert.equal(diningDate(),'2026-10-05');
+  const replay=await submitV2(env,db,'review',payload,extra);assert.equal(replay.response.status,409);assert.equal(replay.body.error.code,'idempotency_replayed');assert.equal(replay.body.submissionId,first.body.submissionId);
+  const conflict=await submitV2(env,db,'review',{...payload,visitedAt:'2026-10-05'},extra);assert.equal(conflict.body.error.code,'idempotency_conflict');
+  const retry=await finalizeV2(env,first.body,1,user.headers);assert.equal(retry.status,200);assert.equal((await retry.json()).status,'published');
+  const response=await worker.fetch(request('/api/v2/public/venue/'+target),env,{}),data=await response.json();
+  const published=data.reviews.find(r=>r.id===first.body.entityId);assert.equal(published.visitedAt,'2026-10-04');assert.equal(published.authorAlias,null);assert.equal(published.authorAvatar,null);
+  assert.doesNotMatch(JSON.stringify(published),/同学1|avatar\/|local-subject|public_author|submitter_user|userId|csrf|receipt/);
+  const future=await submitV2(env,db,'review',{...payload,visitedAt:'9999-12-31'},{headers:user.headers});assert.equal(future.response.status,422);assert.equal(future.body.error.code,'future_visitedAt');assert.match(future.body.error.message,/不能晚于今天/);
+ });
+});
+
+test('named review snapshots verified username and avatar before photo upload and date remains fixed through later finalization',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-04T04:00:00.000Z')});
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'}),owner=authenticatedSession(db);
+ const picture='https://auth.shoumc.com/api/profile/avatar/'+'b'.repeat(64)+'.png';
+ db.sqlite.prepare('UPDATE auth_users SET picture=? WHERE id=1').run(picture);
+ await withExternalStubs(async()=>{
+  const target=(await readLive(db)).catalog.restaurants[0].id,payload={targetType:'venue',targetId:target,rating:5,text:'本地署名照片测试',authorAlias:'伪造署名',visitedAt:'2026-09-30'};
+  const first=await submitV2(env,db,'review',payload,{headers:owner.headers,body:{visibility:'username',expectedImages:1}});assert.equal(first.response.status,202,JSON.stringify(first.body));
+  assert.equal(db.sqlite.prepare('SELECT public_author_avatar FROM submissions WHERE id=?').get(first.body.submissionId).public_author_avatar,picture);
+  t.mock.timers.tick(24*3600000);
+  db.sqlite.prepare('UPDATE auth_users SET username=?,picture=? WHERE id=1').run('后来改名','https://auth.shoumc.com/api/profile/avatar/'+'c'.repeat(64)+'.png');
+  const renewed=authenticatedSession(db);
+  const upload=await worker.fetch(request('/api/v2/submissions/'+first.body.submissionId+'/images',{method:'POST',headers:{...imageUploadHeaders(first.body.receiptToken,0,1),...renewed.headers},body:uploadWebp()}),env,{});assert.equal(upload.status,201,await upload.clone().text());
+  const done=await finalizeV2(env,first.body,2,renewed.headers);assert.equal(done.status,200,await done.clone().text());
+  const published=(await readLive(db)).catalog.reviews.find(r=>r.id===first.body.entityId);assert.equal(published.authorAlias,'同学1');assert.equal(published.authorAvatar,picture);assert.equal(published.visitedAt,'2026-09-30');
+  const revision=(await readLive(db)).state.revision;
+  assert.equal((await finalizeV2(env,first.body,2,renewed.headers)).status,200);assert.equal((await readLive(db)).state.revision,revision);
+  for(const avatar of [picture,'https://evil.test/avatar.png']) {
+   const denied=await submitV2(env,db,'review',{...payload,authorAvatar:avatar},{headers:renewed.headers,body:{visibility:'username'}});assert.equal(denied.response.status,422);assert.equal(denied.body.error.code,'unknown_fields');
+  }
+ });
+});
+
+test('moderated attached reviews retain chosen identity and creation date while legacy unknown dates remain unknown',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-04T04:00:00.000Z')});
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
+ const picture='https://auth.shoumc.com/api/profile/avatar/'+'d'.repeat(64)+'.png';
+ db.sqlite.prepare('UPDATE auth_users SET picture=? WHERE id=1').run(picture);
+ await withExternalStubs(async()=>{
+  const named=await submitV2(env,db,'venue',{...venuePayload(),attachedReview:{rating:4,text:'本地随稿署名'}},{headers:user.headers,body:{visibility:'username'}});assert.equal(named.body.publicationMode,'moderated');
+  const anonymous=await submitV2(env,db,'venue',{...venuePayload(),attachedReview:{rating:3,text:'本地匿名随稿',visitedAt:'2026-09-01'}},{headers:user.headers});
+  const legacy=await submitV2(env,db,'review',{targetType:'venue',targetId:(await readLive(db)).catalog.restaurants[0].id,rating:4,text:'旧稿夹具'});
+  const oldRow=db.sqlite.prepare('SELECT revision_json FROM submissions WHERE id=?').get(legacy.body.submissionId);const oldRevision=JSON.parse(oldRow.revision_json);oldRevision.payload.authorAlias='原有旧署名';oldRevision.payload.visitedAt=null;
+  db.sqlite.prepare('UPDATE submissions SET public_identity_recorded=0,revision_json=? WHERE id=?').run(JSON.stringify(oldRevision),legacy.body.submissionId);
+  t.mock.timers.tick(24*3600000);
+  for(const submission of [named,anonymous,legacy])await publishLive(env,submission.body.submissionId,1,'verified-test-reviewer');
+  const catalog=(await readLive(db)).catalog;
+  const namedReview=catalog.reviews.find(r=>r.targetId===named.body.entityId);assert.equal(namedReview.authorAlias,'同学1');assert.equal(namedReview.authorAvatar,picture);assert.equal(namedReview.visitedAt,'2026-10-04');
+  const anonReview=catalog.reviews.find(r=>r.targetId===anonymous.body.entityId);assert.equal(anonReview.authorAlias,null);assert.equal(anonReview.authorAvatar,null);assert.equal(anonReview.visitedAt,'2026-09-01');
+  const oldReview=catalog.reviews.find(r=>r.id===legacy.body.entityId);assert.equal(oldReview.authorAlias,'原有旧署名');assert.equal(oldReview.authorAvatar,undefined);assert.equal(oldReview.visitedAt,null);
  });
 });
 

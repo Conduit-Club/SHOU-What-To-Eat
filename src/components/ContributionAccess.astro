@@ -27,14 +27,7 @@ const { review = false } = Astro.props;
         const root = area.closest('.quick-review') ?? area.closest('.submit-page');
         if (root instanceof HTMLElement) root.dataset.directPublishing = String(direct);
         const badge = root?.querySelector<HTMLElement>('[data-publication-badge]');
-        if (badge) badge.textContent = direct ? '登录用户直接公开' : '匿名评价需审核';
-        const choice = root?.querySelector<HTMLInputElement>('[data-username-choice]');
-        if (choice) {
-          choice.disabled = !account.user;
-          choice.dataset.accountAvailable = String(Boolean(account.user));
-          const label = root?.querySelector<HTMLElement>('[data-username-label]');
-          if (label) label.textContent = account.user ? `使用账号用户名「${account.user.username}」` : '使用账号用户名（登录后可选）';
-        }
+        if (badge) badge.textContent = direct ? '登录用户直接公开' : '未登录评价需审核';
         root?.dispatchEvent(new CustomEvent('contribution-auth', { bubbles: true }));
       }
     } catch {

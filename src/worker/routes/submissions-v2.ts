@@ -9,6 +9,8 @@ import type { AppEnv } from '../types.js';
 import { publishLive } from '../live-catalog.js';
 import type { AuthSession } from '../auth.js';
 import { submissionActor, SubmissionAuthFailure, submissionSessionAssertion, submissionWriteAssertion } from '../submission-auth.js';
+import { diningDate } from '../../utils/dining-date.js';
+import { publicAvatar } from '../../utils/review-identity.js';
 
 export const submissionV2Routes = new Hono<AppEnv>();
 submissionV2Routes.onError((cause, context) => {
@@ -27,9 +29,10 @@ submissionV2Routes.post('/', async (context) => {
   const value = parseJson(body.bytes);
   if (!value) return error(context, 'invalid_json', '请求格式无效。', 400);
   let submission: V2Submission;
-  try { submission = validateV2Submission(value); } catch (cause) { return error(context, cause instanceof V2ValidationError ? cause.code : 'invalid_submission', '投稿内容无效。', 422); }
+  try { submission = validateV2Submission(value); } catch (cause) { return error(context, cause instanceof V2ValidationError ? cause.code : 'invalid_submission', cause instanceof V2ValidationError && cause.code === 'future_visitedAt' ? '用餐日期不能晚于今天（UTC+8），请选择今天或之前的实际日期。' : '投稿内容无效。', 422); }
   if (submission.visibility === 'username' && !actor) return error(context, 'login_required', '请先登录，才能使用账号用户名发表。', 401);
   const publicAuthor = actor && submission.visibility === 'username' ? actor.username : null;
+  const publicAuthorAvatar = publicAuthor ? publicAvatar(actor?.picture) : null;
   const ip = context.req.header('CF-Connecting-IP') ?? 'unknown';
   const ipHash = await sha256(ip);
   const idempotencyKey = context.req.header('Idempotency-Key');
@@ -42,6 +45,16 @@ submissionV2Routes.post('/', async (context) => {
       if (existing) return replayOrConflict(context, existing, requestHash);
     } catch { return unavailable(context); }
   }
+  // The raw request hash precedes defaults: a retry across midnight matches the
+  // original request. The saved date and identity are captured only once here.
+  const createdAt = new Date().toISOString();
+  const today = diningDate(Date.parse(createdAt));
+  const attachedReview = submission.attachedReview ? { ...submission.attachedReview, visitedAt: submission.attachedReview.visitedAt ?? today } : null;
+  const payload = { ...submission.payload,
+    ...(submission.entityType === 'review' ? { visitedAt: submission.payload.visitedAt ?? today, authorAlias: publicAuthor } : {}),
+    ...(attachedReview ? { attachedReview } : {}),
+  };
+  submission = { ...submission, payload, attachedReview, publicJson: { ...submission.publicJson, payload } };
   const snapshot = await resolveSnapshot(context.env.DB, submission.snapshotId);
   if (!snapshot) return error(context, 'snapshot_unavailable', '目录快照已变化，请刷新页面后重试。', 409);
   submission = { ...submission, snapshotId: snapshot, publicJson: { ...submission.publicJson, snapshotId: snapshot } };
@@ -61,7 +74,6 @@ submissionV2Routes.post('/', async (context) => {
   const receiptToken = crypto.randomUUID();
   const receiptHash = await sha256(receiptToken);
   const parentReceiptHash = parentCheck.parentReceiptHash;
-  const createdAt = new Date().toISOString();
   const uploadState = submission.expectedImages || submission.expectedReviewImages ? 'uploading' : 'pending';
   const publicJson = JSON.stringify(submission.publicJson);
   const type = submission.entityType === 'review' ? 'review' : 'new';
@@ -69,7 +81,7 @@ submissionV2Routes.post('/', async (context) => {
   try {
     const statements = [
       ...(actor ? [submissionSessionAssertion(context.env, actor)] : []),
-      context.env.DB.prepare('INSERT INTO submissions (id, type, target_restaurant_id, original_json, revision_json, receipt_hash, status, version, created_at, updated_at, schema_version, entity_type, entity_id, upload_state, expected_images, expected_review_images, snapshot_id, parent_entity_id, parent_receipt_hash, private_json, attached_review_id, submitter_user_id, publication_mode, public_author_alias) VALUES (?, ?, ?, ?, ?, ?, \'pending\', 1, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, type, submission.entityType === 'review' ? String(submission.payload.targetId) : submission.parentVenueId, publicJson, publicJson, receiptHash, createdAt, createdAt, submission.entityType, entityId, uploadState, submission.expectedImages, submission.expectedReviewImages, submission.snapshotId, submission.parentVenueId, parentReceiptHash, JSON.stringify({ parentReceiptHash, parentEntityId: submission.parentVenueId }), attachedReviewId, actor?.userId ?? null, publicationMode, publicAuthor),
+      context.env.DB.prepare('INSERT INTO submissions (id, type, target_restaurant_id, original_json, revision_json, receipt_hash, status, version, created_at, updated_at, schema_version, entity_type, entity_id, upload_state, expected_images, expected_review_images, snapshot_id, parent_entity_id, parent_receipt_hash, private_json, attached_review_id, submitter_user_id, publication_mode, public_author_alias, public_identity_recorded, public_author_avatar) VALUES (?, ?, ?, ?, ?, ?, \'pending\', 1, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)').bind(id, type, submission.entityType === 'review' ? String(submission.payload.targetId) : submission.parentVenueId, publicJson, publicJson, receiptHash, createdAt, createdAt, submission.entityType, entityId, uploadState, submission.expectedImages, submission.expectedReviewImages, submission.snapshotId, submission.parentVenueId, parentReceiptHash, JSON.stringify({ parentReceiptHash, parentEntityId: submission.parentVenueId }), attachedReviewId, actor?.userId ?? null, publicationMode, publicAuthor, publicAuthorAvatar),
       ...(keyHash ? [context.env.DB.prepare('INSERT INTO submission_idempotency (key_hash, submission_id, request_hash, created_at) VALUES (?, ?, ?, ?)').bind(keyHash, id, requestHash, createdAt)] : []),
       ...entityStatement(context.env.DB, submission, id, entityId, submission.snapshotId, requestHash, createdAt),
       ...(attachedReviewId ? [reviewStatement(context.env.DB, id, attachedReviewId, entityId, submission.entityType === 'food' ? 'food' : 'venue', submission.attachedReview!, submission.snapshotId, requestHash, createdAt)] : []),

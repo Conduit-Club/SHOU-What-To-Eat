@@ -1,6 +1,7 @@
 import { parseManaged, validateManagedEdit, validateManagedRelations, type ManagedType, type ManagedRecord } from '../../lib/catalog/management.js';
 import type { AppEnv } from '../types.js';
 import { foodSchema, reviewSchema, venueSchema, deriveDistanceTags } from '../../lib/catalog/index.js';
+import { publicAvatar } from '../../utils/review-identity.js';
 
 export type Publication = { jobId: string; branch: string; type: string; targetId: string | null; revision: Record<string, unknown>; original: Record<string, unknown>; contentHash: string; schemaVersion?: number; entityType?: string | null; entityId?: string | null; parentEntityId?: string | null; submissionId?: string; createdAt?: string };
 type GitHubResponse<T> = T & { html_url?: string; number?: number };
@@ -78,6 +79,9 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
   const entityType = publication.entityType;
   if (!entityType || !['venue', 'food', 'review'].includes(entityType)) throw new Error('invalid_v2_entity_type');
   const entityId = slugify(publication.entityId ?? publication.targetId ?? publication.jobId);
+  const identity = publication.submissionId ? await env.DB.prepare('SELECT public_identity_recorded,submitter_user_id,public_author_alias,public_author_avatar FROM submissions WHERE id=?').bind(publication.submissionId).first<{ public_identity_recorded: number; submitter_user_id: number | null; public_author_alias: string | null; public_author_avatar: string | null }>() : null;
+  const publicIdentity = identity && (identity.public_identity_recorded === 1 || identity.submitter_user_id != null)
+    ? { authorAlias: identity.public_author_alias, authorAvatar: identity.public_author_alias ? publicAvatar(identity.public_author_avatar) : null } : {};
   const source = sourcesFromPayload(payload.sources, submissionSource(publication));
   const assets = await loadPublishedAssets(env, publication.submissionId);
   const entityAssets = assets.filter((asset) => asset.slot === 'entity');
@@ -104,14 +108,14 @@ async function exportV2Submission(env: AppEnv['Bindings'], publication: Publicat
     foodSchema.parse(record);
     files.push(jsonFile(`src/content/foods/${entityId}.json`, record));
   } else {
-    const record = canonicalReview(payload, entityId, imageRecords, source);
+    const record = canonicalReview({ ...payload, ...publicIdentity }, entityId, imageRecords, source);
     reviewSchema.parse(record);
     files.push(jsonFile(`src/content/reviews/${entityId}.json`, record));
   }
   if (publication.submissionId) {
     const attached = await env.DB.prepare('SELECT id, target_type, target_id, rating, text FROM reviews WHERE submission_id = ? AND id = (SELECT attached_review_id FROM submissions WHERE id = ?) AND publication_state = \'pending\'').bind(publication.submissionId, publication.submissionId).first<{ id: string; target_type: string; target_id: string; rating: number; text: string }>();
     if (attached) {
-      const record = canonicalReview({ targetType: attached.target_type, targetId: attached.target_id, rating: attached.rating, text: attached.text }, slugify(attached.id), reviewAssets.map((asset) => imageRecord(asset)), source);
+      const record = canonicalReview({ ...(isRecord(payload.attachedReview) ? payload.attachedReview : {}), targetType: attached.target_type, targetId: attached.target_id, rating: attached.rating, text: attached.text, ...publicIdentity }, slugify(attached.id), reviewAssets.map((asset) => imageRecord(asset)), source);
       reviewSchema.parse(record);
       files.push(jsonFile(`src/content/reviews/${slugify(attached.id)}.json`, record));
     }
@@ -141,7 +145,7 @@ export function canonicalVenue(value: Record<string, unknown>, id: string, image
   return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), kind: String(value.kind ?? value.type ?? 'restaurant'), parentId: typeof value.parentId === 'string' ? slugify(value.parentId) : null, category: String(value.category ?? value.campusScope ?? 'off-campus'), aliases: strings(value.aliases), tags: strings(value.tags), location: { address: String(location.address ?? '').trim(), campusArea: nullableString(location.campusArea ?? location.campus), floor: nullableString(location.floor), landmark: nullableString(location.landmark), coordinates, distanceMeters: integerOrNull(location.distanceMeters ?? location.distanceM), distanceBasis: nullableString(location.distanceBasis) }, averagePrice: price, description: nullableString(value.description), openingHours: nullableString(value.openingHours), foods: strings(value.foods).map(slugify), images, sources, dates: { addedAt: createdAt?.slice(0, 10) ?? null, visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } };
 }
 export function canonicalFood(value: Record<string, unknown>, id: string, venueId: string, images: unknown[], sources: unknown[], createdAt?: string) { return { schemaVersion: 2, id, name: String(value.name ?? id).trim(), venueId, mealTypes: strings(value.mealTypes ?? (value.mealType ? [value.mealType] : [])), price: canonicalFoodPrice(value.price), tags: strings(value.tags), description: nullableString(value.description), images, sources, dates: { addedAt: createdAt?.slice(0, 10) ?? null, visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt) } }; }
-export function canonicalReview(value: Record<string, unknown>, id: string, images: unknown[], sources: unknown[]) { return { schemaVersion: 2, id, targetType: String(value.targetType), targetId: slugify(String(value.targetId)), rating: Number.isInteger(value.rating) ? value.rating : null, text: String(value.text ?? ''), images, authorAlias: nullableString(value.authorAlias), visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt), sources }; }
+export function canonicalReview(value: Record<string, unknown>, id: string, images: unknown[], sources: unknown[]) { return { schemaVersion: 2, id, targetType: String(value.targetType), targetId: slugify(String(value.targetId)), rating: Number.isInteger(value.rating) ? value.rating : null, text: String(value.text ?? ''), images, authorAlias: nullableString(value.authorAlias), ...(value.authorAvatar !== undefined ? { authorAvatar: nullableString(value.authorAlias) ? publicAvatar(value.authorAvatar) : null } : {}), visitedAt: nullableString(value.visitedAt), verifiedAt: nullableString(value.verifiedAt), updatedAt: nullableString(value.updatedAt), sources }; }
 function canonicalPrice(value: unknown) { if (!isRecord(value)) return null; const amount = integerOrNull(value.amountCents); const min = integerOrNull(value.minCents); const max = integerOrNull(value.maxCents); return { minCents: amount ?? min ?? 0, maxCents: amount ?? max ?? min ?? 0, currency: 'CNY', unit: nullableString(value.unit) ?? '人', source: nullableString(value.source), verifiedAt: nullableString(value.verifiedAt) }; }
 function canonicalFoodPrice(value: unknown) { if (!isRecord(value)) return null; const amount = integerOrNull(value.amountCents); const min = integerOrNull(value.minCents); const max = integerOrNull(value.maxCents); return { amountCents: amount, minCents: amount === null ? min : null, maxCents: amount === null ? max : null, currency: 'CNY', unit: nullableString(value.unit) ?? '份', source: nullableString(value.source), verifiedAt: nullableString(value.verifiedAt) }; }
 function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean) : []; }

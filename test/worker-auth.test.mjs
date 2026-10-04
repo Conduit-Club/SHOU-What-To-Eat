@@ -72,11 +72,11 @@ function provider() {
       grants.delete(body.get('code'));
       assert.equal(body.get('redirect_uri'), config.OIDC_REDIRECT_URI);
       assert.equal(b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.get('code_verifier')))), grant.authorizationUrl.searchParams.get('code_challenge'));
-      const claims = { iss: issuer, aud: config.OIDC_CLIENT_ID, sub: 'subject-1', iat: now(), exp: now() + 300, nonce: grant.authorizationUrl.searchParams.get('nonce'), ...grant.overrides };
+      const claims = { iss: issuer, aud: config.OIDC_CLIENT_ID, sub: 'subject-1', iat: now(), exp: now() + 3600, nonce: grant.authorizationUrl.searchParams.get('nonce'), ...grant.overrides };
       const unsigned = b64(JSON.stringify({ alg: 'RS256', kid: jwk.kid })) + '.' + b64(JSON.stringify(claims));
       const signature = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', keyPair.privateKey, new TextEncoder().encode(unsigned)));
       if (grant.corrupt) signature[0] ^= 255;
-      return Response.json({ access_token: 'access-token-never-persisted', token_type: 'Bearer', expires_in: 300, id_token: unsigned + '.' + b64(signature) });
+      return Response.json({ access_token: 'access-token-never-persisted', token_type: 'Bearer', expires_in: 3600, id_token: unsigned + '.' + b64(signature) });
     },
   };
   return mock;
@@ -193,7 +193,7 @@ test('expired transaction, duplicated state and concurrent callback use never ex
   assert.equal((await db.prepare('SELECT COUNT(*) AS count FROM auth_sessions').first()).count, 1);
 }));
 
-test('central roles come from current authenticated UserInfo, expire within five minutes and cannot be supplied by headers', async () => fixture(async db => {
+test('central roles come from current authenticated UserInfo, expire within one hour and cannot be supplied by headers', async () => fixture(async db => {
   const mock = provider(), env = runtime(db), client = harness(env, mock);
   let session = await login(client, mock, { roles: ['admin'], name: 'admin', email: 'admin@invalid.test' });
   assert.equal(session.isAdmin, false);
@@ -202,6 +202,8 @@ test('central roles come from current authenticated UserInfo, expire within five
   mock.profile.roles = ['admin']; mock.profile.roles_checked_at = now();
   session = await login(client, mock);
   assert.equal(session.isAdmin, true);
+  assert.equal(ADMIN_TTL, 3600);
+  assert.ok(session.adminExpiresAt >= now() + 3590);
   assert.ok(session.adminExpiresAt <= now() + ADMIN_TTL);
   assert.equal((await client.request('/private')).status, 200);
   const cookie = '__Host-eat-session=' + client.jar.get('__Host-eat-session');
@@ -223,7 +225,7 @@ test('central roles come from current authenticated UserInfo, expire within five
 }));
 
 test('admin freshness never extends an expired token, stale role check or future role timestamp', async () => fixture(async db => {
-  for (const checkedAt of [now() - 301, now() + 3600, undefined]) {
+  for (const checkedAt of [now() - 3601, now() + 60, undefined, NaN, 1.5, '3600']) {
     const mock = provider(), client = harness(runtime(db), mock);
     mock.profile.roles = ['admin']; mock.profile.roles_checked_at = checkedAt;
     assert.equal((await login(client, mock)).isAdmin, false);
@@ -231,6 +233,9 @@ test('admin freshness never extends an expired token, stale role check or future
   const mock = provider(), client = harness(runtime(db), mock);
   mock.profile.roles = ['admin']; mock.profile.roles_checked_at = now();
   assert.ok((await login(client, mock, { exp: now() + 60 })).adminExpiresAt <= now() + 60);
+  assert.ok((await login(client, mock, { exp: now() + 7200 })).adminExpiresAt <= now() + 3600);
+  mock.profile.roles_checked_at = now() - 1800;
+  assert.ok((await login(client, mock)).adminExpiresAt <= now() + 1800);
 }));
 
 test('cookie admin writes require the exact origin and current CSRF token', async () => fixture(async db => {
