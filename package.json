@@ -22,10 +22,10 @@
     "d1:migrate:production": "node scripts/check-cloudflare-env.mjs --environment production && node scripts/prepare-wrangler-config.mjs --environment production && wrangler d1 migrations apply shou-food --remote --config wrangler.generated.production.jsonc"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.0",
+    "@astrojs/react": "^6.0.6",
     "@fontsource-variable/epilogue": "^5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
-    "astro": "^5.13.0",
+    "astro": "^7.2.8",
     "hono": "^4.9.0",
     "openid-client": "^6.8.8",
     "react": "^19.1.0",

@@ -26,5 +26,5 @@ export type AppEnv = {
     DEPLOY_WEBHOOK_SECRET: string;
     IMAGES?: R2Bucket;
   };
-  Variables: { reviewer: string; authSession?: import('./auth.js').AuthSession | null };
+  Variables: { reviewer: string; authSession?: import('./auth.js').AuthSession | null; adminSession?: import('./auth.js').AuthSession };
 };

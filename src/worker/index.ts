@@ -15,6 +15,7 @@ import { resumeApproved } from './live-catalog.js';
 import type { AppEnv } from './types.js';
 import { isDatabaseError } from './errors.js';
 import { authRoutes } from './routes/auth.js';
+import { secureResponse } from './response-security.js';
 
 const app = new Hono<AppEnv>();
  app.use('/api/*', cors({ origin: (origin, context) => (context.env.ALLOWED_ORIGINS ?? '').split(',').map((item: string) => item.trim()).includes(origin) ? origin : null, allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization', 'Cf-Access-Jwt-Assertion', 'Idempotency-Key', 'X-Submission-Version', 'X-Image-Slot', 'X-Image-Index', 'X-Image-Alt', 'X-Image-Source', 'X-Image-Source-Note', 'X-Image-Copyright-Holder', 'X-Image-License', 'X-Image-Permission', 'X-Image-Rights-Confirmed', 'X-Image-Is-Illustrative', 'X-Image-Metadata-Encoding', 'X-Image-Cover-Allowed'] }));
@@ -43,8 +44,7 @@ app.onError((error, context) => isDatabaseError(error)
   ? context.json({ error: { code: 'database_error', message: '数据库错误，请稍后重试。' } }, 503, { 'Cache-Control': 'no-store' })
   : context.json({ error: { code: 'internal_error', message: '请求暂时无法处理。' } }, 500, { 'Cache-Control': 'no-store' }));
 
-export default {
-  async fetch(request: Request, env: AppEnv['Bindings'], executionContext: ExecutionContext) {
+async function fetchResponse(request: Request, env: AppEnv['Bindings'], executionContext: ExecutionContext) {
     const url = new URL(request.url);
     if(liveContent(env)){
       if(url.pathname==='/catalog-index.json')return app.fetch(new Request(new URL('/api/v2/public/catalog',url),request),env,executionContext);
@@ -57,6 +57,11 @@ export default {
     if (url.pathname === '/auth' || url.pathname.startsWith('/auth/') || url.pathname === '/api' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) return app.fetch(request, env, executionContext);
     if (!env.ASSETS) return new Response('Static assets are not configured.\n', { status: 503, headers: { 'Cache-Control': 'no-store' } });
     return env.ASSETS.fetch(request);
+}
+
+export default {
+  async fetch(request: Request, env: AppEnv['Bindings'], executionContext: ExecutionContext) {
+    return secureResponse(await fetchResponse(request, env, executionContext));
   },
   async scheduled(_event: ScheduledController, env: AppEnv['Bindings'], executionContext: ExecutionContext) {
     if (!publicationEnabled(env)) return;

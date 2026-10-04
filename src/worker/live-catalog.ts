@@ -9,6 +9,7 @@ import type { AppEnv } from './types.js';
 import type { AuthSession } from './auth.js';
 import { submissionSessionAssertion } from './submission-auth.js';
 import { publicAvatar } from '../utils/review-identity.js';
+import { adminWriteBatch } from './admin-auth.js';
 
 export type LiveEntry = { type: ManagedType; record: ManagedRecord; hash: string; snapshotId: string };
 export type LiveState = { revision: number; backed_revision: number; backup_commit: string | null; backed_at: string | null; updated_at: string };
@@ -65,7 +66,7 @@ function changedParents(entries:LiveEntry[],food:Food,oldParent?:string):LiveEnt
   });
 }
 
-export async function editLive(env:AppEnv['Bindings'],type:ManagedType,id:string,input:{expectedHash:string;record:unknown;reason:string},reviewer:string,legacy?:{id:string;version:number}){
+export async function editLive(env:AppEnv['Bindings'],type:ManagedType,id:string,input:{expectedHash:string;record:unknown;reason:string},reviewer:string,legacy?:{id:string;version:number},adminActor?:AuthSession){
   const {state,entries}=await readLive(env.DB),current=entries.find(e=>e.type===type&&e.record.id===id);
   if(!current||current.hash!==input.expectedHash)throw new Error('revision_conflict');
   let record=validateManagedEdit(type,current.record,input.record);
@@ -81,11 +82,11 @@ export async function editLive(env:AppEnv['Bindings'],type:ManagedType,id:string
   statements.push(...await recordWrites(env.DB,changed,state.revision+1,now));
   statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'edit',1,?,?)").bind(crypto.randomUUID(),submissionId,reviewer,input.reason,now));
   statements.push(env.DB.prepare('DELETE FROM live_write_assertion'));
-  await env.DB.batch(statements);
+  await adminWriteBatch(env,statements,adminActor);
   return {submissionId,status:'published',revision:state.revision+1,backupStatus:'pending'};
 }
 
-export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersion:number,reviewer:string,legacy=false,directActor?:AuthSession){
+export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersion:number,reviewer:string,legacy=false,directActor?:AuthSession,adminActor?:AuthSession){
   const {state,entries}=await readLive(env.DB);
   const row=await env.DB.prepare('SELECT * FROM submissions WHERE id=? AND schema_version=2').bind(id).first<any>();
   if(!row||row.version!==expectedVersion||row.live_published_at||!(legacy?['exporting','export_failed','merged_dev','merged_main']:['pending']).includes(row.status))throw new Error('revision_conflict');
@@ -93,7 +94,7 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   if(row.entity_type==='management'){
     if(!legacy)throw new Error('revision_conflict');
     const draft=JSON.parse(row.revision_json);
-    return editLive(env,draft.entityType,draft.record.id,{expectedHash:draft.expectedHash,record:draft.record,reason:'接续已审核的旧版内容修改'},reviewer,{id,version:expectedVersion});
+    return editLive(env,draft.entityType,draft.record.id,{expectedHash:draft.expectedHash,record:draft.record,reason:'接续已审核的旧版内容修改'},reviewer,{id,version:expectedVersion},adminActor);
   }
   const revision=validateV2Revision(JSON.parse(row.revision_json),{entityType:row.entity_type,snapshotId:row.snapshot_id,expectedImages:row.expected_images,expectedReviewImages:row.expected_review_images});
   const assets=(await env.DB.prepare("SELECT * FROM media_assets WHERE submission_id=? AND object_state IN ('private','published') ORDER BY slot,slot_index").bind(id).all<any>()).results;
@@ -132,7 +133,7 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   statements.push(env.DB.prepare("UPDATE media_assets SET object_state='published',permission='approved',published_at=? WHERE submission_id=? AND rights_confirmed=1").bind(now,id));
   statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'publish',?,?,?)").bind(crypto.randomUUID(),id,reviewer,expectedVersion+1,directActor?'authenticated_direct':legacy?'live_cutover':'live_approval',now));
   statements.push(env.DB.prepare('DELETE FROM live_write_assertion'));
-  await env.DB.batch(statements);
+  await adminWriteBatch(env,statements,adminActor);
   return {submissionId:id,status:'published',revision:state.revision+1,backupStatus:'pending'};
 }
 
@@ -151,7 +152,7 @@ export async function resumeApproved(env:AppEnv['Bindings']){
 }
 
 /** Resumable small batches: preserve all provenance and audit every changed record. */
-export async function maintainLegacyCatalog(env:AppEnv['Bindings'],reviewer:string) {
+export async function maintainLegacyCatalog(env:AppEnv['Bindings'],reviewer:string,adminActor?:AuthSession) {
  const {state,entries}=await readLive(env.DB);
  const candidates=entries.flatMap(entry=>{
   const original=entry.record;
@@ -174,6 +175,6 @@ export async function maintainLegacyCatalog(env:AppEnv['Bindings'],reviewer:stri
   statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'edit',1,?,?)").bind(crypto.randomUUID(),id,reviewer,'按站点所有者要求下架旧资料餐品及关联评价，保留原文与来源；标签转为中文。',now));
  }
  statements.push(...await recordWrites(env.DB,changed,state.revision+1,now),env.DB.prepare('DELETE FROM live_write_assertion'));
- await env.DB.batch(statements);
+ await adminWriteBatch(env,statements,adminActor);
  return {changed:changed.length,remaining:candidates.length-changed.length,revision:state.revision+1};
 }

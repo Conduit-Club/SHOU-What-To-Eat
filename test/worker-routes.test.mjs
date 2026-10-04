@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import worker from '../src/worker/index.ts';
+import { secureResponse } from '../src/worker/response-security.ts';
 
 function env(overrides = {}) {
   return {
@@ -24,6 +25,65 @@ function env(overrides = {}) {
     ...overrides,
   };
 }
+
+function assertSecurityHeaders(response, auth = false) {
+  assert.match(response.headers.get('Content-Security-Policy'), /(?:^|;)\s*frame-ancestors 'none'(?:;|$)/);
+  assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
+  assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('Referrer-Policy'), auth ? 'no-referrer' : 'strict-origin-when-cross-origin');
+}
+
+test('static assets, API errors, auth and dynamic detail failures have the same response boundary', async () => {
+  for (const [path, status, overrides] of [
+    ['/', 200, {}], ['/api/health', 200, {}], ['/api/unknown', 404, {}],
+    ['/auth/session', 200, {}], ['/auth/login', 503, {}], ['/media/missing', 404, {}],
+    ['/foods/local-missing/', 503, { CONTENT_MODE: 'live' }],
+    ['/restaurants/nested/missing/', 404, { CONTENT_MODE: 'live' }],
+    ['/', 503, { ASSETS: undefined }],
+  ]) {
+    const response = await worker.fetch(new Request('https://eat.shoumc.com' + path), env(overrides), {});
+    assert.equal(response.status, status, path);
+    assertSecurityHeaders(response, path.startsWith('/auth/'));
+    if (path === '/auth/login') {
+      assert.equal(response.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+      assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
+      assert.match(response.headers.get('Vary'), /Cookie/);
+    }
+    if (status === 200 && path === '/') assert.equal(await response.text(), '<!doctype html>');
+  }
+  const preflight = await worker.fetch(new Request('https://eat.shoumc.com/api/health', {
+    method: 'OPTIONS', headers: { Origin: 'http://localhost:4321', 'Access-Control-Request-Method': 'POST' },
+  }), env(), {});
+  assertSecurityHeaders(preflight);
+  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), 'http://localhost:4321');
+});
+
+test('security response copying preserves redirects, cookies, 304 tags and stricter CSP directives', async () => {
+  const redirect = secureResponse(Response.redirect('https://eat.shoumc.com/foods/', 303));
+  assertSecurityHeaders(redirect);
+  assert.equal(redirect.status, 303);
+  assert.equal(redirect.headers.get('Location'), 'https://eat.shoumc.com/foods/');
+  const headers = new Headers({
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'; base-uri 'none'",
+    'Referrer-Policy': 'no-referrer', 'ETag': '"eat-catalog-v1-14"', 'Cache-Control': 'no-store',
+  });
+  headers.append('Set-Cookie', 'first=one; HttpOnly');
+  headers.append('Set-Cookie', 'second=two; HttpOnly');
+  const response = secureResponse(new Response(null, { status: 304, headers }));
+  assertSecurityHeaders(response, true);
+  assert.equal(response.status, 304);
+  assert.equal(await response.text(), '');
+  assert.equal(response.headers.get('ETag'), '"eat-catalog-v1-14"');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual(response.headers.getSetCookie(), headers.getSetCookie());
+  assert.equal(response.headers.get('Content-Security-Policy'), "default-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+});
+
+test('Cloudflare assets served without Worker retain the frame boundary', async () => {
+  const headers = await readFile(new URL('../public/_headers', import.meta.url), 'utf8');
+  assert.match(headers, /^\/\*\r?\n\s+Content-Security-Policy: frame-ancestors 'none'\r?\n\s+X-Frame-Options: DENY\r?\n\s+X-Content-Type-Options: nosniff\r?\n\s+Referrer-Policy: strict-origin-when-cross-origin/m);
+  assert.match(headers, /^\/auth\/\*\r?\n\s+Referrer-Policy: no-referrer/m);
+});
 
 test('static requests and catalog health stay available while full mode reports missing config', async () => {
   const staticResponse = await worker.fetch(new Request('https://eat.shoumc.com/'), env({ TURNSTILE_SECRET_KEY: '' }), {});

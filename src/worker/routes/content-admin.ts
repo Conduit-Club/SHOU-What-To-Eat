@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { publicationEnabled, liveContent } from '../config.js';
 import { editLive } from '../live-catalog.js';
+import { adminBatch } from '../admin-auth.js';
 import { readLimitedBody } from '../media.js';
 import { sha256 } from './submissions.js';
 import { parseManaged, validateManagedEdit, validateManagedRelations, type ManagedType } from '../../lib/catalog/management.js';
@@ -26,7 +27,7 @@ contentAdminRoutes.post('/:type/:id', async context => {
   try { input=JSON.parse(new TextDecoder().decode(body.bytes!)); } catch { return context.json({error:{message:'编辑内容无效或过大。'}},422); }
   if(!input || typeof input.expectedHash!=='string' || typeof input.reason!=='string' || !input.reason.trim() || input.reason.length>500)return context.json({error:{message:'请填写修改原因并保留版本号。'}},422);
   if(liveContent(context.env)){
-    try{return context.json(await editLive(context.env,type,entityId,{expectedHash:input.expectedHash,record:input.record,reason:input.reason.trim()},context.get('reviewer')),200,{'Cache-Control':'no-store'});}
+    try{return context.json(await editLive(context.env,type,entityId,{expectedHash:input.expectedHash,record:input.record,reason:input.reason.trim()},context.get('reviewer'),undefined,context.get('adminSession')),200,{'Cache-Control':'no-store'});}
     catch{return context.json({error:{message:'修改未公开：请刷新版本，检查字段、店铺关联和封面授权。'}},409);}
   }
   const rows=await context.env.DB.prepare('SELECT entity_type, entity_id, payload_json, content_hash, snapshot_id FROM catalog_mirror').all<{entity_type:ManagedType;entity_id:string;payload_json:string;content_hash:string;snapshot_id:string}>();
@@ -42,7 +43,7 @@ contentAdminRoutes.post('/:type/:id', async context => {
   const revision=JSON.stringify({operation:'catalog-edit',entityType:type,expectedHash:current.content_hash,record});
   const hash=await sha256(revision);
   try{
-    const results=await context.env.DB.batch([
+    const results=await adminBatch(context, [
       context.env.DB.prepare("INSERT INTO submissions (id,type,original_json,revision_json,receipt_hash,status,version,created_at,updated_at,reviewed_at,reviewer,schema_version,entity_type,entity_id,upload_state,snapshot_id) SELECT ?, 'correction', ?, ?, ?, 'exporting', 1, ?, ?, ?, ?, 2, 'management', ?, 'pending', ? FROM catalog_mirror WHERE entity_type=? AND entity_id=? AND content_hash=?")
         .bind(id,current.payload_json,revision,await sha256(crypto.randomUUID()),now,now,now,context.get('reviewer'),`${type}:${entityId}`,current.snapshot_id,type,entityId,current.content_hash),
       context.env.DB.prepare("INSERT INTO audit_events (id,submission_id,reviewer,action,version,reason,created_at) SELECT ?,id,?,'edit',1,?,? FROM submissions WHERE id=?").bind(crypto.randomUUID(),context.get('reviewer'),input.reason.trim(),now,id),
