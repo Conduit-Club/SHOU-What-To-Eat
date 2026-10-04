@@ -28,6 +28,7 @@ export async function requireAccess(context: Context<AppEnv>, next: () => Promis
   if (session?.isAdmin) {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(context.req.method) && !validCsrf(context, session, context.req.header('X-CSRF-Token'))) return context.json({ error: { code: 'csrf_invalid', message: '请求已失效，请刷新账号状态后重试。' } }, 403, { 'Cache-Control': 'no-store' });
     context.set('reviewer', `auth:${session.userId}:${session.username}`);
+    context.set('adminSession', session);
     context.header('Cache-Control', 'private, no-store');
     context.header('Vary', 'Cookie');
     await next();

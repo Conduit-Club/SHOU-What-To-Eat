@@ -1,7 +1,5 @@
-// Astro's content collections currently type against their bundled Zod 3
-// instance. Importing through this compatibility entrypoint keeps the shared
-// schemas assignable to `defineCollection` while remaining usable by Worker
-// and catalog tooling.
+// Use Astro's schema entrypoint so content loaders and the Worker share the
+// same Zod version and validation rules.
 import { z } from 'astro/zod';
 import { publicAvatar } from '../../utils/review-identity.js';
 

@@ -74,7 +74,11 @@ Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核
 
 OIDC 使用授权码、S256 PKCE、nonce 与绑定浏览器的 state；D1 一次性消费登录事务。浏览器仅保存 `HttpOnly`、`Secure`、`SameSite=Lax` 的 `__Host-eat-session` 随机会话 Cookie；D1 只保存其 SHA-256 哈希，不保存 OAuth Token 或原始邮箱。本地会话最长八小时，管理员角色以 Auth `roles_checked_at` 和 ID Token 有效期为界、最多一小时，过期须重新通过 OIDC 确认。角色时间必须是整数，最多允许未来 30 秒偏差；过旧角色不能授权。新会话上限为 `min(ID Token exp, roles_checked_at + 3600, 当前时间 + 3600)`，既有会话不自动延长。后台提前一分钟提供新标签页续期入口，原页面保留未保存编辑。本站 Cookie 授权的所有管理员写入严格校验 Origin 与会话 CSRF Token。
 
+所有 Cookie 管理员写入在 D1 batch 内再次检查会话哈希、用户、CSRF Token、issuer、会话有效期及管理员角色期限；图片验证或其他异步处理期间注销、到期或会话变更会回滚整笔写入。重新登录后可按原版本重试。经过独立 JWT 验证的 Access 应急路径与已批准内容的定时接续保留各自权限来源。
+
 所有发布写入检查版本，D1 batch 内的断言失败会回滚全部写入；规范化记录、公开 JSON、审计和版本不会出现半完成状态。R2 桶保持私有，媒体路由以 D1 已发布状态和图片可见性决定是否返回，不需要先改 R2 元数据。曾被用户或第三方缓存的图片无法通过本站下架追溯删除。
+
+Worker 的静态、动态页面和 API 响应统一设置 CSP `frame-ancestors 'none'`、`X-Frame-Options: DENY` 与 `X-Content-Type-Options: nosniff`；`public/_headers` 同时保护直接由 Cloudflare Assets 返回的资源。普通响应使用 `strict-origin-when-cross-origin`，Auth 响应保留 `no-referrer` 与既有更严格 CSP；该基础防嵌套策略不限制 Astro 脚本或 Turnstile。
 
 投稿继续要求 Turnstile 服务端验证、限流、字段校验、精确图片数量和幂等校验。账号与 IP 均限制每小时五份，登录投稿的幂等标识绑定账号。回执令牌仅向投稿者显示一次，D1 只保存其哈希。私有原稿、回执和审核备注不得输出到公开页面、GitHub 或日志。
 

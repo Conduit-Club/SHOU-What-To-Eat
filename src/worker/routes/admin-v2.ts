@@ -3,6 +3,7 @@ import { contentAdminRoutes } from './content-admin.js';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { requireAccess } from '../security.js';
+import { adminBatch } from '../admin-auth.js';
 import { publicationEnabled, liveContent } from '../config.js';
 import { publishLive, maintainLegacyCatalog } from '../live-catalog.js';
 import { sha256 } from './submissions.js';
@@ -18,7 +19,7 @@ adminV2Routes.post('/maintenance/legacy-catalog',async context=>{
  if(!publicationEnabled(context.env)||!liveContent(context.env))return unavailable(context);
  if(context.req.header('Origin')!==new URL(context.req.url).origin)return fail(context,'invalid_origin','请求来源不允许。',403);
  if(context.req.header('X-Catalog-Maintenance')!=='archive-legacy-and-localize-tags')return fail(context,'invalid_confirmation','请确认清理范围。',422);
- try{return context.json(await maintainLegacyCatalog(context.env,context.get('reviewer')));}
+ try{return context.json(await maintainLegacyCatalog(context.env,context.get('reviewer'),context.get('adminSession')));}
  catch{return fail(context,'maintenance_conflict','目录版本已变化，请刷新后重试。已完成部分仍保留。',409);}
 });
 
@@ -93,7 +94,7 @@ adminV2Routes.patch('/submissions/:id', async (context) => {
   } else if (current.attached_review_id) {
     statements.push(context.env.DB.prepare("UPDATE reviews SET publication_state = 'archived', updated_at = ? WHERE id = ? AND submission_id = ? AND publication_state = 'pending' AND EXISTS (SELECT 1 FROM submissions WHERE id = ? AND version = ? AND status = 'pending' AND write_operation_id = ?)").bind(now, current.attached_review_id, id, id, Number(body.expectedVersion) + 1, operationId));
   }
-  const result = await context.env.DB.batch(statements).catch(() => null);
+  const result = await adminBatch(context, statements).catch(() => null);
   // D1 batches are atomic, but a conditional child UPDATE/INSERT can still
   // report zero changes without throwing. Treat that as a CAS failure too;
   // otherwise the parent revision could advance while its attached review
@@ -112,7 +113,7 @@ adminV2Routes.post('/submissions/:id/review', async (context) => {
   const current = await context.env.DB.prepare("SELECT id, entity_type, entity_id, status, version, upload_state, expected_images, expected_review_images, snapshot_id, revision_json, parent_entity_id FROM submissions WHERE id = ? AND schema_version = 2 AND status = 'pending' AND version = ?").bind(id, body.expectedVersion).first<{ id: string; entity_type: V2EntityType; entity_id: string; status: string; version: number; upload_state: string; expected_images: number; expected_review_images: number; snapshot_id: string; revision_json: string; parent_entity_id: string | null }>();
   if (!current) return fail(context, 'revision_conflict', '稿件已更新或不在待审状态。', 409);
   if(action==='approve'&&liveContent(context.env)){
-    try{return context.json(await publishLive(context.env,id,Number(body.expectedVersion),context.get('reviewer')),200,{'Cache-Control':'no-store'});}
+    try{return context.json(await publishLive(context.env,id,Number(body.expectedVersion),context.get('reviewer'),false,undefined,context.get('adminSession')),200,{'Cache-Control':'no-store'});}
     catch(cause){return fail(context,'live_publication_conflict',`尚未公开，请刷新并检查关联、图片和版本。${cause instanceof Error&&/^[a-z_]+$/.test(cause.message)?'（'+cause.message+'）':''}`,409);}
   }
   let privateMediaCount = 0;
@@ -145,7 +146,7 @@ adminV2Routes.post('/submissions/:id/review', async (context) => {
       if (privateMediaCount > 0) statements.push(context.env.DB.prepare("UPDATE media_assets SET permission = 'approved' WHERE submission_id = ? AND object_state = 'private' AND rights_confirmed = 1 AND EXISTS (SELECT 1 FROM submissions WHERE id = ? AND schema_version = 2 AND status = 'exporting' AND version = ? AND write_operation_id = ?)").bind(id, id, Number(body.expectedVersion) + 1, operationId));
       statements.push(context.env.DB.prepare("INSERT INTO publication_jobs (id, submission_id, submission_version, content_hash, status, branch, attempts, created_at, updated_at) SELECT ?, id, ?, ?, 'queued', ?, 0, ?, ? FROM submissions WHERE id = ? AND schema_version = 2 AND status = 'exporting' AND version = ? AND write_operation_id = ?").bind(jobId, Number(body.expectedVersion) + 1, contentHash, branch, now, now, id, Number(body.expectedVersion) + 1, operationId));
     }
-    const result = await context.env.DB.batch(statements);
+    const result = await adminBatch(context, statements);
     if (result.length !== statements.length || result.some((entry) => !entry?.meta?.changes)) return fail(context, 'revision_conflict', '稿件已被另一位审核员处理。', 409);
   } catch { return unavailable(context, 'review_unavailable', '审核操作没有保存。'); }
   return context.json({ submissionId: id, status: nextStatus, publicationJobId: action === 'approve' ? jobId : null }, 200, { 'Cache-Control': 'no-store' });
@@ -155,7 +156,7 @@ adminV2Routes.post('/publications/:id/retry', async (context) => {
   if (!publicationEnabled(context.env)) return unavailable(context);
   if (crossOrigin(context)) return fail(context, 'origin_forbidden', '请求来源不允许。', 403);
   const id = context.req.param('id'); const now = new Date().toISOString();
-  const result = await context.env.DB.batch([
+  const result = await adminBatch(context, [
     context.env.DB.prepare("UPDATE publication_jobs SET status = 'queued', error_code = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND status IN ('failed', 'closed') AND EXISTS (SELECT 1 FROM submissions WHERE id = publication_jobs.submission_id AND status = 'export_failed')").bind(now, id),
     context.env.DB.prepare("UPDATE submissions SET status = 'exporting', updated_at = ? WHERE id = (SELECT submission_id FROM publication_jobs WHERE id = ? AND status = 'queued') AND schema_version = 2 AND status = 'export_failed'").bind(now, id),
     context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, reason, created_at) SELECT ?, submission_id, ?, 'retry', submission_version, 'v2_retry', ? FROM publication_jobs WHERE id = ? AND status = 'queued'").bind(crypto.randomUUID(), context.get('reviewer'), now, id),
@@ -176,7 +177,7 @@ adminV2Routes.post('/content-changes/:id/cancel', async context => {
     try{if(await hasOpenPublication(context.env,job.branch))return fail(context,'publication_still_open','发布申请仍开放，请先关闭对应 PR，或重试以恢复发布记录。',409);}catch{return unavailable(context,'github_unavailable','暂时无法确认 GitHub 发布状态，请稍后重试。');}
   }
   const now=new Date().toISOString();
-  const result=await context.env.DB.batch([
+  const result=await adminBatch(context, [
     context.env.DB.prepare("UPDATE submissions SET status='rejected',updated_at=?,rejection_reason='管理员取消失败的内容修改' WHERE entity_type='management' AND status='export_failed' AND id=(SELECT submission_id FROM publication_jobs WHERE id=? AND (status='closed' OR (status='failed' AND pr_number IS NULL)))").bind(now,context.req.param('id')),
     context.env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) SELECT ?,s.id,?,'reject',s.version,'cancel_content_edit',? FROM submissions s JOIN publication_jobs j ON j.submission_id=s.id WHERE j.id=? AND s.status='rejected' AND s.updated_at=?").bind(crypto.randomUUID(),context.get('reviewer'),now,context.req.param('id'),now),
   ]);

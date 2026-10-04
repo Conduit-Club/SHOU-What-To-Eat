@@ -389,6 +389,79 @@ test('logout during R2 processing and failed publish auditing cannot commit part
  });
 });
 
+test('admin logout or role expiry during R2 validation rolls back publication, then a renewed session can retry',async()=>{
+ for(const revoke of ['logout','role-expiry']) {
+  const db=new SqliteD1(),bucket=fakeR2Bucket(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2',IMAGES:bucket});
+  let admin=authenticatedSession(db);
+  const grant=()=>db.sqlite.prepare('UPDATE auth_sessions SET was_admin=1,admin_until=? WHERE token_hash=?').run(Math.floor(Date.now()/1000)+3600,admin.tokenHash);
+  grant();
+  await withExternalStubs(async()=>{
+   const created=await submitV2(env,db,'venue',venuePayload(),{body:{expectedImages:1}}),id=created.body.submissionId;
+   assert.equal(created.response.status,202);
+   const uploaded=await worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:imageUploadHeaders(created.body.receiptToken,0,1),body:uploadWebp()}),env,{});
+   assert.equal(uploaded.status,201);
+   assert.equal((await finalizeV2(env,created.body,2)).status,200);
+   const before=(await readLive(db)).state.revision,originalHead=bucket.head;
+   bucket.head=async(...args)=>{
+    const result=await originalHead(...args);
+    db.sqlite.prepare(revoke==='logout'?'DELETE FROM auth_sessions WHERE token_hash=?':'UPDATE auth_sessions SET admin_until=1 WHERE token_hash=?').run(admin.tokenHash);
+    return result;
+   };
+   const approve=()=>worker.fetch(request('/api/manage/v2/submissions/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json',...admin.headers},body:JSON.stringify({action:'approve',expectedVersion:3})}),env,{});
+   assert.equal((await approve()).status,409,revoke);
+   assert.equal((await readLive(db)).state.revision,before);
+   assert.deepEqual(plain(db.sqlite.prepare('SELECT status,version,live_published_at FROM submissions WHERE id=?').get(id)),{status:'pending',version:3,live_published_at:null});
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM media_assets WHERE submission_id=? AND object_state='published'").get(id).n,0);
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(id).n,0);
+   assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM catalog_mirror WHERE entity_id=?').get(created.body.entityId).n,0);
+   bucket.head=originalHead;admin=authenticatedSession(db);grant();
+   assert.equal((await approve()).status,200);
+   assert.equal((await readLive(db)).state.revision,before+1);
+   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(id).n,1);
+   assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM live_write_assertion').get().n,0);
+  });
+ }
+});
+
+test('live editing and pending moderation recheck session expiry, issuer and CSRF in their write batch',async()=>{
+ for(const [operation,revoke] of [['edit','session-expiry'],['edit','issuer'],['reject','csrf']]) {
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),admin=authenticatedSession(db);
+  db.sqlite.prepare('UPDATE auth_sessions SET was_admin=1,admin_until=? WHERE token_hash=?').run(Math.floor(Date.now()/1000)+3600,admin.tokenHash);
+  await withExternalStubs(async()=>{
+   const live=await readLive(db),target=live.entries.find(entry=>entry.type==='venue');
+   let path,body;
+   if(operation==='edit') {
+    path='/api/manage/v2/content/venue/'+target.record.id;
+    body={expectedHash:target.hash,record:{...target.record,name:'不能保存的名称'},reason:'本地会话竞态测试'};
+   } else {
+    const created=await submitV2(env,db,'venue',venuePayload());
+    assert.equal(created.response.status,202);
+    path='/api/manage/v2/submissions/'+created.body.submissionId+'/review';
+    body={action:'reject',expectedVersion:1,reason:'不能保存的拒绝'};
+   }
+   const beforeAudits=db.sqlite.prepare('SELECT COUNT(*) n FROM audit_events').get().n,originalBatch=db.batch.bind(db);
+   let changed=false;
+   db.batch=async statements=>{
+    if(!changed&&statements.some(statement=>/^UPDATE (?:live_catalog_state|submissions)\b/.test(statement.sql))) {
+     changed=true;
+     if(revoke==='issuer')db.sqlite.prepare('UPDATE auth_users SET issuer=? WHERE id=?').run('https://other.example/api/auth',admin.id);
+     else db.sqlite.prepare(revoke==='session-expiry'?'UPDATE auth_sessions SET expires_at=1 WHERE token_hash=?':"UPDATE auth_sessions SET csrf_token='changed' WHERE token_hash=?").run(admin.tokenHash);
+    }
+    return originalBatch(statements);
+   };
+   const response=await worker.fetch(request(path,{method:'POST',headers:{'Content-Type':'application/json',...admin.headers},body:JSON.stringify(body)}),env,{});
+   assert.equal(response.status,operation==='edit'?409:503,revoke);
+   assert.equal(changed,true);
+   const after=await readLive(db);
+   assert.equal(after.state.revision,live.state.revision);
+   assert.equal(after.entries.find(entry=>entry.type==='venue'&&entry.record.id===target.record.id).hash,target.hash);
+   assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM audit_events').get().n,beforeAudits);
+   assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM live_write_assertion').get().n,0);
+   if(operation==='reject')assert.deepEqual(plain(db.sqlite.prepare("SELECT status,version FROM submissions WHERE status='pending'").get()),{status:'pending',version:1});
+  });
+ }
+});
+
 test('anonymous session reads stay available and user names, roles or fields cannot request publication authority',async()=>{
  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
  const session=await worker.fetch(request('/auth/session'),env,{});assert.equal(session.status,200);assert.equal((await session.json()).user,null);
