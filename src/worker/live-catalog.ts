@@ -6,6 +6,8 @@ import { canonicalVenue, canonicalFood, canonicalReview, imageRecord } from './p
 import { validateV2Revision } from './v2-validation.js';
 import { sha256 } from './routes/submissions.js';
 import type { AppEnv } from './types.js';
+import type { AuthSession } from './auth.js';
+import { submissionSessionAssertion } from './submission-auth.js';
 
 export type LiveEntry = { type: ManagedType; record: ManagedRecord; hash: string; snapshotId: string };
 export type LiveState = { revision: number; backed_revision: number; backup_commit: string | null; backed_at: string | null; updated_at: string };
@@ -82,10 +84,11 @@ export async function editLive(env:AppEnv['Bindings'],type:ManagedType,id:string
   return {submissionId,status:'published',revision:state.revision+1,backupStatus:'pending'};
 }
 
-export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersion:number,reviewer:string,legacy=false){
+export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersion:number,reviewer:string,legacy=false,directActor?:AuthSession){
   const {state,entries}=await readLive(env.DB);
   const row=await env.DB.prepare('SELECT * FROM submissions WHERE id=? AND schema_version=2').bind(id).first<any>();
   if(!row||row.version!==expectedVersion||row.live_published_at||!(legacy?['exporting','export_failed','merged_dev','merged_main']:['pending']).includes(row.status))throw new Error('revision_conflict');
+  if(directActor&&(legacy||row.publication_mode!=='direct'||row.submitter_user_id!==directActor.userId||!['food','review'].includes(row.entity_type)))throw new Error('submission_owner_required');
   if(row.entity_type==='management'){
     if(!legacy)throw new Error('revision_conflict');
     const draft=JSON.parse(row.revision_json);
@@ -98,8 +101,9 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   // publication needs no R2 rewrite and cannot expose half-committed content.
   for(const asset of assets){if(!env.IMAGES||!await env.IMAGES.head(asset.object_key))throw new Error('media_object_missing');}
   const images=(slot:string)=>assets.filter(a=>a.slot===slot).map(a=>imageRecord({...a,permission:'approved'}));
-  const source=Array.isArray(revision.payload.sources)&&revision.payload.sources.length?revision.payload.sources:[{repository:'shou-food-contributions',path:`submissions/${id}`,revision:await sha256(row.revision_json),license:null,note:'审核通过的匿名投稿',sourceUrl:null,collectedAt:null}];
-  const p=revision.payload,now=new Date().toISOString(),type=row.entity_type as ManagedType;
+  const source=Array.isArray(revision.payload.sources)&&revision.payload.sources.length?revision.payload.sources:[{repository:'shou-food-contributions',path:`submissions/${id}`,revision:await sha256(row.revision_json),license:null,note:directActor?'登录用户直接投稿':'审核通过的投稿',sourceUrl:null,collectedAt:null}];
+  const authenticated = row.submitter_user_id !== null && row.submitter_user_id !== undefined;
+  const p=authenticated&&row.entity_type==='review'?{...revision.payload,authorAlias:row.public_author_alias}:revision.payload,now=new Date().toISOString(),type=row.entity_type as ManagedType;
   const record=parseManaged(type,type==='venue'?canonicalVenue(p,row.entity_id,images('entity'),source,now):type==='food'?canonicalFood(p,row.entity_id,row.parent_entity_id,images('entity'),source,now):canonicalReview(p,row.entity_id,images('entity'),source));
   if(entries.some(e=>e.type===type&&e.record.id===record.id))throw new Error('entity_already_published');
   validateManagedRelations(type,record,entries);
@@ -110,13 +114,20 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   const changed:LiveEntry[]=[{type,record,hash:'',snapshotId:row.snapshot_id},...(type==='food'?changedParents(entries,record as Food):[])];
   if(revision.attachedReview){
     if(!row.attached_review_id)throw new Error('attached_review_missing');
-    changed.push({type:'review',record:parseManaged('review',canonicalReview({...revision.attachedReview,targetType:type,targetId:record.id},row.attached_review_id,images('attachedReview'),source)),hash:'',snapshotId:row.snapshot_id});
+    changed.push({type:'review',record:parseManaged('review',canonicalReview({...revision.attachedReview,targetType:type,targetId:record.id,...(authenticated?{authorAlias:row.public_author_alias}:{})},row.attached_review_id,images('attachedReview'),source)),hash:'',snapshotId:row.snapshot_id});
   }
   const statements=beginLiveWrite(env.DB,state.revision,now);
+  if(directActor){
+    statements.push(submissionSessionAssertion(env,directActor));
+    statements.push(env.DB.prepare("INSERT INTO live_write_assertion(ok) VALUES(CASE WHEN EXISTS (SELECT 1 FROM submissions WHERE id=? AND submitter_user_id=? AND publication_mode='direct' AND entity_type IN ('food','review') AND upload_state='pending') THEN 1 ELSE 0 END)").bind(id,directActor.userId));
+  }
+  // A parent/target must still be public at the transactional publication point.
+  if(type==='food')statements.push(env.DB.prepare("INSERT INTO live_write_assertion(ok) VALUES(CASE WHEN EXISTS (SELECT 1 FROM venues WHERE id=? AND publication_state='published') THEN 1 ELSE 0 END)").bind(row.parent_entity_id));
+  if(type==='review')statements.push(env.DB.prepare(`INSERT INTO live_write_assertion(ok) VALUES(CASE WHEN EXISTS (SELECT 1 FROM ${(record as Review).targetType==='food'?'foods':'venues'} WHERE id=? AND publication_state='published') THEN 1 ELSE 0 END)`).bind((record as Review).targetId));
   statements.push(env.DB.prepare("UPDATE submissions SET status='deployed',version=version+1,reviewer=?,reviewed_at=COALESCE(reviewed_at,?),updated_at=?,live_published_at=?,live_error=NULL WHERE id=? AND version=? AND status=? AND live_published_at IS NULL").bind(reviewer,now,now,now,id,expectedVersion,row.status),assertion(env.DB));
   statements.push(...await recordWrites(env.DB,changed,state.revision+1,now));
   statements.push(env.DB.prepare("UPDATE media_assets SET object_state='published',permission='approved',published_at=? WHERE submission_id=? AND rights_confirmed=1").bind(now,id));
-  statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'publish',?,?,?)").bind(crypto.randomUUID(),id,reviewer,expectedVersion+1,legacy?'live_cutover':'live_approval',now));
+  statements.push(env.DB.prepare("INSERT INTO audit_events(id,submission_id,reviewer,action,version,reason,created_at) VALUES(?,?,?,'publish',?,?,?)").bind(crypto.randomUUID(),id,reviewer,expectedVersion+1,directActor?'authenticated_direct':legacy?'live_cutover':'live_approval',now));
   statements.push(env.DB.prepare('DELETE FROM live_write_assertion'));
   await env.DB.batch(statements);
   return {submissionId:id,status:'published',revision:state.revision+1,backupStatus:'pending'};

@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import { html } from 'hono/html';
 import { accountUrl, authConfigured, AuthFailure, beginLogin, completeLogin, endSession, readSession } from '../auth.js';
 import type { AppEnv } from '../types.js';
+import { liveContent, publicationEnabled } from '../config.js';
 
 export const authRoutes = new Hono<AppEnv>();
 authRoutes.use('/*', async (context, next) => {
@@ -16,7 +17,7 @@ authRoutes.use('/*', async (context, next) => {
 authRoutes.get('/session', async context => {
   if (context.req.header('Origin') && context.req.header('Origin') !== new URL(context.req.url).origin) return context.json({ error: { code: 'origin_forbidden', message: '请求来源不允许。' } }, 403);
   const session = await readSession(context);
-  return context.json({ configured: authConfigured(context.env, new URL(context.req.url)), user: session ? {
+  return context.json({ configured: authConfigured(context.env, new URL(context.req.url)), directPublishing: liveContent(context.env) && publicationEnabled(context.env), user: session ? {
     username: session.username, picture: session.picture, isAdmin: session.isAdmin, wasAdmin: session.wasAdmin,
     adminExpiresAt: session.adminExpiresAt, expiresAt: session.expiresAt,
   } : null, csrfToken: session?.csrfToken ?? null });

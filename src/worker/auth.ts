@@ -16,6 +16,7 @@ type Settings = { issuer: URL; clientId: string; secret: string; callback: URL; 
 
 export type AuthSession = {
   userId: number;
+  sessionHash: string;
   username: string;
   picture: string | null;
   csrfToken: string;
@@ -110,7 +111,7 @@ export async function readSession(context: AuthContext): Promise<AuthSession | n
   const url = new URL(context.req.url);
   if (url.protocol !== 'https:' && !(context.env.OIDC_ALLOW_LOCAL_HTTP === 'true' && loopback(url.hostname))) return null;
   if (!context.env.DB) return null;
-  const record = await context.env.DB.prepare(`SELECT u.id AS userId, u.username, u.picture, u.issuer,
+  const record = await context.env.DB.prepare(`SELECT u.id AS userId, u.username, u.picture, u.issuer, s.token_hash AS sessionHash,
       s.csrf_token AS csrfToken, s.expires_at AS expiresAt, s.was_admin AS wasAdmin, s.admin_until AS adminExpiresAt
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?`)
     .bind(await tokenHash(token), seconds())

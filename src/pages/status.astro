@@ -43,6 +43,7 @@ import Layout from '../templates/Layout.astro';
     merged_dev: { label: '已进入预览', note: '内容已进入预览分支，等待正式发布。' },
     merged_main: { label: '已合入发布分支', note: '内容已进入正式发布流程。' },
     deployed: { label: '已发布', note: '内容已发布到公开目录。' },
+    published: { label: '已发布', note: '内容已公开，可以在餐品或店铺详情中查看。' },
   };
   const params = new URLSearchParams(location.search);
   const savedId = params.get('id');
@@ -70,7 +71,9 @@ import Layout from '../templates/Layout.astro';
       const response = await fetch('/api/v2/submissions/' + encodeURIComponent(id) + '/status', { headers: { Authorization: 'Bearer ' + token },cache:'no-store' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message || '查询失败。');
-      const state = states[body.status] ?? { label: body.status, note: '状态已更新。' };
+      const state = body.status === 'pending' && body.publicationMode === 'direct'
+        ? { label: body.uploadState === 'uploading' ? '图片待完成' : '等待完成发表', note: '请回到原投稿页面继续完成。这份登录用户投稿不需要管理员审批；全部图片完成并成功发表后才会公开。' }
+        : states[body.status] ?? { label: body.status, note: '状态已更新。' };
       badge.textContent = state.label;
       badge.dataset.state = body.status;
       const uploadNote = body.uploadState === 'uploading' ? ' · 图片上传：' + body.uploadedImages + '/' + body.expectedImages + (body.expectedReviewImages ? '，附评 ' + body.uploadedReviewImages + '/' + body.expectedReviewImages : '') : '';
