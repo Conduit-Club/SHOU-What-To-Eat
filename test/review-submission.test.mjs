@@ -22,6 +22,13 @@ test('rating bounds, photo count and Unicode character limit are checked before 
   for(const change of [{rating:0},{rating:6},{rating:1.5},{imageCount:4},{text:'🍜'.repeat(257)}]) await assert.rejects(createReview({...input,...change},noFetch),/1–5/);
   await createReview({...input,text:'🍜'.repeat(256)},transport(async()=>response({submissionId:'s',receiptToken:'t',version:1},202)));
 });
+test('quick review transport preserves the chosen dining date and omits identity snapshots',async()=>{
+  await createReview({...input,visitedAt:'2026-10-01',visibility:'username'},transport(async(path,options)=>{
+    const body=JSON.parse(options.body);assert.equal(body.payload.visitedAt,'2026-10-01');assert.equal(body.visibility,'username');
+    assert.doesNotMatch(options.body,/authorAlias|authorAvatar|userId|subject/);
+    return response({submissionId:'s',receiptToken:'t',version:1},202);
+  }));
+});
 test('permission, Turnstile, limit and replay failures preserve error codes',async()=>{
   for(const [status,code] of [[403,'turnstile_failed'],[404,'not_found'],[409,'idempotency_replayed'],[429,'rate_limited']]) {
     await assert.rejects(createReview(input,transport(async()=>response({error:{code,message:'本地错误'},submissionId:'already-saved'},status))),error=>error instanceof ReviewRequestError&&error.code===code&&error.status===status&&error.submissionId==='already-saved');

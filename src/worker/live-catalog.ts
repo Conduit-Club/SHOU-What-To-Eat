@@ -8,6 +8,7 @@ import { sha256 } from './routes/submissions.js';
 import type { AppEnv } from './types.js';
 import type { AuthSession } from './auth.js';
 import { submissionSessionAssertion } from './submission-auth.js';
+import { publicAvatar } from '../utils/review-identity.js';
 
 export type LiveEntry = { type: ManagedType; record: ManagedRecord; hash: string; snapshotId: string };
 export type LiveState = { revision: number; backed_revision: number; backup_commit: string | null; backed_at: string | null; updated_at: string };
@@ -103,7 +104,9 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   const images=(slot:string)=>assets.filter(a=>a.slot===slot).map(a=>imageRecord({...a,permission:'approved'}));
   const source=Array.isArray(revision.payload.sources)&&revision.payload.sources.length?revision.payload.sources:[{repository:'shou-food-contributions',path:`submissions/${id}`,revision:await sha256(row.revision_json),license:null,note:directActor?'登录用户直接投稿':'审核通过的投稿',sourceUrl:null,collectedAt:null}];
   const authenticated = row.submitter_user_id !== null && row.submitter_user_id !== undefined;
-  const p=authenticated&&row.entity_type==='review'?{...revision.payload,authorAlias:row.public_author_alias}:revision.payload,now=new Date().toISOString(),type=row.entity_type as ManagedType;
+  const publicIdentity = row.public_identity_recorded === 1 || authenticated
+    ? { authorAlias: row.public_author_alias, authorAvatar: row.public_author_alias ? publicAvatar(row.public_author_avatar) : null } : {};
+  const p=row.entity_type==='review'?{...revision.payload,...publicIdentity}:revision.payload,now=new Date().toISOString(),type=row.entity_type as ManagedType;
   const record=parseManaged(type,type==='venue'?canonicalVenue(p,row.entity_id,images('entity'),source,now):type==='food'?canonicalFood(p,row.entity_id,row.parent_entity_id,images('entity'),source,now):canonicalReview(p,row.entity_id,images('entity'),source));
   if(entries.some(e=>e.type===type&&e.record.id===record.id))throw new Error('entity_already_published');
   validateManagedRelations(type,record,entries);
@@ -114,7 +117,7 @@ export async function publishLive(env:AppEnv['Bindings'],id:string,expectedVersi
   const changed:LiveEntry[]=[{type,record,hash:'',snapshotId:row.snapshot_id},...(type==='food'?changedParents(entries,record as Food):[])];
   if(revision.attachedReview){
     if(!row.attached_review_id)throw new Error('attached_review_missing');
-    changed.push({type:'review',record:parseManaged('review',canonicalReview({...revision.attachedReview,targetType:type,targetId:record.id,...(authenticated?{authorAlias:row.public_author_alias}:{})},row.attached_review_id,images('attachedReview'),source)),hash:'',snapshotId:row.snapshot_id});
+    changed.push({type:'review',record:parseManaged('review',canonicalReview({...revision.attachedReview,targetType:type,targetId:record.id,...publicIdentity},row.attached_review_id,images('attachedReview'),source)),hash:'',snapshotId:row.snapshot_id});
   }
   const statements=beginLiveWrite(env.DB,state.revision,now);
   if(directActor){

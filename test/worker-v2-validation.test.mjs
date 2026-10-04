@@ -57,6 +57,12 @@ test('v2 date validation rejects impossible calendar dates', () => {
   assert.equal(isCalendarDate('2026-02-29'), false);
   assert.equal(isCalendarDate('2026-04-31'), false);
   assert.throws(() => validateV2Submission({ ...baseVenue, payload: { ...baseVenue.payload, verifiedAt: '2026-02-31' } }), V2ValidationError);
+  for (const visitedAt of ['9999-12-31', '2026-02-31']) {
+    assert.throws(() => validateV2Submission({ ...baseVenue, entityType: 'review', payload: { targetType: 'venue', targetId: 'venue-1', rating: 4, visitedAt } }), V2ValidationError);
+    assert.throws(() => validateV2Submission({ ...baseVenue, payload: { ...baseVenue.payload, attachedReview: { rating: 4, visitedAt } } }), V2ValidationError);
+  }
+  const result = validateV2Submission({ ...baseVenue, payload: { ...baseVenue.payload, attachedReview: { rating: 4, visitedAt: '2024-02-29' } } });
+  assert.equal(result.attachedReview.visitedAt, '2024-02-29');
 });
 
 test('v2 validates venue auxiliary field lengths and canonical distance pairs', () => {

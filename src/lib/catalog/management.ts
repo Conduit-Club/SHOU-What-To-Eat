@@ -23,7 +23,7 @@ export function validateManagedEdit(type: ManagedType, before: ManagedRecord, in
   })) throw new Error('image_provenance_immutable');
   if (type === 'review') {
     const oldReview = before as Review, next = record as Review;
-    if (next.targetId !== oldReview.targetId || next.targetType !== oldReview.targetType || next.rating !== oldReview.rating || next.text !== oldReview.text || next.authorAlias !== oldReview.authorAlias) throw new Error('review_content_immutable');
+    if (next.targetId !== oldReview.targetId || next.targetType !== oldReview.targetType || next.rating !== oldReview.rating || next.text !== oldReview.text || next.authorAlias !== oldReview.authorAlias || next.authorAvatar !== oldReview.authorAvatar || next.visitedAt !== oldReview.visitedAt) throw new Error('review_content_immutable');
   } else {
     const oldEntity = before as Food | Venue, next = record as Food | Venue;
     if(next.tags.some(tag=>!oldEntity.tags.includes(tag)&&!isChineseTag(tag)))throw new Error('chinese_tags_required');

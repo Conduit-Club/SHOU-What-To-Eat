@@ -3,6 +3,7 @@
 // schemas assignable to `defineCollection` while remaining usable by Worker
 // and catalog tooling.
 import { z } from 'astro/zod';
+import { publicAvatar } from '../../utils/review-identity.js';
 
 export const CATALOG_SCHEMA_VERSION = 2 as const;
 
@@ -157,11 +158,15 @@ export const reviewSchema = z.object({
   images: z.array(imageSchema).max(10).default([]),
   status: z.enum(['published','archived']).optional(),
   authorAlias: optionalText(80),
+  authorAvatar: z.string().max(2000).refine(value => publicAvatar(value) === value, '头像必须来自 Auth 固定头像路径').nullable().optional(),
   visitedAt: optionalDate,
   verifiedAt: optionalDate,
   updatedAt: optionalDate,
   sources: z.array(sourceSchema).min(1).max(30),
 }).strict().superRefine((value, context) => {
+  if (value.authorAvatar && !value.authorAlias?.trim()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['authorAvatar'], message: '匿名评价不能包含头像' });
+  }
   if (value.rating === null && value.text.trim().length === 0 && value.images.length === 0) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['text'], message: '无星级评价必须有文字或图片' });
   }

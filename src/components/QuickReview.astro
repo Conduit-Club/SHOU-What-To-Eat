@@ -4,6 +4,7 @@ import PhotoUploader from './PhotoUploader.astro';
 import snapshot from '../../public/catalog-snapshot.json';
 import ContributionAccess from './ContributionAccess.astro';
 import PublicationIdentity from './PublicationIdentity.astro';
+import DiningDate from './DiningDate.astro';
 interface Props { targetType: 'venue' | 'food'; targetId: string; targetName: string }
 const { targetType, targetId, targetName } = Astro.props;
 ---
@@ -13,6 +14,7 @@ const { targetType, targetId, targetName } = Astro.props;
   <form data-quick-review data-target-type={targetType} data-target-id={targetId} data-target-name={targetName} data-snapshot-id={snapshot.snapshotId} novalidate>
     <StarRating />
     <PublicationIdentity />
+    <DiningDate />
     <div class="review-text-field"><label for="quick-review-text">说说味道、分量或服务 <span>选填</span></label><textarea id="quick-review-text" name="text" rows="3" placeholder="好吃在哪里？有哪些小提醒？最多 256 字。" aria-describedby="quick-review-count"></textarea><small id="quick-review-count" data-review-count>0 / 256</small></div>
     <PhotoUploader id="quick-review-images" title="添加用餐照片" limit={3} />
     <div class="quick-previews" data-review-previews aria-live="polite"></div>
@@ -131,7 +133,7 @@ const { targetType, targetId, targetName } = Astro.props;
         for(const name of ['source','holder','license']) if(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(field(name).value)) problems.push({element:field(name),message:'照片来源与授权信息包含无效控制字符。'});
       }
       if(!resume && !problems.length) {
-        try { validateV2Submission({schemaVersion:2,entityType:'review',snapshotId:form.dataset.snapshotId,payload:{targetType:form.dataset.targetType,targetId:form.dataset.targetId,rating:Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value),text:text.value},expectedImages:images.length,expectedReviewImages:0,turnstileToken:'browser-validation'}); }
+        try { validateV2Submission({schemaVersion:2,entityType:'review',snapshotId:form.dataset.snapshotId,payload:{targetType:form.dataset.targetType,targetId:form.dataset.targetId,rating:Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value),text:text.value,visitedAt:field('visitedAt').value || undefined},expectedImages:images.length,expectedReviewImages:0,turnstileToken:'browser-validation'}); }
         catch { problems.push({element:text,message:'请检查评价格式，最多 256 字，并去除无效控制字符。'}); }
       }
       if(problems.length) { showFormErrors(form,problems); return; }
@@ -143,10 +145,11 @@ const { targetType, targetId, targetName } = Astro.props;
           if(!token) throw new Error('请先完成下方的真人验证。');
           const rating = Number(form.querySelector<HTMLInputElement>('input[name=rating]:checked')?.value);
           const visibility = form.querySelector<HTMLInputElement>('input[name=visibility]:checked')?.value === 'username' ? 'username' : 'anonymous';
-          const fingerprint = JSON.stringify([rating,text.value.trim(),images.length,visibility]);
+          const visitedAt = field('visitedAt').value || undefined;
+          const fingerprint = JSON.stringify([rating,text.value.trim(),images.length,visibility,visitedAt]);
           if(attempt && attempt.fingerprint !== fingerprint) throw new Error('上次提交结果尚未确认。请保持原评分、文字和照片数量重试，避免重复评价。');
           attempt ??= { key: crypto.randomUUID(), fingerprint };
-          savePending(await createReview({ snapshotId: form.dataset.snapshotId!, targetType: form.dataset.targetType as 'venue' | 'food', targetId: form.dataset.targetId!, rating, text: text.value, imageCount: images.length, turnstileToken: token, idempotencyKey: attempt.key, visibility }));
+          savePending(await createReview({ snapshotId: form.dataset.snapshotId!, targetType: form.dataset.targetType as 'venue' | 'food', targetId: form.dataset.targetId!, rating, text: text.value, imageCount: images.length, turnstileToken: token, idempotencyKey: attempt.key, visibility, visitedAt }));
         }
         if(!pending) throw new Error('没有找到可继续的评价回执。');
         const completion = await completeReview(pending, prepared, saveVersion);

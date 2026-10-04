@@ -6,7 +6,7 @@ import { readLimitedBody } from './media.js';
 
 export const SESSION_TTL = 8 * 60 * 60;
 export const LOGIN_TTL = 10 * 60;
-export const ADMIN_TTL = 5 * 60;
+export const ADMIN_TTL = 60 * 60;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const seconds = () => Math.floor(Date.now() / 1000);
 const loopback = (host: string) => ['localhost', '127.0.0.1', '[::1]'].includes(host);
@@ -186,7 +186,9 @@ export async function completeLogin(context: AuthContext, fetcher?: oidc.CustomF
   if (!username || profile.email_verified !== true || typeof profile.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email) || profile.email.length > 254) throw new AuthFailure(400);
   const checkedAt = profile.roles_checked_at;
   const wasAdmin = Array.isArray(profile.roles) && profile.roles.includes('admin') && typeof checkedAt === 'number' && Number.isSafeInteger(checkedAt) && checkedAt <= seconds() + 30;
-  const adminUntil = wasAdmin ? Math.min(Number(claims.exp), checkedAt + ADMIN_TTL, seconds() + ADMIN_TTL) : 0;
+  const current = seconds();
+  const fresh = wasAdmin && checkedAt > current - ADMIN_TTL && typeof claims.exp === 'number' && Number.isSafeInteger(claims.exp) && claims.exp > current;
+  const adminUntil = fresh ? Math.min(claims.exp, checkedAt + ADMIN_TTL, current + ADMIN_TTL) : 0;
   const user = await db.prepare(`INSERT INTO auth_users (issuer, subject, username, picture, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT (issuer, subject) DO UPDATE SET username = excluded.username, picture = excluded.picture, last_login_at = excluded.last_login_at RETURNING id`)
     .bind(config.issuer.href, claims.sub, username, trustedPicture(profile.picture, config.issuer), seconds(), seconds()).first<{ id: number }>();
