@@ -1,10 +1,9 @@
 import { html } from 'hono/html';
-import { readLive } from './live-catalog.js';
-import { publicCatalog } from '../lib/catalog/visibility.js';
+import { readPublicDetail } from './public-detail.js';
 import { formatPrice,formatLocation,safePublicImage,safePublicLink,tagLabel,mealLabel } from '../utils/catalog-display.js';
 import type { AppEnv } from './types.js';
-import type { Food } from '../lib/catalog/index.js';
 import { reviewIdentity } from '../utils/review-identity.js';
+import type { Venue } from '../lib/catalog/index.js';
 
 const credit=(image:any)=>html`${image.isIllustrative?'网络示意图 · ':''}${image.author??'作者待补充'} · ${image.license??'授权信息待补充'} ${safePublicLink(image.sourceUrl)?html`<a href="${image.sourceUrl}" target="_blank" rel="noreferrer">来源 ↗</a>`:''}`;
 const gallery=(images:any[])=>html`<div class="live-gallery">${images.filter(safePublicImage).map(image=>html`<figure><a href="${image.url}" target="_blank" rel="noreferrer"><img loading="lazy" src="${image.url}" alt="${image.alt}" /></a><figcaption>${credit(image)}</figcaption></figure>`)}</div>`;
@@ -13,11 +12,10 @@ export const reviewAuthor = (review: { authorAlias?: string | null; authorAvatar
   return html`<div class="review-author"><span class="review-author-avatar" aria-hidden="true"><span>${author.initial}</span>${author.picture ? html`<img data-review-avatar src="${author.picture}" alt="" width="36" height="36" loading="lazy" referrerpolicy="no-referrer" />` : ''}</span><strong>${author.name}</strong></div>`;
 };
 export async function liveDetail(request:Request,env:AppEnv['Bindings'],type:'food'|'venue',id:string){
-  const {catalog,state}=await readLive(env.DB),visible=publicCatalog(catalog);
-  const record=(type==='food'?visible.foods:visible.restaurants).find(r=>r.id===id);
+  const {record,state,reviews,venue:foodVenue,foods}=await readPublicDetail(env.DB,type,id);
   if(!record)return new Response('内容不存在或已下架',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
-  const venue=type==='food'?visible.restaurants.find(v=>v.id===(record as Food).venueId):visible.restaurants.find(v=>v.id===id);
-  const reviews=visible.reviews.filter(r=>r.targetType===type&&r.targetId===id),rated=reviews.filter(r=>r.rating!==null);
+  const venue=type==='food'?foodVenue:record as Venue;
+  const rated=reviews.filter(r=>r.rating!==null);
   const average=rated.length?(rated.reduce((n,r)=>n+r.rating!,0)/rated.length).toFixed(1):null;
   const images=record.images.filter(safePublicImage),first=images[0];
   const price='price' in record?record.price:record.averagePrice;
@@ -26,7 +24,7 @@ export async function liveDetail(request:Request,env:AppEnv['Bindings'],type:'fo
   <div class="live-info"><span>${venue?.category==='on-campus'?'校内':'校外'} · ${average?`${average} 分 / ${rated.length} 条评分`:'暂未评分'}</span><h1>${record.name}</h1>${venue?html`<a href="/restaurants/${venue.id}/">${venue.name} · ${formatLocation(venue.location)} ↗</a>`:''}<p class="live-price">${formatPrice('price' in record?record.price:'averagePrice' in record?record.averagePrice:null)}</p><div class="live-tags">${[...('mealTypes' in record?record.mealTypes.map(mealLabel):[]),...record.tags.map(tagLabel)].map(tag=>html`<span>${tag}</span>`)}</div>${record.description?html`<p>${record.description}</p>`:''}${'openingHours' in record&&record.openingHours?html`<p>营业时间：${record.openingHours}</p>`:''}</div></section>
   ${price?html`<p class="live-source">价格来源：${price.source??'待补充'} · 核验日期：${price.verifiedAt??'未知，以现场为准'}</p>`:''}
   ${images.length>1?html`<section class="live-section"><h2>更多照片</h2>${gallery(images.slice(1))}</section>`:''}
-  ${type==='venue'?html`<section class="live-section"><h2>店内餐品</h2><div class="live-food-links">${visible.foods.filter(f=>f.venueId===id).map(f=>html`<a href="/foods/${f.id}/"><strong>${f.name}</strong> · ${formatPrice(f.price)} ↗</a>`)}</div></section>`:''}
+  ${type==='venue'?html`<section class="live-section"><h2>店内餐品</h2><div class="live-food-links">${foods.map(f=>html`<a href="/foods/${f.id}/"><strong>${f.name}</strong> · ${formatPrice(f.price)} ↗</a>`)}</div></section>`:''}
   <section class="live-section"><h2>同学评价 · ${reviews.length}</h2>${!reviews.length?html`<p>还没有同学评价，吃过后留下你的感受吧。</p>`:html`<div class="live-reviews">${reviews.map(r=>html`<article class="live-review">${reviewAuthor(r)}<p class="live-stars" aria-label="${r.rating===null?'未评分':`${r.rating} 星`}">${r.rating===null?'文字评价':'★'.repeat(r.rating)+'☆'.repeat(5-r.rating)}</p><p>${r.text}</p>${gallery(r.images)}<small>${r.visitedAt?`用餐日期 ${r.visitedAt}`:'用餐日期未注明'}</small></article>`)}</div>`}</section>
   <section class="live-section live-source"><h2>信息来源</h2>${record.sources.map(s=>html`<p>${s.repository} · ${s.path} · ${s.license??'许可未注明'} ${safePublicLink(s.sourceUrl)?html`<a href="${s.sourceUrl}">来源 ↗</a>`:''}</p>`)}</section>`;
   const shell=await env.ASSETS.fetch(new Request(new URL('/live-detail/',request.url),{method:'GET'}));
