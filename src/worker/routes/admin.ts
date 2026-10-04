@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { requireAccess } from '../security.js';
+import { adminBatch } from '../admin-auth.js';
 import { legacySubmissionWritesEnabled } from '../config.js';
 import type { AppEnv } from '../types.js';
 
@@ -22,7 +23,7 @@ adminRoutes.patch('/submissions/:id', async (context) => {
   if (!body || !Number.isSafeInteger(body.expectedVersion) || !isObject(body.revision) || !validRevision(body.revision)) return context.json({ error: { code: 'invalid_revision', message: '审核稿或版本号无效。' } }, 422);
   const updatedAt = new Date().toISOString(); const revisionJson = JSON.stringify(body.revision); const auditId = crypto.randomUUID();
   try {
-    const results = await context.env.DB.batch([
+    const results = await adminBatch(context, [
       context.env.DB.prepare("UPDATE submissions SET revision_json = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ? AND status = 'pending'").bind(revisionJson, updatedAt, context.req.param('id'), body.expectedVersion),
       context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, created_at) SELECT ?, id, ?, 'edit', version, ? FROM submissions WHERE id = ? AND version = ? AND status = 'pending'").bind(auditId, context.get('reviewer'), updatedAt, context.req.param('id'), Number(body.expectedVersion) + 1),
     ]);
@@ -46,7 +47,7 @@ adminRoutes.post('/submissions/:id/review', async (context) => {
   const status = action === 'approve' ? 'exporting' : 'rejected'; const reason = action === 'reject' ? String(body.reason).trim().slice(0, 500) : null;
   const jobId = crypto.randomUUID(); const jobBranch = `submission/${id.toLowerCase()}`; const contentHash = await hash(current.revision_json);
   try {
-    const results = await context.env.DB.batch([
+    const results = await adminBatch(context, [
       context.env.DB.prepare("UPDATE submissions SET status = ?, reviewer = ?, reviewed_at = ?, updated_at = ?, version = version + 1, rejection_reason = ? WHERE id = ? AND status = 'pending' AND version = ?").bind(status, reviewer, now, now, reason, id, body.expectedVersion),
       context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, reason, created_at) SELECT ?, id, ?, ?, version, ?, ? FROM submissions WHERE id = ? AND status = ? AND version = ?").bind(auditId, reviewer, action, reason, now, id, status, Number(body.expectedVersion) + 1),
       ...(action === 'approve' ? [context.env.DB.prepare("INSERT INTO publication_jobs (id, submission_id, submission_version, content_hash, status, branch, attempts, created_at, updated_at) VALUES (?, ?, ?, ?, 'queued', ?, 0, ?, ?)").bind(jobId, id, Number(body.expectedVersion) + 1, contentHash, jobBranch, now, now)] : []),
@@ -69,7 +70,7 @@ adminRoutes.get('/submissions/:id', async (context) => {
 adminRoutes.post('/publications/:id/retry', async (context) => {
   if (!legacySubmissionWritesEnabled(context.env)) return legacyDisabled(context);
   const now = new Date().toISOString();
-  const result = await context.env.DB.batch([
+  const result = await adminBatch(context, [
     context.env.DB.prepare("UPDATE publication_jobs SET status = 'queued', error_code = NULL, lease_until = NULL, updated_at = ? WHERE id = ? AND status IN ('failed', 'closed')").bind(now, context.req.param('id')),
     context.env.DB.prepare("UPDATE submissions SET status = 'exporting', updated_at = ? WHERE id = (SELECT submission_id FROM publication_jobs WHERE id = ? AND status = 'queued') AND status = 'export_failed'").bind(now, context.req.param('id')),
     context.env.DB.prepare("INSERT INTO audit_events (id, submission_id, reviewer, action, version, created_at) SELECT ?, submission_id, ?, 'retry', submission_version, ? FROM publication_jobs WHERE id = ? AND status = 'queued'").bind(crypto.randomUUID(), context.get('reviewer'), now, context.req.param('id')),
