@@ -1,5 +1,6 @@
 export type AccountSession = {
   configured: boolean;
+  directPublishing?: boolean;
   user: { username: string; picture: string | null; isAdmin: boolean; wasAdmin: boolean; adminExpiresAt: number; expiresAt: number } | null;
   csrfToken: string | null;
 };

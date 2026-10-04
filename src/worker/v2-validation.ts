@@ -15,12 +15,15 @@ export type V2Submission = {
   expectedReviewImages: number;
   turnstileToken: string;
   attachedReview: V2Review | null;
+  visibility: 'anonymous' | 'username';
   publicJson: Record<string, unknown>;
 };
 
 export function validateV2Submission(value: unknown, existingRevision = false): V2Submission {
   if (!isObject(value)) throw new V2ValidationError('invalid_submission');
-  allowedKeys(value, ['schemaVersion','entityType','snapshotId','payload','entity','parent','expectedImages','expectedReviewImages','turnstileToken']);
+  allowedKeys(value, ['schemaVersion','entityType','snapshotId','payload','entity','parent','expectedImages','expectedReviewImages','turnstileToken','visibility']);
+  const visibility = value.visibility ?? 'anonymous';
+  if (visibility !== 'anonymous' && visibility !== 'username') throw new V2ValidationError('invalid_visibility');
   if (value.schemaVersion !== 2) throw new V2ValidationError('unsupported_schema_version');
   const entityType = value.entityType;
   if (typeof entityType !== 'string' || !['venue', 'food', 'review'].includes(entityType)) throw new V2ValidationError('invalid_entity_type');
@@ -54,7 +57,7 @@ export function validateV2Submission(value: unknown, existingRevision = false): 
   delete publicPayload.venueId;
   if (parentVenueId) publicPayload.venueId = parentVenueId;
   if (attachedReview) publicPayload.attachedReview = attachedReview;
-  return { schemaVersion: 2, entityType: entityType as V2EntityType, snapshotId, payload: publicPayload, parentVenueId, parentReceiptToken, expectedImages, expectedReviewImages, turnstileToken, attachedReview, publicJson: { schemaVersion: 2, entityType, snapshotId, payload: publicPayload } };
+  return { schemaVersion: 2, entityType: entityType as V2EntityType, snapshotId, payload: publicPayload, parentVenueId, parentReceiptToken, expectedImages, expectedReviewImages, turnstileToken, attachedReview, visibility, publicJson: { schemaVersion: 2, entityType, snapshotId, payload: publicPayload } };
 }
 
 /** Validate an auditor's public revision with the submission-only fields

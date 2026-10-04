@@ -179,6 +179,159 @@ function snapshotId(database) {
   return database.sqlite.prepare("SELECT id FROM catalog_snapshots WHERE status = 'published' ORDER BY generated_at DESC LIMIT 1").get().id;
 }
 
+function authenticatedSession(database, id = 1) {
+  const now = Math.floor(Date.now() / 1000), token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+  const tokenHash = createHash('sha256').update(token).digest('hex'), csrf = 'local-csrf-' + id;
+  database.sqlite.prepare('INSERT OR IGNORE INTO auth_users(id,issuer,subject,username,created_at,last_login_at) VALUES(?,?,?,?,?,?)').run(id,'https://auth.shoumc.com/api/auth','local-subject-' + id,'同学' + id,now,now);
+  database.sqlite.prepare('INSERT INTO auth_sessions(token_hash,user_id,csrf_token,created_at,expires_at) VALUES(?,?,?,?,?)').run(tokenHash,id,csrf,now,now+3600);
+  return { id, tokenHash, token, csrf, headers: { Cookie:'__Host-eat-session=' + token, Origin:'https://eat.shoumc.com', 'X-CSRF-Token':csrf } };
+}
+
+function finalizeV2(env, receipt, version, headers = {}) {
+  return worker.fetch(request('/api/v2/submissions/' + receipt.submissionId + '/finalize', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer ' + receipt.receiptToken,...headers}, body:JSON.stringify({expectedVersion:version}) }),env,{});
+}
+
+test('normal users directly publish no-image food and reviews, with anonymous default and explicit verified username',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
+ await withExternalStubs(async()=>{
+  const before=await readLive(db),parent=before.catalog.restaurants[0].id;
+  const created=await submitV2(env,db,'food',{...foodPayload(),venueId:parent,attachedReview:{rating:4,text:'本地随稿评价'}},{headers:user.headers,body:{expectedImages:0}});
+  assert.equal(created.response.status,201,JSON.stringify(created.body));assert.equal(created.body.status,'published');assert.equal(created.body.publicationMode,'direct');assert.equal(created.body.version,2);
+  const after=await readLive(db);assert.equal(after.state.revision,before.state.revision+1);assert.ok(after.catalog.foods.some(f=>f.id===created.body.entityId));
+  assert.equal(after.catalog.reviews.find(r=>r.targetId===created.body.entityId).authorAlias,null);
+  for(const visibility of ['anonymous','username']) {
+   const review=await submitV2(env,db,'review',{targetType:'food',targetId:created.body.entityId,rating:5,text:'本地测试',authorAlias:'伪造署名'},{headers:user.headers,body:{visibility}});
+   assert.equal(review.response.status,201,JSON.stringify(review.body));
+   const published=(await readLive(db)).catalog.reviews.find(r=>r.id===review.body.entityId);assert.equal(published.authorAlias,visibility==='username'?'同学1':null);assert.equal(published.text,'本地测试');
+  }
+  assert.deepEqual(plain(db.sqlite.prepare('SELECT submitter_user_id,publication_mode,public_author_alias,status FROM submissions WHERE id=?').get(created.body.submissionId)),{submitter_user_id:1,publication_mode:'direct',public_author_alias:null,status:'deployed'});
+  const status=await worker.fetch(request('/api/v2/submissions/'+created.body.submissionId+'/status',{headers:{Authorization:'Bearer '+created.body.receiptToken}}),env,{});assert.equal((await status.json()).status,'published');
+  const revision=(await readLive(db)).state.revision;
+  const retry=await finalizeV2(env,created.body,1,user.headers);assert.equal(retry.status,200);assert.equal((await retry.json()).status,'published');assert.equal((await readLive(db)).state.revision,revision);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(created.body.submissionId).n,1);
+  assert.doesNotMatch(JSON.stringify(after.catalog),/submitter_user_id|receipt_hash|token_hash|local-subject|local-csrf/);
+ });
+});
+
+test('anonymous posts and authenticated venues remain moderated and pending venues cannot be published through food',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
+ await withExternalStubs(async()=>{
+  const before=await readLive(db),parent=before.catalog.restaurants[0].id;
+  const venue=await submitV2(env,db,'venue',venuePayload(),{headers:user.headers});assert.equal(venue.response.status,202);assert.equal(venue.body.publicationMode,'moderated');
+  const food=await submitV2(env,db,'food',{...foodPayload(),venueId:parent},{body:{expectedImages:0}});assert.equal(food.body.status,'pending');assert.equal(food.body.publicationMode,'moderated');
+  const review=await submitV2(env,db,'review',{targetType:'venue',targetId:parent,rating:4,text:'本地匿名测试'});assert.equal(review.body.status,'pending');
+  const retry=await finalizeV2(env,food.body,1,user.headers);assert.equal(retry.status,200);assert.equal((await retry.json()).status,'pending');
+  const denied=await submitV2(env,db,'food',{...foodPayload(),venueId:venue.body.entityId},{headers:user.headers,body:{expectedImages:0,parent:{venueEntityId:venue.body.entityId,parentReceiptToken:venue.body.receiptToken}}});
+  assert.equal(denied.response.status,409);assert.equal(denied.body.error.code,'parent_venue_unpublished');assert.match(denied.body.error.message,/管理员批准/);
+  assert.equal((await readLive(db)).state.revision,before.state.revision);
+  assert.ok(!(await readLive(db)).catalog.restaurants.some(v=>v.id===venue.body.entityId));
+ });
+});
+
+test('direct writes require exact-origin CSRF and the submitting active account even when another user knows the receipt',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'}),owner=authenticatedSession(db),other=authenticatedSession(db,2);
+ await withExternalStubs(async()=>{
+  const parent=(await readLive(db)).catalog.restaurants[0].id,food={...foodPayload(),venueId:parent};
+  for(const headers of [{...owner.headers,'X-CSRF-Token':''},{...owner.headers,Origin:'https://evil.invalid'},{...owner.headers,Origin:''}]) {
+   const denied=await submitV2(env,db,'food',food,{headers,body:{expectedImages:0}});assert.equal(denied.response.status,403);assert.equal(denied.body.error.code,'csrf_invalid');
+  }
+  const created=await submitV2(env,db,'food',food,{headers:owner.headers});assert.equal(created.response.status,202);
+  for(const headers of [{},other.headers]) {
+   const upload=await worker.fetch(request('/api/v2/submissions/'+created.body.submissionId+'/images',{method:'POST',headers:{...imageUploadHeaders(created.body.receiptToken,0,1),...headers},body:uploadWebp()}),env,{});assert.equal(upload.status,headers.Cookie?403:401);
+   assert.equal((await finalizeV2(env,created.body,1,headers)).status,headers.Cookie?403:401);
+  }
+  db.sqlite.prepare('UPDATE auth_sessions SET expires_at=0 WHERE token_hash=?').run(owner.tokenHash);
+  assert.equal((await finalizeV2(env,created.body,1,owner.headers)).status,401);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM media_assets WHERE submission_id=?').get(created.body.submissionId).n,0);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM catalog_mirror WHERE entity_id=?').get(created.body.entityId).n,0);
+  const expired=await submitV2(env,db,'food',food,{headers:owner.headers,body:{expectedImages:0}});assert.equal(expired.body.publicationMode,'moderated');
+  const fake=await submitV2(env,db,'food',food,{headers:{Cookie:'__Host-eat-session='+Buffer.alloc(32).toString('base64url'),'X-User-Role':'admin'},body:{expectedImages:0}});assert.equal(fake.body.publicationMode,'moderated');
+ });
+});
+
+test('direct publication validates image counts, rights and R2 objects before commit and successful finalize retries are idempotent',async()=>{
+ const db=new SqliteD1(),bucket=fakeR2Bucket(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2',IMAGES:bucket}),user=authenticatedSession(db);
+ await withExternalStubs(async()=>{
+  const parent=(await readLive(db)).catalog.restaurants[0].id;
+  const created=await submitV2(env,db,'food',{...foodPayload(),venueId:parent,attachedReview:{rating:3,text:'本地随稿测试'}},{headers:user.headers,body:{expectedImages:1,expectedReviewImages:1}});
+  const id=created.body.submissionId,upload=(slot,version,extra={})=>worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(created.body.receiptToken,0,version),...user.headers,'X-Image-Slot':slot,...extra},body:uploadWebp()}),env,{});
+  assert.equal((await finalizeV2(env,created.body,1,user.headers)).status,409);
+  assert.equal((await upload('entity',1,{'X-Image-Rights-Confirmed':'false'})).status,422);
+  assert.equal((await upload('entity',1,{'X-Image-Is-Illustrative':'true'})).status,422);
+  const first=await upload('entity',1);assert.equal(first.status,201);const asset=(await first.json()).assetId;
+  assert.equal((await finalizeV2(env,created.body,2,user.headers)).status,409);
+  assert.equal((await worker.fetch(request('/media/'+asset+'.webp'),env,{})).status,404);
+  assert.equal((await upload('attachedReview',2)).status,201);
+  const saved=bucket.objects.get('media/'+asset+'.webp');bucket.objects.delete('media/'+asset+'.webp');
+  const missing=await finalizeV2(env,created.body,3,user.headers);assert.equal(missing.status,409);assert.equal((await missing.json()).error.code,'media_object_missing');
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM catalog_mirror WHERE entity_id=?').get(created.body.entityId).n,0);
+  bucket.objects.set('media/'+asset+'.webp',saved);
+  const version=db.sqlite.prepare('SELECT version FROM submissions WHERE id=?').get(id).version;
+  const done=await finalizeV2(env,created.body,version,user.headers);assert.equal(done.status,200,await done.clone().text());const published=await done.json();assert.equal(published.status,'published');
+  assert.equal((await worker.fetch(request('/media/'+asset+'.webp'),env,{})).status,200);
+  assert.equal((await readLive(db)).catalog.reviews.find(r=>r.targetId===created.body.entityId).authorAlias,null);
+  const revision=(await readLive(db)).state.revision,retry=await finalizeV2(env,created.body,version,user.headers);assert.equal(retry.status,200);assert.equal((await retry.json()).version,published.version);assert.equal((await readLive(db)).state.revision,revision);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='publish'").get(id).n,1);
+ });
+});
+
+test('direct idempotency and rate limits follow the account across changing IP addresses',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'}),user=authenticatedSession(db);
+ await withExternalStubs(async()=>{
+  const parent=(await readLive(db)).catalog.restaurants[0].id,food={...foodPayload(),venueId:parent},headers={...user.headers,'Idempotency-Key':'local-idempotency-stable'};
+  const created=await submitV2(env,db,'food',food,{headers,body:{expectedImages:0}});assert.equal(created.response.status,201);
+  const revision=(await readLive(db)).state.revision;
+  const replay=await submitV2(env,db,'food',food,{headers,ip:'198.51.100.11',body:{expectedImages:0}});assert.equal(replay.response.status,409);assert.equal(replay.body.error.code,'idempotency_replayed');assert.equal((await readLive(db)).state.revision,revision);
+  const different=await submitV2(env,db,'food',{...food,name:'不同稿件'},{headers,body:{expectedImages:0}});assert.equal(different.body.error.code,'idempotency_conflict');
+  for(let i=1;i<5;i++)assert.equal((await submitV2(env,db,'food',{...food,name:'本地限频'+i},{headers:user.headers,ip:'198.51.100.'+(20+i),body:{expectedImages:0}})).response.status,201);
+  assert.equal((await submitV2(env,db,'food',food,{headers:user.headers,ip:'198.51.100.99',body:{expectedImages:0}})).response.status,429);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM submissions WHERE submitter_user_id=1').get().n,5);
+ });
+});
+
+test('logout during R2 processing and failed publish auditing cannot commit partial authenticated writes',async()=>{
+ const db=new SqliteD1(),bucket=fakeR2Bucket(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2',IMAGES:bucket});let user=authenticatedSession(db);
+ await withExternalStubs(async()=>{
+  const parent=(await readLive(db)).catalog.restaurants[0].id,food={...foodPayload(),venueId:parent};
+  const created=await submitV2(env,db,'food',food,{headers:user.headers}),id=created.body.submissionId;
+  const originalPut=bucket.put;
+  bucket.put=async(...args)=>{await originalPut(...args);db.sqlite.prepare('DELETE FROM auth_sessions WHERE token_hash=?').run(user.tokenHash);};
+  const upload=()=>worker.fetch(request('/api/v2/submissions/'+id+'/images',{method:'POST',headers:{...imageUploadHeaders(created.body.receiptToken,0,1),...user.headers},body:uploadWebp()}),env,{});
+  assert.equal((await upload()).status,409);
+  assert.deepEqual(plain(db.sqlite.prepare('SELECT version,upload_state FROM submissions WHERE id=?').get(id)),{version:1,upload_state:'uploading'});
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM media_assets WHERE submission_id=?').get(id).n,0);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM media_reservations WHERE submission_id=? AND state='orphan'").get(id).n,1);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE submission_id=? AND action='image_upload'").get(id).n,0);
+  bucket.put=originalPut;user=authenticatedSession(db);
+  assert.equal((await upload()).status,201);
+  const originalHead=bucket.head,revision=(await readLive(db)).state.revision;
+  bucket.head=async(...args)=>{const result=await originalHead(...args);db.sqlite.prepare('DELETE FROM auth_sessions WHERE token_hash=?').run(user.tokenHash);return result;};
+  assert.equal((await finalizeV2(env,created.body,2,user.headers)).status,503);
+  assert.equal((await readLive(db)).state.revision,revision);assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM catalog_mirror WHERE entity_id=?').get(created.body.entityId).n,0);
+  bucket.head=originalHead;user=authenticatedSession(db);
+  db.sqlite.exec("CREATE TRIGGER local_fail_publish BEFORE INSERT ON audit_events WHEN NEW.action='publish' BEGIN SELECT RAISE(ABORT,'local failure'); END;");
+  const readyVersion=db.sqlite.prepare('SELECT version FROM submissions WHERE id=?').get(id).version;
+  assert.equal((await finalizeV2(env,created.body,readyVersion,user.headers)).status,503);assert.equal((await readLive(db)).state.revision,revision);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM media_assets WHERE submission_id=? AND object_state='published'").get(id).n,0);
+  db.sqlite.exec('DROP TRIGGER local_fail_publish');
+  assert.equal((await finalizeV2(env,created.body,readyVersion,user.headers)).status,200);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM live_write_assertion').get().n,0);
+ });
+});
+
+test('anonymous session reads stay available and user names, roles or fields cannot request publication authority',async()=>{
+ const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live'});
+ const session=await worker.fetch(request('/auth/session'),env,{});assert.equal(session.status,200);assert.equal((await session.json()).user,null);
+ await withExternalStubs(async()=>{
+  const parent=(await readLive(db)).catalog.restaurants[0].id;
+  for(const extra of [{publicationMode:'direct'},{submitterUserId:1},{visibility:'forged-name'},{roles:['admin']}]) {
+   const denied=await submitV2(env,db,'food',{...foodPayload(),venueId:parent},{body:{expectedImages:0,...extra}});assert.equal(denied.response.status,422);
+  }
+  const unsigned=await submitV2(env,db,'review',{targetType:'venue',targetId:parent,rating:4,text:'测试'},{body:{visibility:'username'}});assert.equal(unsigned.response.status,401);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM submissions').get().n,0);
+ });
+});
+
 async function submitV2(runtimeValue, database, entityType, payload, extra = {}) {
   const response = await worker.fetch(request('/api/v2/submissions', {
     method: 'POST',
@@ -554,7 +707,7 @@ test('real SQLite and R2 upload path persists private images and finalizes by ve
       body: JSON.stringify({ expectedVersion: 3, expectedImages: 2, expectedReviewImages: 0 }),
     }), runtimeValue, {});
     assert.equal(finalized.status, 200, await finalized.clone().text());
-    assert.deepEqual(await finalized.json(), { submissionId: created.body.submissionId, status: 'pending', version: 4, uploadedImages: 2, uploadedReviewImages: 0 });
+    assert.deepEqual(await finalized.json(), { submissionId: created.body.submissionId, entityId: created.body.entityId, status: 'pending', uploadState: 'pending', publicationMode: 'moderated', version: 4, uploadedImages: 2, uploadedReviewImages: 0 });
     assert.deepEqual(plain(database.sqlite.prepare('SELECT version, upload_state FROM submissions WHERE id = ?').get(created.body.submissionId)), { version: 4, upload_state: 'pending' });
 
     const staleFinalize = await worker.fetch(request(`/api/v2/submissions/${created.body.submissionId}/finalize`, {

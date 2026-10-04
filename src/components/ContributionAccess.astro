@@ -1,0 +1,50 @@
+---
+interface Props { review?: boolean }
+const { review = false } = Astro.props;
+---
+<aside class="contribution-access" data-contribution-access data-review={String(review)}>
+  <p data-contribution-policy>登录后，餐品与评价可直接公开；餐厅、档口仍需管理员批准。匿名投稿需审核。</p>
+  <a data-contribution-login href="/auth/login?returnTo=%2Fsubmit%2F">登录后直接发表 →</a>
+</aside>
+<script>
+  import { fetchAccountSession, loginHref } from '../utils/auth-session';
+  const areas = [...document.querySelectorAll<HTMLElement>('[data-contribution-access]')];
+  let active = false;
+  async function refreshContributionAccess() {
+    if (active || !areas.length) return;
+    active = true;
+    try {
+      const account = await fetchAccountSession();
+      for (const area of areas) {
+        const review = area.dataset.review === 'true';
+        const direct = Boolean(account.user && account.directPublishing);
+        const policy = area.querySelector<HTMLElement>('[data-contribution-policy]')!;
+        const login = area.querySelector<HTMLAnchorElement>('[data-contribution-login]')!;
+        login.href = loginHref(); login.hidden = Boolean(account.user) || !account.configured;
+        policy.textContent = direct
+          ? `已以「${account.user!.username}」登录。${review ? '评价' : '餐品与随稿评价'}完成提交后直接公开${review ? '；默认匿名署名，可选择账号用户名。' : '；餐厅、档口仍需管理员批准，餐品只能添加到已公开店铺。'}`
+          : review ? '登录后，评价可直接公开，仍可匿名署名；未登录的评价需管理员审核。' : '登录后，餐品与评价可直接公开；餐厅、档口仍需管理员批准。未登录投稿需审核。';
+        const root = area.closest('.quick-review') ?? area.closest('.submit-page');
+        if (root instanceof HTMLElement) root.dataset.directPublishing = String(direct);
+        const badge = root?.querySelector<HTMLElement>('[data-publication-badge]');
+        if (badge) badge.textContent = direct ? '登录用户直接公开' : '匿名评价需审核';
+        const choice = root?.querySelector<HTMLInputElement>('[data-username-choice]');
+        if (choice) {
+          choice.disabled = !account.user;
+          choice.dataset.accountAvailable = String(Boolean(account.user));
+          const label = root?.querySelector<HTMLElement>('[data-username-label]');
+          if (label) label.textContent = account.user ? `使用账号用户名「${account.user.username}」` : '使用账号用户名（登录后可选）';
+        }
+        root?.dispatchEvent(new CustomEvent('contribution-auth', { bubbles: true }));
+      }
+    } catch {
+      for (const area of areas) area.querySelector<HTMLElement>('[data-contribution-policy]')!.textContent = '账号状态暂时无法读取，请刷新后再提交。';
+    } finally { active = false; }
+  }
+  void refreshContributionAccess();
+  window.addEventListener('focus', () => void refreshContributionAccess());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refreshContributionAccess(); });
+</script>
+<style>
+  .contribution-access{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 24px;padding:15px 18px;border:1px solid var(--line);border-radius:16px;background:var(--surface-soft);font-size:12px;line-height:1.8}.contribution-access p{min-width:0;margin:0;color:var(--muted);overflow-wrap:anywhere}.contribution-access a{flex:none;display:inline-flex;align-items:center;min-height:44px;color:var(--orange-deep);font-weight:750;text-decoration:none}.contribution-access a[hidden]{display:none}@media(max-width:600px){.contribution-access{align-items:start;flex-direction:column;gap:3px;padding:13px 15px}.contribution-access a{min-height:40px}}
+</style>
