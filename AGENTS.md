@@ -15,7 +15,7 @@
 ## 安全与发布
 
 - 不将审核令牌、原始 IP、待审稿件、私有审核备注或服务 Secrets 输出到 HTML、提交或日志。
-- 管理员请求校验 Cloudflare Access JWT；只信任经验证的签名、受众、签发者、过期时间与邮箱身份。
+- 管理员使用统一 Auth OIDC 身份：校验 ID Token 签名、签发者、受众、有效期与 nonce，并以匹配 subject 的认证 UserInfo 获取服务端权威 `roles`；不得由邮箱、用户名、查询参数或未验证请求头授予权限。既有 Cloudflare Access JWT 保留为应急入口，同样严格验证签名、受众、签发者、过期时间与审核员邮箱。
 - 投稿应完成 Turnstile 服务端校验、限流、幂等处理和服务端字段验证。
 - D1 使用 SQLite 语法；公共 API 仅返回已审核目录，绝不泄露私有投稿。免费额度耗尽时投稿可暂时停止，禁止自动升级付费计划。
 - 审核通过与已有内容修改须在原子 D1 事务中完成版本检查、公开记录与审计；事务成功即可公开，GitHub 备份不得阻塞上线。普通部署不得用仓库种子覆盖 D1。
@@ -59,12 +59,15 @@ Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核
 - `/submit/`：新增店铺和餐品，可展开随稿评价。餐品、店铺和评价照片均选填。
 - 详情页：快捷五星评价、最多 256 个 Unicode 字符、最多 3 张图片，审核后立即公开。
 - `/status/`：用私有回执查询投稿进度，也提供管理员入口。
+- 页首提供统一账号登录、注册、用户名、头像、账号设置与本站退出。公开浏览和匿名投稿继续可用，既有公开署名保持原样。
 
 前端使用 createImageBitmap → Canvas → WebP 重编码，最长边 2000px，逐级降低质量到 2MiB 内；Worker 再验证 WebP、尺寸、槽位、版本、来源与使用权。上传者明确授权后，评价实拍图可被选作同一餐品或店铺的封面。原评价、作者、许可与来源保持不变；隐藏、下架、授权撤回会使封面回退。应用保留媒体容量和操作限制，不代表 Cloudflare 账户费用硬上限。
 
 ## 管理与安全
 
-`/admin/` 没有默认密码，通过既有 Cloudflare Access 审核员邮箱登录。Worker 校验 JWT 的签名、受众、签发者、有效期与邮箱。后台支持列表/卡片、审核表单、内容编辑、餐品迁移、可恢复下架、图片隐藏和封面焦点。评价原文、评分和作者不可被管理员改写。
+`/manage/` 通过 Auth 统一管理员角色进入，调用 `/api/manage/v1` 与 `/api/manage/v2`；与旧接口共用权限校验及处理逻辑。旧 `/admin/` 和 `/api/v1/admin`、`/api/v2/admin` 保留 Cloudflare Access 边缘保护及 Worker JWT 验证，供应急使用；不得为了统一登录移除既有边缘策略。后台支持列表/卡片、审核表单、内容编辑、餐品迁移、可恢复下架、图片隐藏和封面焦点。评价原文、评分和作者不可被管理员改写。
+
+OIDC 使用授权码、S256 PKCE、nonce 与绑定浏览器的 state；D1 一次性消费登录事务。浏览器仅保存 `HttpOnly`、`Secure`、`SameSite=Lax` 的 `__Host-eat-session` 随机会话 Cookie；D1 只保存其 SHA-256 哈希，不保存 OAuth Token 或原始邮箱。本地会话最长八小时，管理员角色以 Auth `roles_checked_at` 和 ID Token 有效期为界、最多五分钟，过期须重新通过 OIDC 确认。后台提前一分钟提供新标签页续期入口，原页面保留未保存编辑。本站 Cookie 授权的所有管理员写入严格校验 Origin 与会话 CSRF Token。
 
 所有发布写入检查版本，D1 batch 内的断言失败会回滚全部写入；规范化记录、公开 JSON、审计和版本不会出现半完成状态。R2 桶保持私有，媒体路由以 D1 已发布状态和图片可见性决定是否返回，不需要先改 R2 元数据。曾被用户或第三方缓存的图片无法通过本站下架追溯删除。
 
@@ -72,7 +75,7 @@ Cloudflare D1 是线上内容的权威来源，R2 保存图片。管理员审核
 
 ## 升级接续
 
-`0008_live_catalog.sql` 原样保留现有公开目录与私有稿件，建立全局版本、历史和备份状态。生产配置 `CONTENT_MODE=live` 后，旧 GitHub/部署回调只返回忽略，不再改变内容；Cron 接续旧队列中已审核但未公开的稿件。待审稿件仍须管理员审核。存在版本冲突或图片缺失的旧稿保留原稿与错误，不强行覆盖线上内容。
+`0008_live_catalog.sql` 原样保留现有公开目录与私有稿件，建立全局版本、历史和备份状态。`0009_auth_sessions.sql` 仅新增独立账号、会话与登录事务表，不迁移或覆盖餐饮资料。生产配置 `CONTENT_MODE=live` 后，旧 GitHub/部署回调只返回忽略，不再改变内容；Cron 接续旧队列中已审核但未公开的稿件。待审稿件仍须管理员审核。存在版本冲突或图片缺失的旧稿保留原稿与错误，不强行覆盖线上内容。
 
 `status=deployed` 是兼容旧数据库 CHECK 约束的已公开状态值；新增 `live_published_at` 标识即时公开时间，不代表执行过代码部署。新内容的 `dates.addedAt` 为首次公开日期，历史日期保留，未知核验日期仍为 null。
 
@@ -91,7 +94,9 @@ git diff --check
 
 Astro 单独开发服务器使用仓库样本；完整动态接口与新详情需要 Wrangler。复制 `.dev.vars.example` 为本地 `.dev.vars`，不可提交真实值。`wrangler.jsonc` 保留占位符，脚本从环境变量生成被忽略的配置，生产和预览使用不同 D1/R2。既有数据库已经有目录；新建空数据库需要单独初始化样本，不能把初始化步骤加回日常部署。
 
-生产开启投稿需要 D1、R2、Turnstile 和 Access 配置，`PUBLICATION_ENABLED=true`。即时发布不再依赖 GitHub App；原 App 凭据保留供历史维护，不新增权限。GitHub 备份需要 `production` 环境的 `DEPLOY_WEBHOOK_SECRET`，与 Worker 同值；`GITHUB_TOKEN` 仅在备份 job 获得 Contents Write。
+生产开启投稿需要 D1、R2、Turnstile 和管理员身份配置，`PUBLICATION_ENABLED=true`。统一登录配置 `OIDC_ISSUER=https://auth.shoumc.com/api/auth`、`OIDC_CLIENT_ID=shou-eat-production`、`OIDC_REDIRECT_URI=https://eat.shoumc.com/auth/callback`，Worker Secret `OIDC_CLIENT_SECRET` 必须与 Auth 已登记的保密客户端一致。客户端使用 `client_secret_basic`，精确允许该回调与 S256 PKCE；注册入口发起 `prompt=create`。应急 Access 凭据继续保留。预览须使用独立客户端与回调，不能重用生产 Secret；未配置时公开目录仍可使用。即时发布不再依赖 GitHub App；原 App 凭据保留供历史维护，不新增权限。GitHub 备份需要 `production` 环境的 `DEPLOY_WEBHOOK_SECRET`，与 Worker 同值；`GITHUB_TOKEN` 仅在备份 job 获得 Contents Write。
+
+本地完整 Worker 可在 `http://localhost:8789` 启动，使用独立 `shou-eat-local` 客户端和 `.dev.vars.example` 中的回调；只有显式 `OIDC_ALLOW_LOCAL_HTTP=true` 才允许 loopback HTTP，生产域仍强制 HTTPS。
 
 ## 来源与许可
 
