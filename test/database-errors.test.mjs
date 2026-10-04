@@ -8,7 +8,7 @@ function runtime(error) {
   const fail = async () => { throw error; };
   return {
     CONTENT_MODE: 'live', PUBLICATION_ENABLED: 'true',
-    DB: { prepare: () => ({ first: fail }), batch: fail },
+    DB: { prepare: () => ({ first: fail, bind() { return this; } }), batch: fail },
     ASSETS: { fetch: async () => new Response('static page') },
   };
 }

@@ -34,7 +34,7 @@ class D1Statement {
   constructor(database, sql, values = []) { this.database = database; this.sql = sql; this.values = values; }
   bind(...values) { return new D1Statement(this.database, this.sql, values); }
   runSync() {
-    if(/^SELECT\b/i.test(this.sql.trim()))return {results:this.database.prepare(this.sql).all(...this.values),meta:{changes:0}};
+    if(/^(?:SELECT|WITH)\b/i.test(this.sql.trim()))return {results:this.database.prepare(this.sql).all(...this.values),meta:{changes:0}};
     const result = this.database.prepare(this.sql).run(...this.values);
     return { meta: { changes: Number(result.changes) } };
   }
@@ -46,6 +46,9 @@ class D1Statement {
 class SqliteD1 {
   constructor(seed = true) {
     this.sqlite = new DatabaseSync(':memory:');
+    // SQLite's native clock otherwise ignores the Node mock clock used for
+    // midnight/expiry tests and can expire their synthetic sessions in real time.
+    this.sqlite.function('unixepoch', () => Math.floor(Date.now() / 1000));
     this.sqlite.exec('PRAGMA foreign_keys = ON;');
     for (const name of readdirSync(join(root, 'migrations')).filter((name) => /^\d+.*\.sql$/.test(name)).sort()) {
       this.sqlite.exec(readFileSync(join(root, 'migrations', name), 'utf8'));
@@ -454,6 +457,48 @@ test('live approval publishes catalog and attached rating atomically without Git
     assert.equal(detail.reviews[0].text,'真实评价');
     assert.ok(!JSON.stringify(detail).includes(submitted.body.receiptToken));
   },{access:true});
+});
+
+test('catalog ETag checks one authoritative revision and changes immediately with atomic publication and management',async()=>{
+  const db=new SqliteD1(),env=runtime(db,{CONTENT_MODE:'live',MEDIA_MODE:'r2'}),user=authenticatedSession(db);
+  const reads=[],prepare=db.prepare.bind(db);db.prepare=sql=>{reads.push(sql);return prepare(sql);};
+  const catalog=etag=>worker.fetch(request('/catalog-index.json',{headers:etag?{'If-None-Match':etag}:{}}),env,{});
+  let response=await catalog(),etag=response.headers.get('ETag');
+  assert.equal(response.status,200);assert.ok(etag);assert.equal(response.headers.get('Cache-Control'),'no-store');
+  reads.length=0;response=await catalog(etag);
+  assert.equal(response.status,304);assert.equal(await response.text(),'');assert.equal(response.headers.get('ETag'),etag);
+  assert.deepEqual(reads,['SELECT revision FROM live_catalog_state WHERE id=1']);
+  const expectChanged=async()=>{
+    const changed=await catalog(etag);assert.equal(changed.status,200);assert.notEqual(changed.headers.get('ETag'),etag);
+    const data=await changed.json();etag=changed.headers.get('ETag');assert.equal(etag,`"eat-catalog-v1-${data.revision}"`);
+    return data;
+  };
+  await withExternalStubs(async()=>{
+    const parents=(await readLive(db)).catalog.restaurants.slice(0,2);
+    const submitted=await submitV2(env,db,'food',{...foodPayload(),venueId:parents[0].id},{headers:user.headers,body:{expectedImages:1}});
+    assert.equal(submitted.response.status,202,JSON.stringify(submitted.body));
+    const receipt=submitted.body;
+    response=await worker.fetch(request(`/api/v2/submissions/${receipt.submissionId}/images`,{method:'POST',headers:{...imageUploadHeaders(receipt.receiptToken,0,1),...user.headers},body:uploadWebp()}),env,{});
+    assert.equal(response.status,201,await response.clone().text());
+    response=await finalizeV2(env,receipt,2,user.headers);assert.equal(response.status,200,await response.clone().text());
+    assert.ok((await expectChanged()).foods.some(food=>food.id===receipt.entityId));
+    const edit=async transform=>{
+      const entry=(await readLive(db)).entries.find(entry=>entry.type==='food'&&entry.record.id===receipt.entityId);
+      await editLive(env,'food',entry.record.id,{expectedHash:entry.hash,record:transform(entry.record),reason:'本地 ETag 回归'},'reviewer');
+      return expectChanged();
+    };
+    let data=await edit(record=>({...record,venueId:parents[1].id}));
+    assert.equal(data.foods.find(food=>food.id===receipt.entityId).venueId,parents[1].id);
+    await edit(record=>({...record,cover:{url:record.images[0].url,reviewId:null,x:25,y:75}}));
+    await edit(record=>({...record,cover:null,images:record.images.map(image=>({...image,hidden:true}))}));
+    data=await edit(record=>({...record,status:'archived'}));assert.ok(!data.foods.some(food=>food.id===receipt.entityId));
+    data=await edit(record=>({...record,status:'published'}));assert.ok(data.foods.some(food=>food.id===receipt.entityId));
+    reads.length=0;response=await catalog(etag);assert.equal(response.status,304);assert.equal(reads.length,1);
+    const entry=(await readLive(db)).entries.find(entry=>entry.record.id===receipt.entityId);
+    db.sqlite.exec("CREATE TRIGGER fail_etag_test BEFORE UPDATE ON foods BEGIN SELECT RAISE(ABORT,'forced failure'); END");
+    await assert.rejects(editLive(env,'food',entry.record.id,{expectedHash:entry.hash,record:{...entry.record,name:'不应公开'},reason:'回滚'},'reviewer'));
+    response=await catalog(etag);assert.equal(response.status,304,'failed transaction must preserve both data and revision');
+  });
 });
 
 test('live media is private before commit and hidden or archived photos stop serving',async()=>{

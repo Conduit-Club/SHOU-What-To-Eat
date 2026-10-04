@@ -293,6 +293,7 @@ test('avatar URL is restricted to Auth immutable images and session JSON never e
   const response = await worker.fetch(new Request(origin + '/auth/session', { headers: { Cookie: '__Host-eat-session=' + client.jar.get('__Host-eat-session') } }), env, {});
   assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
   assert.equal(response.headers.get('Vary'), 'Cookie');
+  assert.equal(response.headers.has('ETag'), false);
   const data = await response.json();
   assert.equal(data.user.picture, picture);
   assert.ok(data.csrfToken);
