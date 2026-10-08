@@ -139,12 +139,17 @@ export function trustedPicture(value: unknown, issuer: URL): string | null {
   } catch { return null; }
 }
 
+// Existing primary-key indexes prevent the outer DELETE from scanning live
+// sessions/transactions when its indexed expiry candidate set is empty.
+export const EXPIRED_LOGIN_SQL = `DELETE FROM auth_login_transactions INDEXED BY sqlite_autoindex_auth_login_transactions_1
+  WHERE state_hash IN (SELECT state_hash FROM auth_login_transactions WHERE expires_at <= ? ORDER BY expires_at LIMIT 50)`;
+export const EXPIRED_SESSION_SQL = `DELETE FROM auth_sessions INDEXED BY sqlite_autoindex_auth_sessions_1
+  WHERE token_hash IN (SELECT token_hash FROM auth_sessions WHERE expires_at <= ? ORDER BY expires_at LIMIT 50)`;
+
 async function pruneExpired(db: D1Database) {
   await db.batch([
-    db.prepare(`DELETE FROM auth_login_transactions WHERE state_hash IN
-      (SELECT state_hash FROM auth_login_transactions WHERE expires_at <= ? ORDER BY expires_at LIMIT 50)`).bind(seconds()),
-    db.prepare(`DELETE FROM auth_sessions WHERE token_hash IN
-      (SELECT token_hash FROM auth_sessions WHERE expires_at <= ? ORDER BY expires_at LIMIT 50)`).bind(seconds()),
+    db.prepare(EXPIRED_LOGIN_SQL).bind(seconds()),
+    db.prepare(EXPIRED_SESSION_SQL).bind(seconds()),
   ]);
 }
 
