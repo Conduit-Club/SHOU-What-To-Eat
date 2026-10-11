@@ -1,7 +1,8 @@
+import { handleAuthEntry } from "../auth-entry.js";
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { html } from 'hono/html';
-import { accountUrl, authConfigured, AuthFailure, beginLogin, completeLogin, endSession, readSession } from '../auth.js';
+import { accountUrl, safeReturnTo, authConfigured, AuthFailure, beginLogin, completeLogin, endSession, readSession } from '../auth.js';
 import type { AppEnv } from '../types.js';
 import { liveContent, publicationEnabled } from '../config.js';
 
@@ -22,8 +23,30 @@ authRoutes.get('/session', async context => {
     adminExpiresAt: session.adminExpiresAt, expiresAt: session.expiresAt,
   } : null, csrfToken: session?.csrfToken ?? null });
 });
-authRoutes.get('/login', async context => { try { return context.redirect(await beginLogin(context), 303); } catch (reason) { return failure(context, reason); } });
-authRoutes.get('/register', async context => { try { return context.redirect(await beginLogin(context, true), 303); } catch (reason) { return failure(context, reason); } });
+authRoutes.on(['GET', 'POST'], '/login', async context => {
+  try {
+    if (!authConfigured(context.env, new URL(context.req.url))) throw new AuthFailure(503);
+    return await handleAuthEntry(context.req.raw, {
+    siteKey: context.env.PUBLIC_TURNSTILE_SITE_KEY,
+    secret: context.env.TURNSTILE_SECRET_KEY,
+    ipLimiter: context.env.AUTH_IP_LIMITER,
+    siteLimiter: context.env.AUTH_SITE_LIMITER,
+    returnTo: safeReturnTo(context.req.query('returnTo')),
+    brand: '今日海大吃什么',
+  }, () => beginLogin(context, false)); } catch (reason) { return failure(context, reason); }
+});
+authRoutes.on(['GET', 'POST'], '/register', async context => {
+  try {
+    if (!authConfigured(context.env, new URL(context.req.url))) throw new AuthFailure(503);
+    return await handleAuthEntry(context.req.raw, {
+    siteKey: context.env.PUBLIC_TURNSTILE_SITE_KEY,
+    secret: context.env.TURNSTILE_SECRET_KEY,
+    ipLimiter: context.env.AUTH_IP_LIMITER,
+    siteLimiter: context.env.AUTH_SITE_LIMITER,
+    returnTo: safeReturnTo(context.req.query('returnTo')),
+    brand: '今日海大吃什么',
+  }, () => beginLogin(context, true)); } catch (reason) { return failure(context, reason); }
+});
 authRoutes.get('/callback', async context => { try { return context.redirect(await completeLogin(context), 303); } catch (reason) { return failure(context, reason); } });
 authRoutes.post('/logout', async context => { try { return context.redirect(await endSession(context), 303); } catch (reason) { return failure(context, reason); } });
 authRoutes.get('/account', context => { try { return context.redirect(accountUrl(context), 303); } catch (reason) { return failure(context, reason); } });
