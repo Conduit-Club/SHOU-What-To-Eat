@@ -4,6 +4,10 @@
   "main": "src/worker/index.ts",
   "tsconfig": "src/worker/tsconfig.json",
   "compatibility_date": "2026-09-30",
+  "ratelimits": [
+    { "name": "AUTH_IP_LIMITER", "namespace_id": "6701", "simple": { "limit": 6, "period": 60 } },
+    { "name": "AUTH_SITE_LIMITER", "namespace_id": "6702", "simple": { "limit": 12, "period": 60 } }
+  ],
   "workers_dev": true,
   "assets": {
     "directory": "./dist",
@@ -30,6 +34,10 @@
   "env": {
     "preview": {
       "name": "what-to-eat-in-shou-today-done-right-preview",
+      "ratelimits": [
+        { "name": "AUTH_IP_LIMITER", "namespace_id": "6711", "simple": { "limit": 6, "period": 60 } },
+        { "name": "AUTH_SITE_LIMITER", "namespace_id": "6712", "simple": { "limit": 12, "period": 60 } }
+      ],
       "workers_dev": true,
       "d1_databases": [{
         "binding": "DB",
@@ -49,6 +57,10 @@
     },
     "production": {
       "name": "what-to-eat-in-shou-today-done-right",
+      "ratelimits": [
+        { "name": "AUTH_IP_LIMITER", "namespace_id": "6721", "simple": { "limit": 6, "period": 60 } },
+        { "name": "AUTH_SITE_LIMITER", "namespace_id": "6722", "simple": { "limit": 12, "period": 60 } }
+      ],
       "workers_dev": false,
       "routes": [{ "pattern": "eat.shoumc.com", "custom_domain": true }],
       "d1_databases": [{
