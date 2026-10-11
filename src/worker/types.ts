@@ -1,6 +1,8 @@
 export type AppEnv = {
   Bindings: {
     DB: D1Database;
+    AUTH_IP_LIMITER?: import("./auth-entry.js").LoginLimiter;
+    AUTH_SITE_LIMITER?: import("./auth-entry.js").LoginLimiter;
     ASSETS: Fetcher;
     MEDIA_MODE: 'external' | 'r2';
     ALLOWED_ORIGINS: string;
