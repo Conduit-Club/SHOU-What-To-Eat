@@ -15,7 +15,9 @@ function entryPage(url: URL, options: EntryOptions, status = 200, message = "请
   const query = new URLSearchParams({ returnTo: options.returnTo });
   const action = `${url.pathname}?${query}`;
   const alternate = `/auth/${register ? "login" : "register"}?${query}`;
-  const headers = new Headers({ "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" });
+  // Native same-origin POSTs need a real Origin for CSRF checks. Cross-origin
+  // navigation still sends no Referer with this policy.
+  const headers = new Headers({ "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff" });
   if (status === 503) headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
   if (status === 429) headers.set("Retry-After", "60");
   return new Response(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${register ? "注册" : "登录"} · ${escape(options.brand)}</title>

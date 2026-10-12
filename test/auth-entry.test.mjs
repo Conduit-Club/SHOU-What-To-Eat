@@ -12,6 +12,7 @@ test('GET, HEAD and prefetch never call provider, rate limit, or database; query
   const config = options(); config.ipLimiter.limit = config.siteLimiter.limit = forbiddenBegin;
   const response = await handleAuthEntry(new Request(origin + '/auth/register?client_secret=private-value', {method, headers: {Purpose:'prefetch'}}), config, forbiddenBegin, forbiddenBegin);
   assert.equal(response.status,200); assert.equal(response.headers.get('Cache-Control'),'private, no-store'); assert.match(response.headers.get('X-Robots-Tag'),/noindex/);
+  assert.equal(response.headers.get('Referrer-Policy'),'same-origin');
   const html=await response.text(); assert.match(html,/method="POST"/); assert.match(html,/继续注册/); assert.match(html,/disabled/); assert.doesNotMatch(html,/private-value/);
  }
 });
@@ -50,8 +51,26 @@ test('real food login/register routes keep GET and invalid POST entirely outside
  const env={PUBLIC_TURNSTILE_SITE_KEY:config.siteKey,TURNSTILE_SECRET_KEY:config.secret,AUTH_IP_LIMITER:config.ipLimiter,AUTH_SITE_LIMITER:config.siteLimiter,OIDC_ISSUER:'https://auth.invalid/api/auth',OIDC_CLIENT_ID:'test',OIDC_CLIENT_SECRET:'test-only-secret',OIDC_REDIRECT_URI:origin+'/auth/callback',DB:{prepare(){throw new Error('Entry request must not query D1')}}};
  for(const kind of ['login','register']) {
   const url=origin+'/auth/'+kind+'?returnTo='+encodeURIComponent('//evil.invalid');
-  assert.equal((await worker.fetch(new Request(url),env,{})).status,200);
-  const response=await worker.fetch(new Request(url,{method:'POST',body:'cf-turnstile-response=x',headers:{Origin:'https://evil.invalid','Content-Type':'application/x-www-form-urlencoded'}}),env,{});
-  assert.equal(response.status,403);
+  for (const method of ['GET', 'HEAD']) {
+    const response = await worker.fetch(new Request(url, { method }),env,{});
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('Referrer-Policy'),'same-origin');
+  }
+  for (const requestOrigin of ['https://evil.invalid', 'https://auth.invalid', 'null', '']) {
+    const response=await worker.fetch(new Request(url,{method:'POST',body:'cf-turnstile-response=x',headers:{Origin:requestOrigin,'Content-Type':'application/x-www-form-urlencoded'}}),env,{});
+    assert.equal(response.status,403);
+    assert.equal(response.headers.get('Referrer-Policy'),'same-origin');
+  }
+  // Valid same-origin form requests pass the source check, then fail safely
+  // at the missing-token check without reaching Turnstile, OIDC, or D1.
+  const allowed = await worker.fetch(new Request(url,{method:'POST',body:'',headers:{Origin:origin,'Sec-Fetch-Site':'same-origin','Content-Type':'application/x-www-form-urlencoded'}}),env,{});
+  assert.equal(allowed.status,400);
+  assert.match(await allowed.text(), /请重新完成人机验证/);
  }
+ const callback = await worker.fetch(new Request(origin+'/auth/callback'),env,{});
+ assert.equal(callback.status,400);
+ assert.equal(callback.headers.get('Referrer-Policy'),'no-referrer');
+ const account = await worker.fetch(new Request(origin+'/auth/account'),env,{});
+ assert.equal(account.status,303);
+ assert.equal(account.headers.get('Referrer-Policy'),'no-referrer');
 });
