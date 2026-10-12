@@ -138,3 +138,5 @@ Astro 单独开发服务器使用仓库样本；完整动态接口与新详情�
 - 悬浮投稿入口只在首页、餐品/店铺目录及详情、搜索页出现；投稿、进度、管理与关于页隐藏。动态详情复用 `/live-detail/` 外壳，显示范围根据客户端真实 URL 判断。
 - 拖动使用 Pointer Events，超过移动阈值才视为拖动；拖动释放不能触发投稿跳转。方向键提供可访问的移动方式，窗口变化后重新约束位置，手机端避让底部导航。
 - README 的 `docs/images/homepage.jpg` 为页面实拍截图。更新截图时使用公开目录，不能用开发样本冒充线上收录数量，也不能展示后台私有资料。
+
+登录/注册确认页使用 Referrer-Policy: same-origin，原生同源 POST 保留有效 Origin；跨站跳转仍不发送 Referer。认证中间件保留路由显式策略，授权跳转、回调和账号接口仍为 no-referrer。Origin、Sec-Fetch-Site、Turnstile 与限流校验保持启用，不允许 null 来源。
