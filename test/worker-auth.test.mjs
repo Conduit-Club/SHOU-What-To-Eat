@@ -11,6 +11,7 @@ import { adminApiBase, adminRequest, AdminRequestError } from '../src/utils/auth
 const origin = 'https://eat.shoumc.com';
 const issuer = 'https://auth.shoumc.com/api/auth';
 const config = { OIDC_ISSUER: issuer, OIDC_CLIENT_ID: 'eat-test-client', OIDC_CLIENT_SECRET: 'test-only-secret', OIDC_REDIRECT_URI: origin + '/auth/callback' };
+
 const now = () => Math.floor(Date.now() / 1000);
 const b64 = value => Buffer.from(value).toString('base64url');
 const keyPair = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
@@ -335,4 +336,31 @@ test('admin browser transport selects unified paths and sends freshly read CSRF 
   assert.equal(calls[2].init.headers.get('X-CSRF-Token'), 'fresh-csrf');
   assert.equal(calls[2].init.credentials, 'same-origin');
   await assert.rejects(adminRequest('/content', {}, async () => Response.json({ error: { code: 'admin_session_expired', message: '请重新确认' } }, { status: 401 }), '/api/manage/v2'), error => error instanceof AdminRequestError && error.code === 'admin_session_expired');
+});
+
+test('real protected login/register routes deliver browser binding cookies and complete OIDC callbacks', async () => {
+  const db = new SqliteD1(), mock = provider();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (address, init) => String(address).includes('challenges.cloudflare.com/turnstile/v0/siteverify')
+    ? Response.json({ success: true, hostname: 'eat.shoumc.com', action: 'auth-start' })
+    : mock.fetch(address, init);
+  try {
+    const env = runtime(db, { PUBLIC_TURNSTILE_SITE_KEY: '0xtest', AUTH_IP_LIMITER: { limit: async () => ({ success: true }) }, AUTH_SITE_LIMITER: { limit: async () => ({ success: true }) } });
+    for (const kind of ['login', 'register']) {
+      const start = await worker.fetch(new Request(origin + '/auth/' + kind + '?returnTo=%2Ffoods%2F', {
+        method: 'POST', body: 'cf-turnstile-response=valid', headers: { Origin: origin, 'Sec-Fetch-Site': 'same-origin', 'CF-Connecting-IP': '192.0.2.5', 'Content-Type': 'application/x-www-form-urlencoded' },
+      }), env, {});
+      assert.equal(start.status, 303);
+      assert.equal(start.headers.get('Referrer-Policy'), 'no-referrer');
+      const binding = start.headers.getSetCookie().find(value => value.startsWith('__Host-eat-login='));
+      assert.ok(binding, 'the actual login response must deliver its binding cookie');
+      assert.match(binding, /HttpOnly/); assert.match(binding, /Secure/); assert.match(binding, /SameSite=Lax/); assert.match(binding, /Path=\//);
+      const callbackUrl = origin + mock.grant(start.headers.get('Location'));
+      const callback = await worker.fetch(new Request(callbackUrl, { headers: { Cookie: binding.split(';')[0] } }), env, {});
+      assert.equal(callback.status, 303);
+      assert.equal(callback.headers.get('Location'), '/foods/');
+      assert.ok(callback.headers.getSetCookie().some(value => value.startsWith('__Host-eat-session=')));
+      assert.equal((await worker.fetch(new Request(callbackUrl, { headers: { Cookie: binding.split(';')[0] } }), env, {})).status, 400);
+    }
+  } finally { globalThis.fetch = originalFetch; db.close(); }
 });
