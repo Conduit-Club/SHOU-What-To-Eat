@@ -10,9 +10,11 @@ export const authRoutes = new Hono<AppEnv>();
 authRoutes.use('/*', async (context, next) => {
   context.header('Cache-Control', 'private, no-store');
   context.header('Vary', 'Cookie');
-  context.header('Referrer-Policy', 'no-referrer');
   context.header('X-Content-Type-Options', 'nosniff');
   await next();
+  // Preserve the confirmation page's same-origin policy and the authorization
+  // redirect's no-referrer policy; other auth responses remain private.
+  if (!context.res.headers.has('Referrer-Policy')) context.header('Referrer-Policy', 'no-referrer');
 });
 
 authRoutes.get('/session', async context => {
