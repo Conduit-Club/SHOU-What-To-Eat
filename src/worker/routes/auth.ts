@@ -28,26 +28,32 @@ authRoutes.get('/session', async context => {
 authRoutes.on(['GET', 'POST'], '/login', async context => {
   try {
     if (!authConfigured(context.env, new URL(context.req.url))) throw new AuthFailure(503);
-    return await handleAuthEntry(context.req.raw, {
+    const response = await handleAuthEntry(context.req.raw, {
     siteKey: context.env.PUBLIC_TURNSTILE_SITE_KEY,
     secret: context.env.TURNSTILE_SECRET_KEY,
     ipLimiter: context.env.AUTH_IP_LIMITER,
     siteLimiter: context.env.AUTH_SITE_LIMITER,
     returnTo: safeReturnTo(context.req.query('returnTo')),
     brand: '今日海大吃什么',
-  }, () => beginLogin(context, false)); } catch (reason) { return failure(context, reason); }
+  }, () => beginLogin(context, false));
+    // beginLogin sets the browser-binding Cookie on Hono's context. Returning
+    // a raw Response drops those prepared headers and makes every callback fail.
+    return context.newResponse(response.body, response);
+  } catch (reason) { return failure(context, reason); }
 });
 authRoutes.on(['GET', 'POST'], '/register', async context => {
   try {
     if (!authConfigured(context.env, new URL(context.req.url))) throw new AuthFailure(503);
-    return await handleAuthEntry(context.req.raw, {
+    const response = await handleAuthEntry(context.req.raw, {
     siteKey: context.env.PUBLIC_TURNSTILE_SITE_KEY,
     secret: context.env.TURNSTILE_SECRET_KEY,
     ipLimiter: context.env.AUTH_IP_LIMITER,
     siteLimiter: context.env.AUTH_SITE_LIMITER,
     returnTo: safeReturnTo(context.req.query('returnTo')),
     brand: '今日海大吃什么',
-  }, () => beginLogin(context, true)); } catch (reason) { return failure(context, reason); }
+  }, () => beginLogin(context, true));
+    return context.newResponse(response.body, response);
+  } catch (reason) { return failure(context, reason); }
 });
 authRoutes.get('/callback', async context => { try { return context.redirect(await completeLogin(context), 303); } catch (reason) { return failure(context, reason); } });
 authRoutes.post('/logout', async context => { try { return context.redirect(await endSession(context), 303); } catch (reason) { return failure(context, reason); } });
